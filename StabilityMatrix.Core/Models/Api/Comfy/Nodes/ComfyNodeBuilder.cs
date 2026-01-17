@@ -1573,8 +1573,6 @@ public class ComfyNodeBuilder
         );
     }
 
-
-
     /// <summary>
     /// Get or convert latest primary connection to image
     /// </summary>

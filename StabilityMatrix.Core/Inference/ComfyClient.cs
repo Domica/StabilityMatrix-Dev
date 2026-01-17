@@ -332,9 +332,32 @@ public class ComfyClient : InferenceClientBase
     {
         var request = new ComfyPromptRequest { ClientId = ClientId, Prompt = nodes };
 
+        // DEBUG: dump final workflow JSON
+        try
+        {
+            var json = JsonSerializer.Serialize(request, jsonSerializerOptions);
+
+            var debugDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "StabilityMatrix",
+                "Debug"
+            );
+
+            Directory.CreateDirectory(debugDir);
+
+            var path = Path.Combine(debugDir, $"wan_workflow_debug_request.json");
+
+            File.WriteAllText(path, json);
+
+            Logger.Warn("WAN DEBUG: Dumped final request JSON to {0}", path);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "WAN DEBUG: Failed to dump final request JSON");
+        }
+
         var result = await comfyApi.PostPrompt(request, cancellationToken).ConfigureAwait(false);
 
-        // Add task to dictionary and set it as the current task
         var task = new ComfyTask(result.PromptId);
         PromptTasks.TryAdd(result.PromptId, task);
         currentPromptTask = task;
