@@ -32,7 +32,7 @@ public class TiledVAEModule : ModuleBase
 
             var latent = builder.Connections.Primary.AsT0;
             var vae = builder.Connections.GetDefaultVAE();
-            
+
             var node = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.TiledVAEDecode
                 {
