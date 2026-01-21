@@ -32,13 +32,7 @@ public class TiledVAEModule : ModuleBase
 
             var latent = builder.Connections.Primary.AsT0;
             var vae = builder.Connections.GetDefaultVAE();
-
-            logger.LogDebug("TiledVAE: Injecting TiledVAEDecode");
-            logger.LogDebug(
-                "UseCustomTemporalTiling value at runtime: {value}",
-                card.UseCustomTemporalTiling
-            );
-
+            
             var node = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.TiledVAEDecode
                 {
