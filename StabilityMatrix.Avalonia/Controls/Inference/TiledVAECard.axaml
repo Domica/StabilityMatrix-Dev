@@ -53,7 +53,7 @@
 
                         <!-- Enable Temporal Tiling -->
                         <ToggleSwitch
-                            Header="Enable Temporal Tiling"
+                            Content="Enable Temporal Tiling"
                             IsChecked="{Binding UseCustomTemporalTiling}" />
 
                         <!-- Temporal Controls (Visible only when enabled) -->
