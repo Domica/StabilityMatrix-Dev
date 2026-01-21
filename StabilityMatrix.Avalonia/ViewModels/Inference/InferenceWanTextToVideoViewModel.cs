@@ -118,7 +118,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         SamplerCardViewModel.ApplyStep(args);
 
         // Apply TiledVAE module
-        TiledVAEModule.ApplyStep(args);
+        StackCardViewModel.GetCard<TiledVAEModule>().ApplyStep(args);
 
         VideoOutputSettingsCardViewModel.ApplyStep(args);
     }
