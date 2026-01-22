@@ -23,7 +23,7 @@ public class TiledVAEModule : ModuleBase
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        // ❗ Ovo je nedostajalo u tvojoj verziji
+        // ❗ Ovo je ključno — bez ovoga WAN pipeline preskače modul
         if (!_card.IsEnabled)
             return;
 
