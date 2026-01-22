@@ -1,55 +1,42 @@
-using Injectio.Attributes;
-using StabilityMatrix.Avalonia.Models.Inference;
-using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
-using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models;
+using StabilityMatrix.Core.Services;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
-[ManagedService]
-[RegisterTransient<TiledVAEModule>]
 public class TiledVAEModule : ModuleBase
 {
+    private readonly TiledVAECardViewModel card;
+
     public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory)
         : base(vmFactory)
     {
         Title = "Tiled VAE Decode";
-        AddCards(vmFactory.Get<TiledVAECardViewModel>());
+        card = vmFactory.Get<TiledVAECardViewModel>();
+        AddCards(card);
     }
 
-    protected override void OnApplyStep(ModuleApplyStepEventArgs e)
+    public override void ApplyStep(ModuleApplyStepEventArgs args)
     {
-        var card = GetCard<TiledVAECardViewModel>();
+        var node = args.Builder.AddNode("TiledVAEDecode", "VAEDecodeTiled");
 
-        e.PreOutputActions.Add(args =>
+        node.Set("tile_size", card.TileSize);
+        node.Set("overlap", card.Overlap);
+
+        if (card.UseCustomTemporalTiling)
         {
-            var builder = args.Builder;
+            node.Set("temporal_size", card.TemporalSize);
+            node.Set("temporal_overlap", card.TemporalOverlap);
+        }
+        else
+        {
+            node.Set("temporal_size", 64);
+            node.Set("temporal_overlap", 8);
+        }
 
-            // Only apply if primary is in latent space
-            if (builder.Connections.Primary?.IsT0 != true)
-                return;
+        node.Set("samples", args.Builder.Connections.LatentNodeName);
+        node.Set("vae", args.Builder.Connections.VaeNodeName);
 
-            var latent = builder.Connections.Primary.AsT0;
-            var vae = builder.Connections.GetDefaultVAE();
-
-            var node = builder.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.TiledVAEDecode
-                {
-                    Name = builder.Nodes.GetUniqueName("TiledVAEDecode"),
-                    Samples = latent,
-                    Vae = vae,
-                    TileSize = card.TileSize,
-                    Overlap = card.Overlap,
-
-                    // Temporal tiling (WAN requires temporal tiling)
-                    TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
-                    TemporalOverlap = card.UseCustomTemporalTiling ? card.TemporalOverlap : 8,
-                }
-            );
-
-            // Update primary connection to the decoded image
-            builder.Connections.Primary = node.Output;
-        });
+        args.Builder.Connections.OutputNodeNames.Add(node.Name);
     }
 }
