@@ -5,6 +5,8 @@ using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Avalonia.Models.Inference;
+
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
