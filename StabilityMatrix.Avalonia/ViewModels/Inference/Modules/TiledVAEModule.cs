@@ -23,6 +23,7 @@ public class TiledVAEModule : ModuleBase
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
+        // ❗ Ovo je nedostajalo u tvojoj verziji
         if (!_card.IsEnabled)
             return;
 
