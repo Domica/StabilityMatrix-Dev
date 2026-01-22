@@ -1,5 +1,5 @@
 using StabilityMatrix.Avalonia.ViewModels.Base;
-using StabilityMatrix.Core.Services;
+using StabilityMatrix.Avalonia.Services;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
@@ -17,12 +17,11 @@ public class TiledVAEModule : ModuleBase
         IsEnabled = card.IsEnabled;
     }
 
-    public override void ApplyStep(InferenceStepContext context)
+    protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        if (!IsEnabled)
-            return;
+        var builder = e.Builder;
 
-        var node = context.AddNode("TiledVAEDecode", "VAEDecodeTiled");
+        var node = builder.AddNode("TiledVAEDecode", "VAEDecodeTiled");
 
         node.Set("tile_size", card.TileSize);
         node.Set("overlap", card.Overlap);
@@ -38,9 +37,9 @@ public class TiledVAEModule : ModuleBase
             node.Set("temporal_overlap", 8);
         }
 
-        node.Set("samples", context.LatentNodeName);
-        node.Set("vae", context.VaeNodeName);
+        node.Set("samples", e.Connections.LatentNodeName);
+        node.Set("vae", e.Connections.VaeNodeName);
 
-        context.OutputNodeNames.Add(node.Name);
+        e.Connections.OutputNodeNames.Add(node.Name);
     }
 }
