@@ -8,7 +8,6 @@ using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
 [ManagedService]
-[RegisterTransient<TiledVAEModule>]
 public class TiledVAEModule : ModuleBase
 {
     private readonly TiledVAECardViewModel _card;
@@ -18,28 +17,28 @@ public class TiledVAEModule : ModuleBase
     {
         Title = "Tiled VAE Decode";
 
-        // 1) Kreiraj instancu kartice (UI + modul dijele istu)
+        // Jedna instanca kartice – dijele je UI i modul
         _card = vmFactory.Get<TiledVAECardViewModel>();
 
-        // 2) Dodaj karticu u UI
+        // Dodaj karticu u UI
         AddCards(_card);
     }
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        // Register a pre-output action that replaces standard VAE decode with tiled decode
+        // Originalna dev logika: pre-output akcija koja zamjenjuje standardni VAE decode tiled verzijom
         e.PreOutputActions.Add(args =>
         {
             var builder = args.Builder;
 
-            // Only apply if primary is in latent space
+            // Primarni mora biti latent (T0), inače ne radimo ništa
             if (builder.Connections.Primary?.IsT0 != true)
                 return;
 
             var latent = builder.Connections.Primary.AsT0;
             var vae = builder.Connections.GetDefaultVAE();
 
-            // Use tiled VAE decode instead of standard decode
+            // Tiled VAE decode node
             var tiledDecode = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.TiledVAEDecode
                 {
@@ -51,7 +50,7 @@ public class TiledVAEModule : ModuleBase
                     TileSize = _card.TileSize,
                     Overlap = _card.Overlap,
 
-                    // Temporalni tiling
+                    // Temporalni tiling – koristi custom vrijednosti samo ako je uključeno
                     TemporalSize = _card.UseCustomTemporalTiling
                         ? _card.TemporalSize
                         : 64,
@@ -62,7 +61,7 @@ public class TiledVAEModule : ModuleBase
                 }
             );
 
-            // Update primary connection to the decoded image
+            // Primarni connection sada pokazuje na dekodiranu sliku
             builder.Connections.Primary = tiledDecode.Output;
         });
     }
