@@ -41,3 +41,4 @@ public class TiledVAEModule : ModuleBase
         builder.Connections.Primary = node.Output;
     }
 }
+<!-- force generator refresh -->
