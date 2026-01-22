@@ -4,29 +4,23 @@ using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Avalonia.Models.Inference;
-
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
 [ManagedService]
 public class TiledVAEModule : ModuleBase
 {
-    private readonly TiledVAECardViewModel _card;
-
     public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory)
         : base(vmFactory)
     {
         Title = "Tiled VAE Decode";
-
-        // Jedna instanca kartice – UI i modul dijele istu
-        _card = vmFactory.Get<TiledVAECardViewModel>();
-
-        AddCards(_card);
+        AddCards(vmFactory.Get<TiledVAECardViewModel>());
     }
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
+        var card = GetCard<TiledVAECardViewModel>();
+
         e.PreOutputActions.Add(args =>
         {
             var builder = args.Builder;
@@ -43,16 +37,13 @@ public class TiledVAEModule : ModuleBase
                     Name = builder.Nodes.GetUniqueName("TiledVAEDecode"),
                     Samples = latent,
                     Vae = vae,
-
-                    TileSize = _card.TileSize,
-                    Overlap = _card.Overlap,
-
-                    TemporalSize = _card.UseCustomTemporalTiling
-                        ? _card.TemporalSize
+                    TileSize = card.TileSize,
+                    Overlap = card.Overlap,
+                    TemporalSize = card.UseCustomTemporalTiling
+                        ? card.TemporalSize
                         : 64,
-
-                    TemporalOverlap = _card.UseCustomTemporalTiling
-                        ? _card.TemporalOverlap
+                    TemporalOverlap = card.UseCustomTemporalTiling
+                        ? card.TemporalOverlap
                         : 8
                 }
             );
