@@ -14,29 +14,38 @@ public class TiledVAEModule : ModuleBase
         Title = "Tiled VAE Decode";
         card = vmFactory.Get<TiledVAECardViewModel>();
         AddCards(card);
+
+        // Bind module activation to UI toggle
+        IsEnabled = card.IsEnabled;
     }
 
-    public override void ApplyStep(ModuleApplyStepEventArgs args)
+    protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        var node = args.Builder.AddNode("TiledVAEDecode", "VAEDecodeTiled");
-
-        node.Set("tile_size", card.TileSize);
-        node.Set("overlap", card.Overlap);
-
-        if (card.UseCustomTemporalTiling)
+        e.PreOutputActions.Add(args =>
         {
-            node.Set("temporal_size", card.TemporalSize);
-            node.Set("temporal_overlap", card.TemporalOverlap);
-        }
-        else
-        {
-            node.Set("temporal_size", 64);
-            node.Set("temporal_overlap", 8);
-        }
+            var builder = args.Builder;
 
-        node.Set("samples", args.Builder.Connections.LatentNodeName);
-        node.Set("vae", args.Builder.Connections.VaeNodeName);
+            // Only apply if primary is latent
+            if (builder.Connections.Primary?.IsT0 != true)
+                return;
 
-        args.Builder.Connections.OutputNodeNames.Add(node.Name);
+            var latent = builder.Connections.Primary.AsT0;
+            var vae = builder.Connections.GetDefaultVAE();
+
+            var node = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.TiledVAEDecode
+                {
+                    Name = builder.Nodes.GetUniqueName("TiledVAEDecode"),
+                    Samples = latent,
+                    Vae = vae,
+                    TileSize = card.TileSize,
+                    Overlap = card.Overlap,
+                    TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
+                    TemporalOverlap = card.UseCustomTemporalTiling ? card.TemporalOverlap : 8,
+                }
+            );
+
+            builder.Connections.Primary = node.Output;
+        });
     }
 }
