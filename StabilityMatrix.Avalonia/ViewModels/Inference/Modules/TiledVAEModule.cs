@@ -22,7 +22,8 @@ public class TiledVAEModule : ModuleBase
     {
         var builder = e.Builder;
 
-        var node = builder.AddNode("TiledVAEDecode", "VAEDecodeTiled");
+        // ⭐ STARI API — ovo tvoj branch koristi
+        var node = builder.Nodes.AddNode("TiledVAEDecode", "VAEDecodeTiled");
 
         node.Set("tile_size", card.TileSize);
         node.Set("overlap", card.Overlap);
