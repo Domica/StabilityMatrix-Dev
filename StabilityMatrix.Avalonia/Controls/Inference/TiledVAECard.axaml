@@ -51,9 +51,9 @@
                                 Value="{Binding Overlap, Mode=TwoWay}" />
                         </Grid>
 
-                        <!-- Enable Temporal Tiling -->
+                        <!-- Enable Custom TiledVAE Tiling -->
                         <ToggleSwitch
-                            Content="Enable Temporal Tiling"
+                            Content="Enable Custom Tiling"
                             IsChecked="{Binding UseCustomTemporalTiling}" />
 
                         <!-- Temporal Controls (Visible only when enabled) -->
