@@ -6,7 +6,7 @@ using StabilityMatrix.Core.Attributes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
-[Transient]   // ⭐ Modul register
+[Transient]
 public class TiledVAEModule : ModuleBase
 {
     private readonly TiledVAECardViewModel card;
@@ -17,12 +17,14 @@ public class TiledVAEModule : ModuleBase
         Title = "Tiled VAE Decode";
         card = vmFactory.Get<TiledVAECardViewModel>();
         AddCards(card);
-
-        IsEnabled = card.IsEnabled;
     }
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
+        // ✔ UI switch finally works
+        if (!card.IsEnabled)
+            return;
+
         var builder = e.Builder;
 
         var node = builder.Nodes.AddTypedNode(
