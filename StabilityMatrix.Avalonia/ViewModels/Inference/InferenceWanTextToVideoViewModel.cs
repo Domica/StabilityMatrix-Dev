@@ -123,6 +123,8 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
         TiledVAEModule.ApplyStep(moduleArgs);
 
+        moduleArgs.InvokeAllPreOutputActions();
+
         VideoOutputSettingsCardViewModel.ApplyStep(moduleArgs);
     }
 
