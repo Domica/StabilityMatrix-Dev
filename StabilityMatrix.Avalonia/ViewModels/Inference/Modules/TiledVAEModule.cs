@@ -15,13 +15,17 @@ public class TiledVAEModule : ModuleBase
         : base(vmFactory)
     {
         Title = "Tiled VAE Decode";
-        card = vmFactory.Get<TiledVAECardViewModel>();
-        AddCards(card);
+
+        // Add card to module (UI)
+        AddCards(vmFactory.Get<TiledVAECardViewModel>());
+
+        // Use same instance as UI
+        card = GetCard<TiledVAECardViewModel>();
     }
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        // ✔ UI switch finally works
+        // Modul isključen → ništa se ne radi
         if (!card.IsEnabled)
             return;
 
@@ -33,8 +37,12 @@ public class TiledVAEModule : ModuleBase
                 Name = "TiledVAEDecode",
                 Samples = builder.Connections.Primary.AsT0,
                 Vae = builder.Connections.PrimaryVAE,
+
+                // Prostorni tiling
                 TileSize = card.TileSize,
                 Overlap = card.Overlap,
+
+                // Temporalni tiling (default ili custom)
                 TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
                 TemporalOverlap = card.UseCustomTemporalTiling ? card.TemporalOverlap : 8
             }
