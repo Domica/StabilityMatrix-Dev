@@ -21,10 +21,7 @@ public class TiledVAEModule : ModuleBase
         // 1) Kreiraj instancu kartice (UI + modul dijele istu)
         _card = vmFactory.Get<TiledVAECardViewModel>();
 
-        // 2) Učitaj prethodno spremljeno stanje (ako postoji)
-        _card.LoadState();
-
-        // 3) Tek onda dodaj karticu u UI
+        // 2) Dodaj karticu u UI
         AddCards(_card);
     }
 
