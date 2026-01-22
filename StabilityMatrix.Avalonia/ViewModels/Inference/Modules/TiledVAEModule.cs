@@ -1,5 +1,6 @@
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.Services;
+using StabilityMatrix.Avalonia.Models.Inference;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
@@ -37,9 +38,9 @@ public class TiledVAEModule : ModuleBase
             node.Set("temporal_overlap", 8);
         }
 
-        node.Set("samples", e.Connections.LatentNodeName);
-        node.Set("vae", e.Connections.VaeNodeName);
+        node.Set("samples", builder.Connections.Primary);
+        node.Set("vae", builder.Connections.PrimaryVAE);
 
-        e.Connections.OutputNodeNames.Add(node.Name);
+        builder.Connections.Primary = node.Name;
     }
 }
