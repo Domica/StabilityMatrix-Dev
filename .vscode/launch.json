@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Avalonia UI",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/StabilityMatrix.Avalonia/bin/Debug/net8.0/StabilityMatrix.Avalonia.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/StabilityMatrix.Avalonia",
+      "stopAtEntry": false,
+      "console": "internalConsole",
+      "preLaunchTask": "build"
+    }
+  ]
+}
