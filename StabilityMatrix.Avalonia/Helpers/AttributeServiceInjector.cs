@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Helper;
+using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
+
 
 namespace StabilityMatrix.Avalonia.Helpers;
 
