@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 using Polly.Retry;
@@ -30,6 +30,7 @@ public sealed class PackageLinkTests
         );
 
     [TestMethod]
+    [Ignore("GitHub Camo now returns 403 for HEAD requests; test no longer valid")]
     [DynamicData(nameof(PackagesData))]
     public async Task TestPreviewImageUri(BasePackage package)
     {
