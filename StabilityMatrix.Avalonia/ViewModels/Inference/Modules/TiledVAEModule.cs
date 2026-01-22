@@ -2,7 +2,6 @@ using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Inference;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
@@ -24,12 +23,12 @@ public class TiledVAEModule : ModuleBase
     {
         var builder = e.Builder;
 
-        // ⭐ Typed node API — jedini API koji tvoj branch podržava
         var node = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.TiledVAEDecode
             {
-                Samples = builder.Connections.Primary.AsT0(),
-                Vae = builder.Connections.PrimaryVAE.AsT0(),
+                Name = "TiledVAEDecode",
+                Samples = builder.Connections.Primary.AsT0,   // OneOf → AsT0 property
+                Vae = builder.Connections.PrimaryVAE,         // već je VAENodeConnection
                 TileSize = card.TileSize,
                 Overlap = card.Overlap,
                 TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
@@ -37,7 +36,6 @@ public class TiledVAEModule : ModuleBase
             }
         );
 
-        // ⭐ Postavi output node
         builder.Connections.Primary = node.Output;
     }
 }
