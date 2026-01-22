@@ -29,11 +29,6 @@
 
                     <StackPanel Spacing="8">
 
-                        <!-- MAIN MODULE TOGGLE -->
-                        <ToggleSwitch
-                            Content="Enable Tiled VAE Decode"
-                            IsChecked="{Binding IsEnabled}" />
-
                         <!-- Tile Size -->
                         <Grid ColumnDefinitions="Auto,*">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Tile Size" />
