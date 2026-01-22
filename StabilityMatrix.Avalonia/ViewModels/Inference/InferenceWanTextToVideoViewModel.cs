@@ -11,6 +11,8 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
 using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
+using StabilityMatrix.Avalonia.ViewModels.Inference.Cards;
+
 
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
@@ -75,6 +77,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         VideoOutputSettingsCardViewModel = vmFactory.Get<VideoOutputSettingsCardViewModel>(vm =>
             vm.Fps = 16.0d
         );
+        var tiledVaeCard = vmFactory.Get<TiledVAECardViewModel>();
 
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
         StackCardViewModel.AddCards(
@@ -82,6 +85,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             SamplerCardViewModel,
             SeedCardViewModel,
             BatchSizeCardViewModel,
+            tiledVaeCard,
             VideoOutputSettingsCardViewModel
         );
     }
