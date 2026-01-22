@@ -47,6 +47,7 @@ internal static partial class AttributeServiceInjector
     {
         services.AddStabilityMatrixCore();
         services.AddStabilityMatrixAvalonia();
+        services.AddTransient<TiledVAEModule>();
     }
 
     private static bool IsScoped(IServiceProvider serviceProvider)
