@@ -1,6 +1,5 @@
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Models.Inference;
-using StabilityMatrix.Avalonia.Models.Inference.Events;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
