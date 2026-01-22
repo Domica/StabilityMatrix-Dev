@@ -3,15 +3,15 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Logging;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Services;   // ✔ OVO POSTOJI
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
 [ManagedService]
 public class TiledVAEModule : ModuleBase
 {
-    private static readonly ILogger Log = SMLogger.Create<TiledVAEModule>();
+    private static readonly LoggingService Log = LoggingService.Create<TiledVAEModule>();
 
     private readonly TiledVAECardViewModel _card;
 
@@ -20,14 +20,13 @@ public class TiledVAEModule : ModuleBase
     {
         Title = "Tiled VAE Decode";
 
-        // UI i modul dijele istu instancu
         _card = vmFactory.Get<TiledVAECardViewModel>();
         AddCards(_card);
     }
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        Log.Warn("TiledVAE DEBUG: OnApplyStep called. IsEnabled={IsEnabled}", _card.IsEnabled);
+        Log.Warn($"TiledVAE DEBUG: OnApplyStep called. IsEnabled={_card.IsEnabled}");
 
         if (!_card.IsEnabled)
         {
@@ -39,9 +38,7 @@ public class TiledVAEModule : ModuleBase
         {
             var builder = args.Builder;
 
-            Log.Warn("TiledVAE DEBUG: PreOutputAction. Primary null={IsNull}, IsT0={IsT0}",
-                builder.Connections.Primary is null,
-                builder.Connections.Primary?.IsT0);
+            Log.Warn($"TiledVAE DEBUG: PreOutputAction. Primary null={builder.Connections.Primary is null}, IsT0={builder.Connections.Primary?.IsT0}");
 
             if (builder.Connections.Primary?.IsT0 != true)
             {
@@ -52,13 +49,7 @@ public class TiledVAEModule : ModuleBase
             var latent = builder.Connections.Primary.AsT0;
             var vae = builder.Connections.GetDefaultVAE();
 
-            Log.Warn(
-                "TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={TileSize}, Overlap={Overlap}, TemporalSize={TemporalSize}, TemporalOverlap={TemporalOverlap}",
-                _card.TileSize,
-                _card.Overlap,
-                _card.UseCustomTemporalTiling ? _card.TemporalSize : 64,
-                _card.UseCustomTemporalTiling ? _card.TemporalOverlap : 8
-            );
+            Log.Warn($"TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={_card.TileSize}, Overlap={_card.Overlap}");
 
             var tiledDecode = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.TiledVAEDecode
