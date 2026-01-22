@@ -1,5 +1,4 @@
 using StabilityMatrix.Avalonia.ViewModels.Base;
-using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
@@ -8,7 +7,7 @@ public class TiledVAEModule : ModuleBase
 {
     private readonly TiledVAECardViewModel card;
 
-    public TiledVAEModule(ViewModelFactory vmFactory)
+    public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory)
         : base(vmFactory)
     {
         Title = "Tiled VAE Decode";
@@ -18,14 +17,12 @@ public class TiledVAEModule : ModuleBase
         IsEnabled = card.IsEnabled;
     }
 
-    public override void ApplyStep(BuildContext ctx)
+    public override void ApplyStep(InferenceStepContext context)
     {
         if (!IsEnabled)
             return;
 
-        var builder = ctx.Builder;
-
-        var node = builder.AddNode("TiledVAEDecode", "VAEDecodeTiled");
+        var node = context.AddNode("TiledVAEDecode", "VAEDecodeTiled");
 
         node.Set("tile_size", card.TileSize);
         node.Set("overlap", card.Overlap);
@@ -41,9 +38,9 @@ public class TiledVAEModule : ModuleBase
             node.Set("temporal_overlap", 8);
         }
 
-        node.Set("samples", builder.Connections.LatentNodeName);
-        node.Set("vae", builder.Connections.VaeNodeName);
+        node.Set("samples", context.LatentNodeName);
+        node.Set("vae", context.VaeNodeName);
 
-        builder.Connections.OutputNodeNames.Add(node.Name);
+        context.OutputNodeNames.Add(node.Name);
     }
 }
