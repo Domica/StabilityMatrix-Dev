@@ -1,6 +1,8 @@
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.Models.Inference;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models.Inference;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
@@ -22,26 +24,20 @@ public class TiledVAEModule : ModuleBase
     {
         var builder = e.Builder;
 
-        // ⭐ STARI API — ovo tvoj branch koristi
-        var node = builder.Nodes.AddNode("TiledVAEDecode", "VAEDecodeTiled");
+        // ⭐ Typed node API — jedini API koji tvoj branch podržava
+        var node = builder.Nodes.AddTypedNode(
+            new ComfyNodeBuilder.TiledVAEDecode
+            {
+                Samples = builder.Connections.Primary.AsT0(),
+                Vae = builder.Connections.PrimaryVAE.AsT0(),
+                TileSize = card.TileSize,
+                Overlap = card.Overlap,
+                TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
+                TemporalOverlap = card.UseCustomTemporalTiling ? card.TemporalOverlap : 8
+            }
+        );
 
-        node.Set("tile_size", card.TileSize);
-        node.Set("overlap", card.Overlap);
-
-        if (card.UseCustomTemporalTiling)
-        {
-            node.Set("temporal_size", card.TemporalSize);
-            node.Set("temporal_overlap", card.TemporalOverlap);
-        }
-        else
-        {
-            node.Set("temporal_size", 64);
-            node.Set("temporal_overlap", 8);
-        }
-
-        node.Set("samples", builder.Connections.Primary);
-        node.Set("vae", builder.Connections.PrimaryVAE);
-
-        builder.Connections.Primary = node.Name;
+        // ⭐ Postavi output node
+        builder.Connections.Primary = node.Output;
     }
 }
