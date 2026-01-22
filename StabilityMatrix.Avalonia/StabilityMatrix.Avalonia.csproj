@@ -143,6 +143,7 @@
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="TextMateSharp.Grammars" />
         <PackageReference Include="URISchemeTools" />
+        <PackageReference Include="Injectio" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" Condition="'$(RuntimeIdentifier)' == 'linux-x64'" />
     </ItemGroup>
 
@@ -263,6 +264,9 @@
         <DependentUpon>InferenceWanTextToVideoView.axaml</DependentUpon>
         <SubType>Code</SubType>
       </Compile>
+    <Compile Update="ViewModels\Inference\Modules\TiledVAEModule.cs">
+        <Generator>MSBuild:GenerateCodeFromAttributes</Generator>
+    </Compile>
       <Compile Update="Controls\Inference\NrsCard.axaml.cs">
         <DependentUpon>NrsCard.axaml</DependentUpon>
         <SubType>Code</SubType>
