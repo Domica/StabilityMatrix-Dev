@@ -8,44 +8,42 @@ public class TiledVAEModule : ModuleBase
 {
     private readonly TiledVAECardViewModel card;
 
-    public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory)
+    public TiledVAEModule(ViewModelFactory vmFactory)
         : base(vmFactory)
     {
         Title = "Tiled VAE Decode";
         card = vmFactory.Get<TiledVAECardViewModel>();
         AddCards(card);
 
-        // Bind module activation to UI toggle
         IsEnabled = card.IsEnabled;
     }
 
-    protected override void OnApplyStep(ModuleApplyStepEventArgs e)
+    public override void ApplyStep(BuildContext ctx)
     {
-        e.PreOutputActions.Add(args =>
+        if (!IsEnabled)
+            return;
+
+        var builder = ctx.Builder;
+
+        var node = builder.AddNode("TiledVAEDecode", "VAEDecodeTiled");
+
+        node.Set("tile_size", card.TileSize);
+        node.Set("overlap", card.Overlap);
+
+        if (card.UseCustomTemporalTiling)
         {
-            var builder = args.Builder;
+            node.Set("temporal_size", card.TemporalSize);
+            node.Set("temporal_overlap", card.TemporalOverlap);
+        }
+        else
+        {
+            node.Set("temporal_size", 64);
+            node.Set("temporal_overlap", 8);
+        }
 
-            // Only apply if primary is latent
-            if (builder.Connections.Primary?.IsT0 != true)
-                return;
+        node.Set("samples", builder.Connections.LatentNodeName);
+        node.Set("vae", builder.Connections.VaeNodeName);
 
-            var latent = builder.Connections.Primary.AsT0;
-            var vae = builder.Connections.GetDefaultVAE();
-
-            var node = builder.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.TiledVAEDecode
-                {
-                    Name = builder.Nodes.GetUniqueName("TiledVAEDecode"),
-                    Samples = latent,
-                    Vae = vae,
-                    TileSize = card.TileSize,
-                    Overlap = card.Overlap,
-                    TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
-                    TemporalOverlap = card.UseCustomTemporalTiling ? card.TemporalOverlap : 8,
-                }
-            );
-
-            builder.Connections.Primary = node.Output;
-        });
+        builder.Connections.OutputNodeNames.Add(node.Name);
     }
 }
