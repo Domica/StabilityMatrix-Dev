@@ -3,14 +3,16 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Logging;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using Serilog;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
 [ManagedService]
 public class TiledVAEModule : ModuleBase
 {
+    private static readonly ILogger Log = SMLogger.Create<TiledVAEModule>();
+
     private readonly TiledVAECardViewModel _card;
 
     public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory)
@@ -25,11 +27,11 @@ public class TiledVAEModule : ModuleBase
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        Log.Warning("TiledVAE DEBUG: OnApplyStep called. IsEnabled={IsEnabled}", _card.IsEnabled);
+        Log.Warn("TiledVAE DEBUG: OnApplyStep called. IsEnabled={IsEnabled}", _card.IsEnabled);
 
         if (!_card.IsEnabled)
         {
-            Log.Warning("TiledVAE DEBUG: Early exit – card disabled.");
+            Log.Warn("TiledVAE DEBUG: Early exit – card disabled.");
             return;
         }
 
@@ -37,20 +39,20 @@ public class TiledVAEModule : ModuleBase
         {
             var builder = args.Builder;
 
-            Log.Warning("TiledVAE DEBUG: PreOutputAction. Primary null={IsNull}, IsT0={IsT0}",
+            Log.Warn("TiledVAE DEBUG: PreOutputAction. Primary null={IsNull}, IsT0={IsT0}",
                 builder.Connections.Primary is null,
                 builder.Connections.Primary?.IsT0);
 
             if (builder.Connections.Primary?.IsT0 != true)
             {
-                Log.Warning("TiledVAE DEBUG: Early exit – Primary is not T0 latent.");
+                Log.Warn("TiledVAE DEBUG: Early exit – Primary is not T0 latent.");
                 return;
             }
 
             var latent = builder.Connections.Primary.AsT0;
             var vae = builder.Connections.GetDefaultVAE();
 
-            Log.Warning(
+            Log.Warn(
                 "TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={TileSize}, Overlap={Overlap}, TemporalSize={TemporalSize}, TemporalOverlap={TemporalOverlap}",
                 _card.TileSize,
                 _card.Overlap,
