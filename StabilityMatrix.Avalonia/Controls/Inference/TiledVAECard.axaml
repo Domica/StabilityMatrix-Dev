@@ -43,8 +43,9 @@
 
                         <!-- Custom Temporal Tiling -->
                         <ToggleSwitch
-                            Content="Enable Custom Tiling"
-                            IsChecked="{Binding UseCustomTemporalTiling}" />
+                              Content="Enable Custom Tiling"
+                              IsChecked="{Binding UseCustomTemporalTiling, Mode=TwoWay}" />
+
 
                         <StackPanel IsVisible="{Binding UseCustomTemporalTiling}" Spacing="8">
 
