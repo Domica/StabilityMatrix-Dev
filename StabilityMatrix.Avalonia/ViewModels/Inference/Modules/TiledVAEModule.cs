@@ -6,7 +6,7 @@ using StabilityMatrix.Core.Attributes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
-[Transient]   // ⭐ Model registration
+[Transient]   // ⭐ Modul register
 public class TiledVAEModule : ModuleBase
 {
     private readonly TiledVAECardViewModel card;
@@ -25,13 +25,12 @@ public class TiledVAEModule : ModuleBase
     {
         var builder = e.Builder;
 
-        // ⭐ Typed node API
         var node = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.TiledVAEDecode
             {
-                Name = "TiledVAEDecode",                     // required
-                Samples = builder.Connections.Primary.AsT0,  // OneOf → AsT0 property
-                Vae = builder.Connections.PrimaryVAE,        // već je VAENodeConnection
+                Name = "TiledVAEDecode",
+                Samples = builder.Connections.Primary.AsT0,
+                Vae = builder.Connections.PrimaryVAE,
                 TileSize = card.TileSize,
                 Overlap = card.Overlap,
                 TemporalSize = card.UseCustomTemporalTiling ? card.TemporalSize : 64,
@@ -39,7 +38,6 @@ public class TiledVAEModule : ModuleBase
             }
         );
 
-        // ⭐ Output node
         builder.Connections.Primary = node.Output;
     }
 }
