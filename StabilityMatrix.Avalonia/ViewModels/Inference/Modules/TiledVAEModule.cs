@@ -1,36 +1,36 @@
 using Injectio.Attributes;
+using Microsoft.Extensions.Logging;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Services;   // ✔ OVO POSTOJI
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 
 [ManagedService]
 public class TiledVAEModule : ModuleBase
 {
-    private static readonly LoggingService Log = LoggingService.Create<TiledVAEModule>();
-
+    private readonly ILogger<TiledVAEModule> _log;
     private readonly TiledVAECardViewModel _card;
 
-    public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory)
+    public TiledVAEModule(IServiceManager<ViewModelBase> vmFactory, ILogger<TiledVAEModule> logger)
         : base(vmFactory)
     {
         Title = "Tiled VAE Decode";
 
+        _log = logger;
         _card = vmFactory.Get<TiledVAECardViewModel>();
         AddCards(_card);
     }
 
     protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        Log.Warn($"TiledVAE DEBUG: OnApplyStep called. IsEnabled={_card.IsEnabled}");
+        _log.LogWarning("TiledVAE DEBUG: OnApplyStep called. IsEnabled={IsEnabled}", _card.IsEnabled);
 
         if (!_card.IsEnabled)
         {
-            Log.Warn("TiledVAE DEBUG: Early exit – card disabled.");
+            _log.LogWarning("TiledVAE DEBUG: Early exit – card disabled.");
             return;
         }
 
@@ -38,18 +38,26 @@ public class TiledVAEModule : ModuleBase
         {
             var builder = args.Builder;
 
-            Log.Warn($"TiledVAE DEBUG: PreOutputAction. Primary null={builder.Connections.Primary is null}, IsT0={builder.Connections.Primary?.IsT0}");
+            _log.LogWarning("TiledVAE DEBUG: PreOutputAction. Primary null={IsNull}, IsT0={IsT0}",
+                builder.Connections.Primary is null,
+                builder.Connections.Primary?.IsT0);
 
             if (builder.Connections.Primary?.IsT0 != true)
             {
-                Log.Warn("TiledVAE DEBUG: Early exit – Primary is not T0 latent.");
+                _log.LogWarning("TiledVAE DEBUG: Early exit – Primary is not T0 latent.");
                 return;
             }
 
             var latent = builder.Connections.Primary.AsT0;
             var vae = builder.Connections.GetDefaultVAE();
 
-            Log.Warn($"TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={_card.TileSize}, Overlap={_card.Overlap}");
+            _log.LogWarning(
+                "TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={TileSize}, Overlap={Overlap}, TemporalSize={TemporalSize}, TemporalOverlap={TemporalOverlap}",
+                _card.TileSize,
+                _card.Overlap,
+                _card.UseCustomTemporalTiling ? _card.TemporalSize : 64,
+                _card.UseCustomTemporalTiling ? _card.TemporalOverlap : 8
+            );
 
             var tiledDecode = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.TiledVAEDecode
