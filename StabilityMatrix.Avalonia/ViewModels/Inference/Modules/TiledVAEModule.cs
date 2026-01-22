@@ -23,53 +23,55 @@ public class TiledVAEModule : ModuleBase
         AddCards(_card);
     }
 
-    
-protected override void OnApplyStep(ModuleApplyStepEventArgs e)
-{
-    Log.Warning("TiledVAE DEBUG: OnApplyStep called. IsEnabled={IsEnabled}", _card.IsEnabled);
-
-    if (!_card.IsEnabled)
+    protected override void OnApplyStep(ModuleApplyStepEventArgs e)
     {
-        Log.Warning("TiledVAE DEBUG: Early exit – card disabled.");
-        return;
-    }
+        Log.Warning("TiledVAE DEBUG: OnApplyStep called. IsEnabled={IsEnabled}", _card.IsEnabled);
 
-    e.PreOutputActions.Add(args =>
-    {
-        var builder = args.Builder;
-
-        Log.Warning("TiledVAE DEBUG: PreOutputAction. Primary null={IsNull}, IsT0={IsT0}",
-            builder.Connections.Primary is null,
-            builder.Connections.Primary?.IsT0);
-
-        if (builder.Connections.Primary?.IsT0 != true)
+        if (!_card.IsEnabled)
         {
-            Log.Warning("TiledVAE DEBUG: Early exit – Primary is not T0 latent.");
+            Log.Warning("TiledVAE DEBUG: Early exit – card disabled.");
             return;
         }
 
-        var latent = builder.Connections.Primary.AsT0;
-        var vae = builder.Connections.GetDefaultVAE();
+        e.PreOutputActions.Add(args =>
+        {
+            var builder = args.Builder;
 
-        Log.Warning("TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={TileSize}, Overlap={Overlap}, TemporalSize={TemporalSize}, TemporalOverlap={TemporalOverlap}",
-            _card.TileSize,
-            _card.Overlap,
-            _card.UseCustomTemporalTiling ? _card.TemporalSize : 64,
-            _card.UseCustomTemporalTiling ? _card.TemporalOverlap : 8);
+            Log.Warning("TiledVAE DEBUG: PreOutputAction. Primary null={IsNull}, IsT0={IsT0}",
+                builder.Connections.Primary is null,
+                builder.Connections.Primary?.IsT0);
 
-        var tiledDecode = builder.Nodes.AddTypedNode(
-            new ComfyNodeBuilder.TiledVAEDecode
+            if (builder.Connections.Primary?.IsT0 != true)
             {
-                Name = builder.Nodes.GetUniqueName("TiledVAEDecode"),
-                Samples = latent,
-                Vae = vae,
-                TileSize = _card.TileSize,
-                Overlap = _card.Overlap,
-                TemporalSize = _card.UseCustomTemporalTiling ? _card.TemporalSize : 64,
-                TemporalOverlap = _card.UseCustomTemporalTiling ? _card.TemporalOverlap : 8
+                Log.Warning("TiledVAE DEBUG: Early exit – Primary is not T0 latent.");
+                return;
             }
-        );
 
-        builder.Connections.Primary = tiledDecode.Output;
-    });
+            var latent = builder.Connections.Primary.AsT0;
+            var vae = builder.Connections.GetDefaultVAE();
+
+            Log.Warning(
+                "TiledVAE DEBUG: Adding TiledVAEDecode node. TileSize={TileSize}, Overlap={Overlap}, TemporalSize={TemporalSize}, TemporalOverlap={TemporalOverlap}",
+                _card.TileSize,
+                _card.Overlap,
+                _card.UseCustomTemporalTiling ? _card.TemporalSize : 64,
+                _card.UseCustomTemporalTiling ? _card.TemporalOverlap : 8
+            );
+
+            var tiledDecode = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.TiledVAEDecode
+                {
+                    Name = builder.Nodes.GetUniqueName("TiledVAEDecode"),
+                    Samples = latent,
+                    Vae = vae,
+                    TileSize = _card.TileSize,
+                    Overlap = _card.Overlap,
+                    TemporalSize = _card.UseCustomTemporalTiling ? _card.TemporalSize : 64,
+                    TemporalOverlap = _card.UseCustomTemporalTiling ? _card.TemporalOverlap : 8
+                }
+            );
+
+            builder.Connections.Primary = tiledDecode.Output;
+        });
+    }
 }
