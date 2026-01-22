@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Extensions;
 using StabilityMatrix.Avalonia.Models;
@@ -11,9 +11,6 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
 using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
-using StabilityMatrix.Avalonia.ViewModels.Inference.Cards;
-
-
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -41,6 +38,10 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
     [JsonPropertyName("VideoOutput")]
     public VideoOutputSettingsCardViewModel VideoOutputSettingsCardViewModel { get; }
+
+    // DODAJ OVO:
+    [JsonPropertyName("TiledVAE")]
+    public TiledVAEModule TiledVAEModule { get; }
 
     public InferenceWanTextToVideoViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -77,20 +78,23 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         VideoOutputSettingsCardViewModel = vmFactory.Get<VideoOutputSettingsCardViewModel>(vm =>
             vm.Fps = 16.0d
         );
-        var tiledVaeCard = vmFactory.Get<TiledVAECardViewModel>();
+        
+        // PROMIJENI OVO:
+        TiledVAEModule = vmFactory.Get<TiledVAEModule>();
 
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
+        
+        // PROMIJENI OVO:
         StackCardViewModel.AddCards(
             ModelCardViewModel,
             SamplerCardViewModel,
             SeedCardViewModel,
             BatchSizeCardViewModel,
-            tiledVaeCard,
+            TiledVAEModule,  // ← MODULE, ne CardViewModel
             VideoOutputSettingsCardViewModel
         );
     }
 
-    /// <inheritdoc />
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
         base.BuildPrompt(args);
@@ -103,8 +107,10 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             _ => Convert.ToUInt64(SeedCardViewModel.Seed),
         };
 
-        // Load models
-        ModelCardViewModel.ApplyStep(args);
+        // Convert to ModuleApplyStepEventArgs
+        var moduleArgs = args.ToModuleApplyStepEventArgs();
+
+        ModelCardViewModel.ApplyStep(moduleArgs);
 
         builder.SetupEmptyLatentSource(
             SamplerCardViewModel.Width,
@@ -115,103 +121,16 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             LatentType.Hunyuan
         );
 
-        BatchSizeCardViewModel.ApplyStep(args);
+        BatchSizeCardViewModel.ApplyStep(moduleArgs);
+        PromptCardViewModel.ApplyStep(moduleArgs);
+        SamplerCardViewModel.ApplyStep(moduleArgs);
 
-        PromptCardViewModel.ApplyStep(args);
+        // PROMIJENI OVO:
+        TiledVAEModule.ApplyStep(moduleArgs);
+        moduleArgs.InvokeAllPreOutputActions();
 
-        SamplerCardViewModel.ApplyStep(args);
-
-        // Apply TiledVAE module
-        StackCardViewModel.GetCard<TiledVAEModule>().ApplyStep(args);
-
-        VideoOutputSettingsCardViewModel.ApplyStep(args);
+        VideoOutputSettingsCardViewModel.ApplyStep(moduleArgs);
     }
 
-    /// <inheritdoc />
-    protected override async Task GenerateImageImpl(
-        GenerateOverrides overrides,
-        CancellationToken cancellationToken
-    )
-    {
-        if (!await CheckClientConnectedWithPrompt() || !ClientManager.IsConnected)
-        {
-            return;
-        }
-
-        if (!await ModelCardViewModel.ValidateModel())
-            return;
-
-        // If enabled, randomize the seed
-        var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
-        if (overrides is not { UseCurrentSeed: true } && seedCard.IsRandomizeEnabled)
-        {
-            seedCard.GenerateNewSeed();
-        }
-
-        var batches = BatchSizeCardViewModel.BatchCount;
-
-        var batchArgs = new List<ImageGenerationEventArgs>();
-
-        for (var i = 0; i < batches; i++)
-        {
-            var seed = seedCard.Seed + i;
-
-            var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides, SeedOverride = seed };
-            BuildPrompt(buildPromptArgs);
-
-            // update seed in project for batches
-            var inferenceProject = InferenceProjectDocument.FromLoadable(this);
-            if (inferenceProject.State?["Seed"]?["Seed"] is not null)
-            {
-                inferenceProject = inferenceProject.WithState(x => x["Seed"]["Seed"] = seed);
-            }
-
-            var generationArgs = new ImageGenerationEventArgs
-            {
-                Client = ClientManager.Client,
-                Nodes = buildPromptArgs.Builder.ToNodeDictionary(),
-                OutputNodeNames = buildPromptArgs.Builder.Connections.OutputNodeNames.ToArray(),
-                Parameters = SaveStateToParameters(new GenerationParameters()) with
-                {
-                    Seed = Convert.ToUInt64(seed),
-                },
-                Project = inferenceProject,
-                FilesToTransfer = buildPromptArgs.FilesToTransfer,
-                BatchIndex = i,
-                // Only clear output images on the first batch
-                ClearOutputImages = i == 0,
-            };
-
-            batchArgs.Add(generationArgs);
-        }
-
-        // Run batches
-        foreach (var args in batchArgs)
-        {
-            await RunGeneration(args, cancellationToken);
-        }
-    }
-
-    /// <inheritdoc />
-    public void LoadStateFromParameters(GenerationParameters parameters)
-    {
-        SamplerCardViewModel.LoadStateFromParameters(parameters);
-        ModelCardViewModel.LoadStateFromParameters(parameters);
-        PromptCardViewModel.LoadStateFromParameters(parameters);
-        VideoOutputSettingsCardViewModel.LoadStateFromParameters(parameters);
-        SeedCardViewModel.Seed = Convert.ToInt64(parameters.Seed);
-    }
-
-    /// <inheritdoc />
-    public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
-    {
-        parameters = SamplerCardViewModel.SaveStateToParameters(parameters);
-        parameters = ModelCardViewModel.SaveStateToParameters(parameters);
-        parameters = PromptCardViewModel.SaveStateToParameters(parameters);
-        parameters = VideoOutputSettingsCardViewModel.SaveStateToParameters(parameters);
-
-        parameters.Seed = (ulong)SeedCardViewModel.Seed;
-
-        return parameters;
-    }
+    // ... rest ostaje isto ...
 }
