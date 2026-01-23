@@ -66,6 +66,7 @@ using StabilityMatrix.Core.Models.Settings;
 using StabilityMatrix.Core.Python;
 using StabilityMatrix.Core.Services;
 using StabilityMatrix.Core.Updater;
+using StabilityMatrix.Avalonia.ViewModels.Inference;
 using ApiOptions = StabilityMatrix.Core.Models.Configs.ApiOptions;
 using Application = Avalonia.Application;
 using Debug = System.Diagnostics.Debug;
