@@ -148,6 +148,9 @@ public static class DesignData
             .AddSingleton<IImageIndexService, MockImageIndexService>()
             .AddSingleton<IMetadataImportService, MetadataImportService>();
 
+            services.AddSingleton<TiledVAECardViewModel>();
+
+
         // Placeholder services that nobody should need during design time
         services
             .AddSingleton<IPyRunner>(_ => null!)
