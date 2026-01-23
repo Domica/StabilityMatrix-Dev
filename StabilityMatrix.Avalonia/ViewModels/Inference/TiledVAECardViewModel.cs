@@ -9,7 +9,6 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
 [View(typeof(TiledVAECard))]
 [ManagedService]
-[RegisterTransient<TiledVAECardViewModel>]
 public partial class TiledVAECardViewModel : LoadableViewModelBase
 {
     public const string ModuleKey = "TiledVAE";
