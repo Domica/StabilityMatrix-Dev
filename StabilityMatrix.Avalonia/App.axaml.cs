@@ -437,6 +437,9 @@ public sealed class App : Application
         // Register services by attributes
         services.AddServicesByAttributes();
 
+        // Register TiledVAE card (not picked up automatically)
+        services.AddSingleton<TiledVAECardViewModel>();
+        
         ConfigurePageViewModels(services);
 
         services.AddServiceManagerWithCurrentCollectionServices<ViewModelBase>(s =>
