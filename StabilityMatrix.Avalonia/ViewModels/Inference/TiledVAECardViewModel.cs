@@ -30,7 +30,7 @@ public partial class TiledVAECardViewModel : LoadableViewModelBase
     private int overlap = 64;
 
     [ObservableProperty]
-    private bool useCustomTemporalTiling = false;
+    private bool useCustomTemporalTiling = true;
 
     [ObservableProperty]
     [NotifyDataErrorInfo]
