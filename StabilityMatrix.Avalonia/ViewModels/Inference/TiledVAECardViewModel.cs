@@ -17,6 +17,7 @@ public partial class TiledVAECardViewModel : LoadableViewModelBase
     [ObservableProperty]
     private bool isEnabled = true;
 
+    // Default tiling settings
     [ObservableProperty]
     [NotifyDataErrorInfo]
     [Required]
@@ -29,6 +30,23 @@ public partial class TiledVAECardViewModel : LoadableViewModelBase
     [Range(0, 4096)]
     private int overlap = 64;
 
+    // Custom tiling toggle and settings
+    [ObservableProperty]
+    private bool isCustomTilingEnabled = false;
+
+    [ObservableProperty]
+    [NotifyDataErrorInfo]
+    [Required]
+    [Range(64, 4096)]
+    private int customTileSize = 512;
+
+    [ObservableProperty]
+    [NotifyDataErrorInfo]
+    [Required]
+    [Range(0, 4096)]
+    private int customOverlap = 224;
+
+    // Temporal tiling toggle and settings
     [ObservableProperty]
     private bool useCustomTemporalTiling = true;
 
@@ -43,4 +61,16 @@ public partial class TiledVAECardViewModel : LoadableViewModelBase
     [Required]
     [Range(4, 4096)]
     private int temporalOverlap = 8;
+
+    [ObservableProperty]
+    [NotifyDataErrorInfo]
+    [Required]
+    [Range(8, 4096)]
+    private int customTemporalSize = 96;
+
+    [ObservableProperty]
+    [NotifyDataErrorInfo]
+    [Required]
+    [Range(4, 4096)]
+    private int customTemporalOverlap = 24;
 }
