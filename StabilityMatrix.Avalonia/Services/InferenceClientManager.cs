@@ -526,10 +526,10 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
     /// </summary>
     protected void ResetSharedProperties()
     {
-        // Load local models
+        // Load local models (including Z-Image diffusion models)
         modelsSource.EditDiff(
             modelIndexService
-                .FindByModelType(SharedFolderType.StableDiffusion)
+                .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
                 .Select(HybridModelFile.FromLocal),
             HybridModelFile.Comparer
         );
