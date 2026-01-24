@@ -1,0 +1,13 @@
+StabilityMatrix.Avalonia/Controls/Inference/TiledVAECard.axaml
+StabilityMatrix.Avalonia/ViewModels/Inference/InferenceWanTextToVideoViewModel.cs
+StabilityMatrix.Avalonia/ViewModels/Inference/Modules/TiledVAEModule.cs
+StabilityMatrix.Avalonia/ViewModels/Inference/TiledVAECardViewModel.cs
+StabilityMatrix.Avalonia/ViewModels/Settings/InferenceSettingsViewModel.cs
+StabilityMatrix.Core/Inference/ComfyClient.cs
+StabilityMatrix.Core/Inference/Workflows/Wan/wan_base_workflow.json
+StabilityMatrix.Core/Models/Api/Comfy/Nodes/ComfyNodeBuilder.cs
+StabilityMatrix.Core/Models/Api/Comfy/Nodes/TiledVAEDecodeVideoNode.cs
+StabilityMatrix.Core/Models/Settings/Settings.cs
+StabilityMatrix.Core/Settings/Inference/Profiles/WanInferenceProfile.cs
+StabilityMatrix.Core/Settings/Inference/WanSettings.cs
+StabilityMatrix.Tests/Models/Packages/PackageLinkTests.cs
