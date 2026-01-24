@@ -530,6 +530,12 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
         modelsSource.EditDiff(
             modelIndexService
                 .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
+                .Where(m => 
+                    // Include all StableDiffusion models
+                    m.SharedFolderType == SharedFolderType.StableDiffusion ||
+                    // For DiffusionModels, only include Z-Image (not Wan models)
+                    (m.SharedFolderType == SharedFolderType.DiffusionModels && 
+                     m.RelativePath.IsZImageModel()))
                 .Select(HybridModelFile.FromLocal),
             HybridModelFile.Comparer
         );
