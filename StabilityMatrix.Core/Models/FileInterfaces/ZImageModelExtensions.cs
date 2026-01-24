@@ -19,18 +19,18 @@ public static class ZImageModelExtensions
         "z_image_turbo_bf16.safetensors",
         "z_image_turbo_fp16.safetensors",
         "z_image_turbo.safetensors",
-
+        
         // Text encoders
         "qwen_3_4b.safetensors",
-
-        // VAE
+        
+        // VAE (when specifically in Z-Image context)
         "ae.safetensors"
     };
 
     /// <summary>
     /// Patterns that identify Z-Image related files
     /// </summary>
-    private static readonly string[] ZImagePatterns =
+    private static readonly string[] ZImagePatterns = 
     {
         "z_image",
         "zimage",
@@ -46,13 +46,13 @@ public static class ZImageModelExtensions
             return false;
 
         var fileName = Path.GetFileName(filePath);
-
+        
         // Check against known files
         if (KnownZImageFiles.Contains(fileName))
             return true;
 
         // Check against patterns
-        return ZImagePatterns.Any(pattern =>
+        return ZImagePatterns.Any(pattern => 
             fileName.Contains(pattern, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -67,7 +67,7 @@ public static class ZImageModelExtensions
         var fileName = Path.GetFileName(filePath).ToLowerInvariant();
         var directory = Path.GetFileName(Path.GetDirectoryName(filePath))?.ToLowerInvariant();
 
-        // Directory-based detection (most reliable)
+        // Identify by directory first (most reliable)
         return directory switch
         {
             "diffusion_models" when fileName.Contains("z_image") => ZImageComponentType.DiffusionModel,
@@ -82,13 +82,13 @@ public static class ZImageModelExtensions
     {
         if (fileName.Contains("z_image_turbo") && !fileName.Contains("lora"))
             return ZImageComponentType.DiffusionModel;
-
+        
         if (fileName.Contains("qwen"))
             return ZImageComponentType.TextEncoder;
-
+        
         if (fileName.StartsWith("ae."))
             return ZImageComponentType.VAE;
-
+        
         if (fileName.Contains("z_image") && fileName.Contains("lora"))
             return ZImageComponentType.Lora;
 
@@ -107,9 +107,9 @@ public static class ZImageModelExtensions
         var baseName = Path.GetFileNameWithoutExtension(filePath);
         return componentType.Value switch
         {
-            ZImageComponentType.DiffusionModel => "Z-Image Turbo (Main Model)",
-            ZImageComponentType.TextEncoder => "Qwen Text Encoder (Z-Image)",
-            ZImageComponentType.VAE => "Z-Image VAE",
+            ZImageComponentType.DiffusionModel => $"Z-Image Turbo (Main Model)",
+            ZImageComponentType.TextEncoder => $"Qwen Text Encoder (Z-Image)",
+            ZImageComponentType.VAE => $"Z-Image VAE",
             ZImageComponentType.Lora => baseName.Replace("_z_image", " (Z-Image LoRA)"),
             _ => baseName
         };
@@ -126,17 +126,23 @@ public static class ZImageModelExtensions
         var textEncoderPath = Path.Combine(modelsDirectory, "text_encoders");
         var vaePath = Path.Combine(modelsDirectory, "vae");
 
-        // Diffusion model
+        // Check for diffusion model
         if (Directory.Exists(diffusionPath))
+        {
             result.HasDiffusionModel = Directory.GetFiles(diffusionPath, "z_image_turbo*.safetensors").Any();
+        }
 
-        // Text encoder
+        // Check for text encoder
         if (Directory.Exists(textEncoderPath))
+        {
             result.HasTextEncoder = Directory.GetFiles(textEncoderPath, "qwen*.safetensors").Any();
+        }
 
-        // VAE
+        // Check for VAE
         if (Directory.Exists(vaePath))
+        {
             result.HasVAE = Directory.GetFiles(vaePath, "ae.safetensors").Any();
+        }
 
         return result;
     }
@@ -161,9 +167,9 @@ public class ZImageValidationResult
     public bool HasDiffusionModel { get; set; }
     public bool HasTextEncoder { get; set; }
     public bool HasVAE { get; set; }
-
+    
     public bool IsComplete => HasDiffusionModel && HasTextEncoder && HasVAE;
-
+    
     public IEnumerable<string> MissingComponents
     {
         get
