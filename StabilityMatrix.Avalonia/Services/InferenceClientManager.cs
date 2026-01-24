@@ -354,15 +354,24 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
     {
         EnsureConnected();
 
-        // Get model names
+        // Get model names (checkpoints + diffusion models)
         if (await Client.GetModelNamesAsync() is { } modelNames)
         {
-            modelsSource.EditDiff(
-                modelNames.Select(HybridModelFile.FromRemote),
-                HybridModelFile.RemoteLocalComparer
-            );
+            var allModels = modelNames.Select(HybridModelFile.FromRemote);
+    
+            // Also get diffusion models from UnetLoader if they're checkpoints
+            if (await Client.GetNodeOptionNamesAsync("UNETLoader", "unet_name") is { } unetNames)
+            {
+                // Merge both lists, filter duplicates
+                var unetAsCheckpoints = unetNames
+                    .Select(HybridModelFile.FromRemote)
+                    .Where(m => !modelNames.Contains(m.RelativePath));
+        
+                allModels = allModels.Concat(unetAsCheckpoints);
+            }
+    
+            modelsSource.EditDiff(allModels, HybridModelFile.RemoteLocalComparer);
         }
-
         // Get control net model names
         if (
             await Client.GetNodeOptionNamesAsync("ControlNetLoader", "control_net_name") is
