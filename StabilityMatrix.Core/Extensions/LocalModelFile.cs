@@ -1,5 +1,6 @@
 using StabilityMatrix.Core.Models.Database;
 using StabilityMatrix.Core.Models.Packages;
+using StabilityMatrix.Core.Models.FileInterfaces;
 
 namespace StabilityMatrix.Core.Extensions;
 
