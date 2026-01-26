@@ -15,6 +15,7 @@ using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Core.Models.Inference;
+using StabilityMatrix.Core.Models.FileInterfaces;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -195,47 +196,62 @@ public partial class ModelCardViewModel(
         return new ComfyNodeBuilder.CheckpointLoaderSimple { Name = nodeName, CkptName = model.RelativePath };
     }
 
-    /// <inheritdoc />
-    public virtual void ApplyStep(ModuleApplyStepEventArgs e)
-    {
-        if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
+            /// <inheritdoc />
+        public virtual void ApplyStep(ModuleApplyStepEventArgs e)
         {
-            SetupDefaultModelLoader(e);
-        }
-        else // UNET/GGUF UNET workflow
-        {
-            SetupStandaloneModelLoader(e);
-        }
-
-        // Clip skip all models if enabled
-        if (IsClipSkipEnabled)
-        {
-            foreach (var (modelName, model) in e.Builder.Connections.Models)
+            // Auto-detect Z-Image and switch to Unet loader
+            if (SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels &&
+                SelectedModel.RelativePath.IsZImageModel())
             {
-                if (model.Clip is not { } modelClip)
-                    continue;
+                SelectedModelLoader = ModelLoader.Unet;
+                SelectedUnetModel = SelectedModel;
+                SelectedModel = null;
+        
+                // Enable required settings for Z-Image
+                if (!IsVaeSelectionEnabled)
+                    IsVaeSelectionEnabled = true;
+        
+                if (!IsClipModelSelectionEnabled)
+                    IsClipModelSelectionEnabled = true;
+            }
+        
+            if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
+            {
+                SetupDefaultModelLoader(e);
+            }
+            else // UNET/GGUF UNET workflow
+            {
+                SetupStandaloneModelLoader(e);
+            }
 
-                var clipSetLastLayer = e.Nodes.AddTypedNode(
-                    new ComfyNodeBuilder.CLIPSetLastLayer
-                    {
-                        Name = $"CLIP_Skip_{modelName}",
-                        Clip = modelClip,
-                        // Need to convert to negative indexing from (1 to 24) to (-1 to -24)
-                        StopAtClipLayer = -ClipSkip,
-                    }
-                );
+            // Clip skip all models if enabled
+            if (IsClipSkipEnabled)
+            {
+                foreach (var (modelName, model) in e.Builder.Connections.Models)
+                {
+                    if (model.Clip is not { } modelClip)
+                        continue;
 
-                model.Clip = clipSetLastLayer.Output;
+                    var clipSetLastLayer = e.Nodes.AddTypedNode(
+                        new ComfyNodeBuilder.CLIPSetLastLayer
+                        {
+                            Name = $"CLIP_Skip_{modelName}",
+                            Clip = modelClip,
+                            // Need to convert to negative indexing from (1 to 24) to (-1 to -24)
+                            StopAtClipLayer = -ClipSkip,
+                        }
+                    );
+
+                    model.Clip = clipSetLastLayer.Output;
+                }
+            }
+
+            // Load extra networks if enabled
+            if (IsExtraNetworksEnabled)
+            {
+                ExtraNetworksStackCardViewModel.ApplyStep(e);
             }
         }
-
-        // Load extra networks if enabled
-        if (IsExtraNetworksEnabled)
-        {
-            ExtraNetworksStackCardViewModel.ApplyStep(e);
-        }
-    }
-
     /// <inheritdoc />
     public override JsonObject SaveStateToJsonObject()
     {
