@@ -358,22 +358,18 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
         // Get model names (checkpoints)
         if (await Client.GetModelNamesAsync() is { } modelNames)
         {
-            var remoteModels = modelNames.Select(HybridModelFile.FromRemote).ToList();
+            var remoteModels = modelNames.Select(HybridModelFile.FromRemote);
     
-            // Also add Z-Image diffusion models that ComfyUI sees as UNet models
-            if (await Client.GetNodeOptionNamesAsync("UNETLoader", "unet_name") is { } unetNamesForCheckpoints)
-            {
-                // Add Z-Image models from UNet loader to checkpoints list
-                var zimageModels = unetNamesForCheckpoints
-                    .Where(name => name.Contains("z_image", StringComparison.OrdinalIgnoreCase) || 
-                          name.Contains("zimage", StringComparison.OrdinalIgnoreCase))
-                    .Select(HybridModelFile.FromRemote)
-                    .Where(m => !remoteModels.Any(r => r.RelativePath == m.RelativePath));
-        
-                remoteModels.AddRange(zimageModels);
-            }
+            // Get current local Z-Image models
+            var localZImageModels = modelIndexService
+                .FindByModelType(SharedFolderType.DiffusionModels)
+                .Where(m => m.RelativePath.IsZImageModel())
+                .Select(HybridModelFile.FromLocal);
     
-            modelsSource.EditDiff(remoteModels, HybridModelFile.RemoteLocalComparer);
+            // Merge remote checkpoints with local Z-Image models
+            var allModels = remoteModels.Concat(localZImageModels);
+    
+            modelsSource.EditDiff(allModels, HybridModelFile.RemoteLocalComparer);
         }
         // Get control net model names
         if (
