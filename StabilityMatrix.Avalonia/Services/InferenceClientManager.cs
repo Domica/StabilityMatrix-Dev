@@ -361,10 +361,10 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
             var remoteModels = modelNames.Select(HybridModelFile.FromRemote).ToList();
     
             // Also add Z-Image diffusion models that ComfyUI sees as UNet models
-            if (await Client.GetNodeOptionNamesAsync("UNETLoader", "unet_name") is { } unetModelNames)
+            if (await Client.GetNodeOptionNamesAsync("UNETLoader", "unet_name") is { } unetNamesForCheckpoints)
             {
                 // Add Z-Image models from UNet loader to checkpoints list
-                var zimageModels = unetModelNames
+                var zimageModels = unetNamesForCheckpoints
                     .Where(name => name.Contains("z_image", StringComparison.OrdinalIgnoreCase) || 
                           name.Contains("zimage", StringComparison.OrdinalIgnoreCase))
                     .Select(HybridModelFile.FromRemote)
@@ -373,8 +373,8 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
                 remoteModels.AddRange(zimageModels);
             }
     
-    modelsSource.EditDiff(remoteModels, HybridModelFile.RemoteLocalComparer);
-}
+            modelsSource.EditDiff(remoteModels, HybridModelFile.RemoteLocalComparer);
+        }
         // Get control net model names
         if (
             await Client.GetNodeOptionNamesAsync("ControlNetLoader", "control_net_name") is
