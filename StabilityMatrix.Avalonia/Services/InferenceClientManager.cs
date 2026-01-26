@@ -26,6 +26,7 @@ using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.FileInterfaces;
 using StabilityMatrix.Core.Models.Packages;
 using StabilityMatrix.Core.Services;
+using StabilityMatrix.Core.Models.FileInterfaces;
 
 namespace StabilityMatrix.Avalonia.Services;
 
@@ -542,7 +543,7 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
                 .Where(m => 
                     // Include all StableDiffusion models
                     m.SharedFolderType == SharedFolderType.StableDiffusion ||
-                    // For DiffusionModels, only include Z-Image (not Wan models)
+                    // For DiffusionModels, only include Z-Image compatible models
                     (m.SharedFolderType == SharedFolderType.DiffusionModels && 
                      m.RelativePath.IsZImageModel()))
                 .Select(HybridModelFile.FromLocal),
