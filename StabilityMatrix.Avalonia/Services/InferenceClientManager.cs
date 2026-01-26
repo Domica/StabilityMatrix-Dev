@@ -355,24 +355,26 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
     {
         EnsureConnected();
 
-        // Get model names (checkpoints + diffusion models)
+        // Get model names (checkpoints)
         if (await Client.GetModelNamesAsync() is { } modelNames)
         {
-            var allModels = modelNames.Select(HybridModelFile.FromRemote);
+            var remoteModels = modelNames.Select(HybridModelFile.FromRemote).ToList();
     
-            // Also get diffusion models from UnetLoader if they're checkpoints
-            if (await Client.GetNodeOptionNamesAsync("UNETLoader", "unet_name") is { } unetNames)
+            // Also add Z-Image diffusion models that ComfyUI sees as UNet models
+            if (await Client.GetNodeOptionNamesAsync("UNETLoader", "unet_name") is { } unetModelNames)
             {
-                // Merge both lists, filter duplicates
-                var unetAsCheckpoints = unetNames
+                // Add Z-Image models from UNet loader to checkpoints list
+                var zimageModels = unetModelNames
+                    .Where(name => name.Contains("z_image", StringComparison.OrdinalIgnoreCase) || 
+                          name.Contains("zimage", StringComparison.OrdinalIgnoreCase))
                     .Select(HybridModelFile.FromRemote)
-                    .Where(m => !modelNames.Contains(m.RelativePath));
+                    .Where(m => !remoteModels.Any(r => r.RelativePath == m.RelativePath));
         
-                allModels = allModels.Concat(unetAsCheckpoints);
+                remoteModels.AddRange(zimageModels);
             }
     
-            modelsSource.EditDiff(allModels, HybridModelFile.RemoteLocalComparer);
-        }
+    modelsSource.EditDiff(remoteModels, HybridModelFile.RemoteLocalComparer);
+}
         // Get control net model names
         if (
             await Client.GetNodeOptionNamesAsync("ControlNetLoader", "control_net_name") is
