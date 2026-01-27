@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StabilityMatrix.Core.Extensions;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api;
+using StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
 namespace StabilityMatrix.Avalonia.Helpers;
 
@@ -29,4 +30,10 @@ public static class EnumHelpers
 
     public static IEnumerable<CivitBaseModelType> MetadataEditorCivitBaseModelTypes { get; } =
         AllCivitBaseModelTypes.Where(x => x != CivitBaseModelType.All);
+
+    // ---------------------------------------
+    // NEW: VideoFormat enum values for AXAML
+    // ---------------------------------------
+    public static IEnumerable<VideoFormat> AllVideoFormats { get; } =
+        Enum.GetValues(typeof(VideoFormat)).Cast<VideoFormat>();
 }
