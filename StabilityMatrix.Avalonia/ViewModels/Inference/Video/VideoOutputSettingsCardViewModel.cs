@@ -9,7 +9,7 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
-using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;   // ← OVO JE KLJUČNO (NodeTypes, NE Nodes!)
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
@@ -158,7 +158,7 @@ public partial class VideoOutputSettingsCardViewModel
         // MP4 EXPORT (new behavior)
         // -----------------------------
         var mp4Step = e.Nodes.AddTypedNode(
-            new SaveAnimatedMP4
+            new SaveAnimatedMP4   // ← sada je NodeTypes.SaveAnimatedMP4
             {
                 Name = e.Nodes.GetUniqueName("SaveAnimatedMP4"),
                 Images = image,
