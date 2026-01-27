@@ -13,12 +13,6 @@ namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 public record SaveAnimatedMP4 : ComfyTypedNodeBase
 {
     /// <summary>
-    /// Unique node name used by ComfyUI.
-    /// Required by ComfyTypedNodeBase.
-    /// </summary>
-    public required string Name { get; init; }
-
-    /// <summary>
     /// Input frames for the animation.
     /// </summary>
     public required object Images { get; init; }
