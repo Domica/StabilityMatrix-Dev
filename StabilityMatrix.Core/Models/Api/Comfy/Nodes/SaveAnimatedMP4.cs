@@ -1,80 +1,41 @@
-using StabilityMatrix.Core.Models.Api.Comfy;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 /// <summary>
-/// Comfy node wrapper for exporting an animation as MP4.
-/// This mirrors the structure of SaveAnimatedWEBP but exposes MP4‑specific parameters.
+/// Typed-node wrapper for MP4 video export.
+/// Mirrors SaveAnimatedWEBP but exposes MP4-specific parameters.
 /// </summary>
-public sealed class SaveAnimatedMP4 : ComfyNode
+public record SaveAnimatedMP4 : ComfyTypedNodeBase
 {
     /// <summary>
-    /// The Comfy node type identifier.
-    /// IMPORTANT:
-    /// Replace this with the actual node type used by your Comfy backend.
-    /// Examples:
-    ///   "FFMPEG_Video"
-    ///   "SaveAnimatedMP4"
-    ///   "save_video"
-    /// </summary>
-    public override string Type => "SaveAnimatedMP4";
-
-    /// <summary>
-    /// Display title for debugging or UI purposes.
-    /// </summary>
-    public override string Title => "Save Animated MP4";
-
-    /// <summary>
     /// Input frames (images) from the video pipeline.
-    /// This matches the "images" input of SaveAnimatedWEBP.
     /// </summary>
-    public required ComfyValue Images { get; init; }
+    public required ImageNodeConnection Images { get; init; }
 
     /// <summary>
-    /// Output video framerate.
+    /// Output filename prefix (without extension).
     /// </summary>
-    public double Fps { get; init; } = 16.0d;
+    public required string FilenamePrefix { get; init; }
 
     /// <summary>
-    /// CRF quality value (lower = higher quality, higher bitrate).
+    /// Output framerate.
+    /// </summary>
+    public required double Fps { get; init; }
+
+    /// <summary>
+    /// CRF quality value (lower = higher quality).
     /// Typical range: 18–28.
     /// </summary>
-    public int Crf { get; init; } = 18;
+    public required int Crf { get; init; }
 
     /// <summary>
-    /// Video codec to use.
-    /// Common values:
-    ///   "libx264"
-    ///   "libx265"
+    /// Video codec (e.g. "libx264", "libx265").
     /// </summary>
-    public string Codec { get; init; } = "libx264";
+    public required string Codec { get; init; }
 
     /// <summary>
-    /// Output container format.
-    /// Usually "mp4".
+    /// Container format (e.g. "mp4").
     /// </summary>
-    public string Container { get; init; } = "mp4";
-
-    /// <summary>
-    /// Filename prefix for the exported video.
-    /// </summary>
-    public string FilenamePrefix { get; init; } = "InferenceVideo";
-
-    /// <summary>
-    /// Builds the dictionary payload sent to the Comfy backend.
-    /// Keys must match the input names expected by the actual Comfy node.
-    /// </summary>
-    public override IDictionary<string, object?> ToComfyNode()
-    {
-        var dict = base.ToComfyNode();
-
-        dict["images"] = Images;
-        dict["fps"] = Fps;
-        dict["crf"] = Crf;
-        dict["codec"] = Codec;
-        dict["container"] = Container;
-        dict["filename_prefix"] = FilenamePrefix;
-
-        return dict;
-    }
+    public required string Container { get; init; }
 }
