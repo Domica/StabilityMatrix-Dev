@@ -1,31 +1,15 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 /// <summary>
-/// UI‑visible MP4 animation export node.
-/// Mirrors the structure of other NamedComfyNode‑based output nodes.
+/// Data model for MP4 video export.
+/// This is a pure JSON‑serializable schema used by the ComfyUI prompt builder.
+/// It contains no UI logic, no typed connections, and no base‑class behavior.
 /// </summary>
-[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
-public record SaveAnimatedMP4 : NamedComfyNode
+public record SaveAnimatedMP4
 {
     /// <summary>
-    /// Node display name used by the UI and workflow builder.
-    /// Hides the base property to provide a fixed, explicit identifier.
-    /// </summary>
-    public new string Name { get; set; } = "SaveAnimatedMP4";
-
-    /// <summary>
-    /// Required constructor — NamedComfyNode enforces explicit naming.
-    /// Ensures the node is registered with the correct class_type.
-    /// </summary>
-    public SaveAnimatedMP4() : base("SaveAnimatedMP4")
-    {
-    }
-
-    /// <summary>
     /// Input frames for the animation.
-    /// The SMX Comfy generator will assign the correct connection type.
+    /// The SMX Comfy generator will automatically assign the correct connection type.
     /// </summary>
     public required object Images { get; init; }
 
@@ -36,6 +20,7 @@ public record SaveAnimatedMP4 : NamedComfyNode
 
     /// <summary>
     /// Output framerate (frames per second).
+    /// Matches the behavior of other animation‑related nodes.
     /// </summary>
     public required double Fps { get; init; }
 
@@ -47,11 +32,13 @@ public record SaveAnimatedMP4 : NamedComfyNode
 
     /// <summary>
     /// Video codec (e.g. libx264, libx265).
+    /// Passed directly to the ComfyUI backend.
     /// </summary>
     public required string Codec { get; init; }
 
     /// <summary>
     /// Container format (e.g. mp4, mkv).
+    /// Determines the output file extension.
     /// </summary>
     public required string Container { get; init; }
 }
