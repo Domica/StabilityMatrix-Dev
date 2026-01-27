@@ -439,7 +439,14 @@ public class ComfyNodeBuilder
         /// </summary>
         public required string Type { get; init; }
     }
-
+    /// <summary>
+    /// CLIP Loader for GGUF format models
+    /// </summary>
+    public record CLIPLoaderGGUF : ComfyTypedNodeBase<ClipNodeConnection>
+        {
+        public required string ClipName { get; init; }
+        public string Type { get; init; } = "sd3";
+        }
     public record TripleCLIPLoader : ComfyTypedNodeBase<ClipNodeConnection>
     {
         public required string ClipName1 { get; init; }
