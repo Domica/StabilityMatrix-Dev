@@ -1,19 +1,17 @@
-using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 /// <summary>
-/// Typed-node wrapper for MP4 video export.
-/// Mirrors SaveAnimatedWEBP but exposes MP4-specific parameters.
+/// Data model for MP4 video export.
+/// Mirrors SaveAnimatedWEBP but exposes MP4‑specific parameters.
+/// This class is a pure data container (no typed connections).
 /// </summary>
-[ComfyNode("SaveAnimatedMP4")]
-public record SaveAnimatedMP4 : ComfyTypedNodeBase<ImageNodeConnection>
+public record SaveAnimatedMP4
 {
     /// <summary>
-    /// Input frames (images) from the video pipeline.
+    /// Input frames for the animation.
+    /// SMX generator will assign the correct connection type.
     /// </summary>
-    public required List<LatentNodeConnection> Images { get; init; }
+    public required List<object> Images { get; init; }
 
     /// <summary>
     /// Output filename prefix (without extension).
@@ -21,18 +19,18 @@ public record SaveAnimatedMP4 : ComfyTypedNodeBase<ImageNodeConnection>
     public required string FilenamePrefix { get; init; }
 
     /// <summary>
-    /// Output framerate.
+    /// Output framerate (frames per second).
     /// </summary>
     public required int Fps { get; init; }
 
     /// <summary>
-    /// CRF quality value (lower is higher quality).
+    /// CRF quality value (lower = higher quality).
     /// Typical range: 18–28.
     /// </summary>
     public required int Crf { get; init; }
 
     /// <summary>
-    /// Codec name (e.g. libx264, libx265).
+    /// Video codec (e.g. libx264, libx265).
     /// </summary>
     public required string Codec { get; init; }
 
