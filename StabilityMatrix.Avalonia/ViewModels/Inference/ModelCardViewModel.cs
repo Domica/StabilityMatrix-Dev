@@ -199,31 +199,58 @@ public partial class ModelCardViewModel(
             /// <inheritdoc />
         public virtual void ApplyStep(ModuleApplyStepEventArgs e)
         {
-            // Auto-detect Z-Image and switch to Unet loader
-            if (SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels &&
-                SelectedModel.RelativePath.IsZImageModel())
-            {
-                SelectedModelLoader = ModelLoader.Unet;
-                SelectedUnetModel = SelectedModel;
-                SelectedModel = null;
+        // Auto-detect Z-Image and switch to Unet loader
+        if (SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels &&
+            SelectedModel.RelativePath.IsZImageModel())
+        {
+            SelectedModelLoader = ModelLoader.Unet;
+            SelectedUnetModel = SelectedModel;
+            SelectedModel = null;
         
-                // Enable required settings for Z-Image
-                if (!IsVaeSelectionEnabled)
-                    IsVaeSelectionEnabled = true;
+        // Enable required settings for Z-Image
+        if (!IsVaeSelectionEnabled)
+            IsVaeSelectionEnabled = true;
         
-                if (!IsClipModelSelectionEnabled)
-                    IsClipModelSelectionEnabled = true;
-            }
+        if (!IsClipModelSelectionEnabled)
+            IsClipModelSelectionEnabled = true;
         
-            if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
-            {
-                SetupDefaultModelLoader(e);
-            }
-            else // UNET/GGUF UNET workflow
-            {
-                SetupStandaloneModelLoader(e);
-            }
+        // Set CLIP type to sd3 (works with single CLIP)
+        if (string.IsNullOrEmpty(SelectedClipType))
+            SelectedClipType = "sd3";
+        
+        // Auto-select Qwen CLIP if available and not already selected
+        if (SelectedClip1 == null || SelectedClip1.IsNone)
+        {
+            var qwenClip = ClientManager.ClipModels.FirstOrDefault(c => 
+                c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase) ||
+                c.RelativePath.Contains("Qwen", StringComparison.Ordinal));
+            
+            if (qwenClip != null)
+                SelectedClip1 = qwenClip;
+        }
+        
+        // Auto-select Z-Image VAE if available and not already selected
+        if (SelectedVae == null || SelectedVae.IsDefault)
+        {
+            var zimageVae = ClientManager.VaeModels.FirstOrDefault(v => 
+                v.RelativePath.Contains("z_ae", StringComparison.OrdinalIgnoreCase) ||
+                v.RelativePath.Contains("ae.safetensors", StringComparison.OrdinalIgnoreCase));
+            
+            if (zimageVae != null)
+                SelectedVae = zimageVae;
+        }
+    }
 
+    if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
+    {
+        SetupDefaultModelLoader(e);
+    }
+    else // UNET/GGUF UNET workflow
+    {
+        SetupStandaloneModelLoader(e);
+    }
+
+    // ... rest of the method stays the same
             // Clip skip all models if enabled
             if (IsClipSkipEnabled)
             {
