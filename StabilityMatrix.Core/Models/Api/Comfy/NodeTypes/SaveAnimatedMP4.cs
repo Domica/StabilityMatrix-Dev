@@ -16,7 +16,7 @@ public record SaveAnimatedMP4 : ComfyTypedNodeBase
     /// Unique node name used by ComfyUI.
     /// Required by ComfyTypedNodeBase.
     /// </summary>
-    public override required string Name { get; init; }
+    public required string Name { get; init; }
 
     /// <summary>
     /// Input frames for the animation.
