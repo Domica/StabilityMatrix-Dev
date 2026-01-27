@@ -1,11 +1,9 @@
-using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-
-namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
-
-[TypedNodeOptions(Name = "SaveAnimatedWEBP")]
-public record SaveAnimatedWEBP : ComfyTypedNodeBase
+public record SaveAnimatedWEBP : NamedComfyNode
 {
+    public new string Name { get; set; } = "SaveAnimatedWEBP";
+
+    public SaveAnimatedWEBP() : base("SaveAnimatedWEBP") { }
+
     public required object Images { get; init; }
     public required string FilenamePrefix { get; init; }
     public required double Fps { get; init; }
