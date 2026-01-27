@@ -9,7 +9,7 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes; // ← VAŽNO: Nodes, ne NodeTypes
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
@@ -42,6 +42,7 @@ public partial class VideoOutputSettingsCardViewModel
     [ObservableProperty]
     private List<VideoOutputMethod> availableMethods = Enum.GetValues<VideoOutputMethod>().ToList();
 
+    // MP4 / video fields
     [ObservableProperty]
     private VideoFormat format = VideoFormat.WebP;
 
@@ -117,12 +118,12 @@ public partial class VideoOutputSettingsCardViewModel
         );
 
         // -----------------------------
-        // WEBP EXPORT
+        // WEBP EXPORT (postojeće ponašanje)
         // -----------------------------
         if (Format == VideoFormat.WebP)
         {
             var outputStep = e.Nodes.AddTypedNode(
-                new SaveAnimatedWEBP   // ← ISPRAVNO: više nema ComfyNodeBuilder.
+                new ComfyNodeBuilder.SaveAnimatedWEBP
                 {
                     Name = e.Nodes.GetUniqueName("SaveAnimatedWEBP"),
                     Images = image,
@@ -139,7 +140,7 @@ public partial class VideoOutputSettingsCardViewModel
         }
 
         // -----------------------------
-        // MP4 EXPORT
+        // MP4 EXPORT (novo ponašanje)
         // -----------------------------
         var mp4Step = e.Nodes.AddTypedNode(
             new SaveAnimatedMP4
