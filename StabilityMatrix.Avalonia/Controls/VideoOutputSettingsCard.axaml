@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StabilityMatrix.Avalonia.Controls"
         x:DataType="video:VideoOutputSettingsCardViewModel"
@@ -6,6 +6,7 @@
         xmlns:video="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference.Video"
         xmlns:controls1="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
         xmlns:lang="clr-namespace:StabilityMatrix.Avalonia.Languages">
+
     <Design.PreviewWith>
         <Grid MinWidth="400">
             <controls:VideoOutputSettingsCard
@@ -14,12 +15,15 @@
     </Design.PreviewWith>
 
     <Style Selector="controls|VideoOutputSettingsCard">
-        <!-- Set Defaults -->
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="Template">
             <ControlTemplate>
                 <controls:Card Padding="8" HorizontalAlignment="{TemplateBinding HorizontalAlignment}">
-                    <Grid Margin="4" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="Auto, *">
+                    <Grid Margin="4"
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                          ColumnDefinitions="Auto, *">
+
+                        <!-- Title -->
                         <TextBlock 
                             Grid.Row="0"
                             Grid.Column="0"
@@ -27,8 +31,9 @@
                             Text="Video Output Settings"
                             FontSize="16"
                             FontWeight="DemiBold"
-                            Margin="0,0,0,16"
-                            />
+                            Margin="0,0,0,16" />
+
+                        <!-- FPS -->
                         <TextBlock
                             Grid.Row="1"
                             Grid.Column="0"
@@ -46,50 +51,131 @@
                             HorizontalAlignment="Stretch"
                             SpinButtonPlacementMode="Inline" />
 
+                        <!-- Format -->
                         <TextBlock
                             Grid.Row="2"
                             Grid.Column="0"
                             Margin="0,8,8,0"
                             VerticalAlignment="Center"
-                            Text="{x:Static lang:Resources.Label_Lossless}" />
-                        <CheckBox
-                            Grid.Row="2"
-                            Grid.Column="1"
-                            IsChecked="{Binding Lossless}"
-                            Margin="8,8,0,0"
-                            HorizontalAlignment="Stretch" />
-
-                        <TextBlock
-                            Grid.Row="3"
-                            Grid.Column="0"
-                            Margin="0,8,8,0"
-                            VerticalAlignment="Center"
-                            Text="{x:Static lang:Resources.Label_VideoQuality}" />
-                        <controls1:NumberBox
-                            Margin="8,8,0,0"
-                            Grid.Row="3"
-                            Grid.Column="1"
-                            SelectionHighlightColor="Transparent"
-                            Value="{Binding Quality}"
-                            SimpleNumberFormat="F0"
-                            SmallChange="1"
-                            Maximum="100"
-                            HorizontalAlignment="Stretch"
-                            SpinButtonPlacementMode="Inline" />
-
-                        <TextBlock
-                            Margin="0,8,8,0"
-                            Grid.Row="4"
-                            Grid.Column="0"
-                            VerticalAlignment="Center"
-                            Text="{x:Static lang:Resources.Label_VideoOutputMethod}" />
+                            Text="Format" />
                         <ComboBox
-                            Grid.Row="4"
+                            Grid.Row="2"
                             Grid.Column="1"
                             Margin="8,8,0,0"
-                            MinWidth="100"
-                            ItemsSource="{Binding AvailableMethods}"
-                            SelectedIndex="{Binding SelectedMethod}" />
+                            SelectedItem="{Binding Format}"
+                            Items="{Binding Source={x:Static video:VideoFormat.GetValues}}" />
+
+                        <!-- Lossless (WebP only) -->
+                        <StackPanel Grid.Row="3"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    IsVisible="{Binding Format, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=WebP}">
+                            <TextBlock
+                                Margin="0,8,8,0"
+                                VerticalAlignment="Center"
+                                Text="{x:Static lang:Resources.Label_Lossless}" />
+                            <CheckBox
+                                IsChecked="{Binding Lossless}"
+                                Margin="8,8,0,0"
+                                HorizontalAlignment="Stretch" />
+                        </StackPanel>
+
+                        <!-- WebP Quality -->
+                        <StackPanel Grid.Row="4"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    IsVisible="{Binding Format, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=WebP}">
+                            <TextBlock
+                                Margin="0,8,8,0"
+                                VerticalAlignment="Center"
+                                Text="{x:Static lang:Resources.Label_VideoQuality}" />
+                            <controls1:NumberBox
+                                Margin="8,8,0,0"
+                                SelectionHighlightColor="Transparent"
+                                Value="{Binding Quality}"
+                                SimpleNumberFormat="F0"
+                                SmallChange="1"
+                                Maximum="100"
+                                HorizontalAlignment="Stretch"
+                                SpinButtonPlacementMode="Inline" />
+                        </StackPanel>
+
+                        <!-- MP4 CRF -->
+                        <StackPanel Grid.Row="5"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    IsVisible="{Binding IsMp4}">
+                            <TextBlock
+                                Margin="0,8,8,0"
+                                VerticalAlignment="Center"
+                                Text="CRF" />
+                            <controls1:NumberBox
+                                Margin="8,8,0,0"
+                                Value="{Binding Crf}"
+                                Minimum="0"
+                                Maximum="51"
+                                SimpleNumberFormat="F0"
+                                SpinButtonPlacementMode="Inline" />
+                        </StackPanel>
+
+                        <!-- MP4 Codec -->
+                        <StackPanel Grid.Row="6"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    IsVisible="{Binding IsMp4}">
+                            <TextBlock
+                                Margin="0,8,8,0"
+                                VerticalAlignment="Center"
+                                Text="Codec" />
+                            <ComboBox
+                                Margin="8,8,0,0"
+                                SelectedItem="{Binding Codec}">
+                                <ComboBoxItem Content="libx264" />
+                                <ComboBoxItem Content="libx265" />
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- MP4 Container -->
+                        <StackPanel Grid.Row="7"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    IsVisible="{Binding IsMp4}">
+                            <TextBlock
+                                Margin="0,8,8,0"
+                                VerticalAlignment="Center"
+                                Text="Container" />
+                            <ComboBox
+                                Margin="8,8,0,0"
+                                SelectedItem="{Binding Container}">
+                                <ComboBoxItem Content="mp4" />
+                                <ComboBoxItem Content="mkv" />
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- MP4 Bitrate -->
+                        <StackPanel Grid.Row="8"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    IsVisible="{Binding IsMp4}">
+                            <TextBlock
+                                Margin="0,8,8,0"
+                                VerticalAlignment="Center"
+                                Text="Bitrate (kbps)" />
+                            <controls1:NumberBox
+                                Margin="8,8,0,0"
+                                Value="{Binding Bitrate}"
+                                Minimum="500"
+                                Maximum="50000"
+                                SimpleNumberFormat="F0"
+                                SpinButtonPlacementMode="Inline" />
+                        </StackPanel>
+
                     </Grid>
                 </controls:Card>
             </ControlTemplate>
