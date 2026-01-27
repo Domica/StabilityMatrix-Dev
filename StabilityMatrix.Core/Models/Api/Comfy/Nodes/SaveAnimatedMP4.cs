@@ -1,6 +1,5 @@
 using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models.Api.Comfy.Connections;
-using StabilityMatrix.Core.Models.Api.Comfy.Types;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
