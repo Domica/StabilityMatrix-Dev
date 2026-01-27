@@ -1,13 +1,7 @@
 using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
-/// <summary>
-/// Typed MP4 animation export node.
-/// Inherits from ComfyTypedNodeBase so it can produce a NamedComfyNode
-/// with ClassType and Inputs populated automatically.
-/// </summary>
 [TypedNodeOptions(Name = "SaveAnimatedMP4")]
 public record SaveAnimatedMP4 : ComfyTypedNodeBase
 {
