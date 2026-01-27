@@ -1,7 +1,7 @@
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
-namespace ComfyNodeBuilder;
+namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 [ComfyNode("SaveAnimatedMP4")]
 public record SaveAnimatedMP4 
