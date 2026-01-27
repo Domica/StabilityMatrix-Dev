@@ -529,31 +529,46 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
         }
     }
 
-    /// <summary>
-    /// Clears shared properties and sets them to local defaults
-    /// </summary>
-    protected void ResetSharedProperties()
-    {
-        // Load local models (including Z-Image diffusion models)
-        modelsSource.EditDiff(
-            modelIndexService
+        /// <summary>
+        /// Clears shared properties and sets them to local defaults
+        /// </summary>
+        protected void ResetSharedProperties()
+        {
+            // Load local models (SD checkpoints + Z-Image diffusion models) - DEBUG VERSION
+            var allLocalModels = modelIndexService
                 .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
+                .ToList();
+
+        // DEBUG LOG
+            logger.LogInformation("=== MODEL DISCOVERY DEBUG ===");
+            logger.LogInformation("Found {Count} models total (SD + DiffusionModels)", allLocalModels.Count);
+    
+            foreach (var m in allLocalModels.Where(m => m.SharedFolderType == SharedFolderType.DiffusionModels))
+            {
+                logger.LogInformation("DiffusionModel: {Path}, IsZImage: {IsZImage}", 
+                    m.RelativePath, m.RelativePath.IsZImageModel());
+            }
+
+            var filteredModels = allLocalModels
                 .Where(m => 
-                    // Include all StableDiffusion models
                     m.SharedFolderType == SharedFolderType.StableDiffusion ||
-                    // For DiffusionModels, only include Z-Image compatible models
                     (m.SharedFolderType == SharedFolderType.DiffusionModels && 
                      m.RelativePath.IsZImageModel()))
-                .Select(HybridModelFile.FromLocal),
-            HybridModelFile.Comparer
-        );
+                .ToList();
 
-        // Load local control net models
-        controlNetModelsSource.EditDiff(
-            modelIndexService.FindByModelType(SharedFolderType.ControlNet).Select(HybridModelFile.FromLocal),
-            HybridModelFile.Comparer
-        );
+            logger.LogInformation("After filter: {Count} models for Image Inference", filteredModels.Count);
+            logger.LogInformation("=== END DEBUG ===");
 
+            modelsSource.EditDiff(
+                filteredModels.Select(HybridModelFile.FromLocal),
+                HybridModelFile.Comparer
+            );
+
+            // Load local control net models
+            controlNetModelsSource.EditDiff(
+                modelIndexService.FindByModelType(SharedFolderType.ControlNet).Select(HybridModelFile.FromLocal),
+                HybridModelFile.Comparer
+            );
         // Downloadable ControlNet models
         var downloadableControlNets = RemoteModels.ControlNetModels.Where(u =>
             !controlNetModelsSource.Lookup(u.GetId()).HasValue
