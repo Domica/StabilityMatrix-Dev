@@ -1,12 +1,28 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 /// <summary>
-/// Data model for MP4 video export.
-/// Pure JSON‑serializable schema used by the ComfyUI prompt builder.
-/// Contains no UI logic or typed behavior.
+/// UI‑visible MP4 animation export node.
+/// Mirrors the structure of other NamedComfyNode‑based output nodes.
 /// </summary>
-public record SaveAnimatedMP4
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
+public class SaveAnimatedMP4 : NamedComfyNode
 {
+    /// <summary>
+    /// Node display name used by the UI and workflow builder.
+    /// Overrides the base Name property to provide a fixed identifier.
+    /// </summary>
+    public new string Name { get; set; } = "SaveAnimatedMP4";
+
+    /// <summary>
+    /// Required constructor — NamedComfyNode enforces explicit naming.
+    /// Ensures the node is registered with the correct class_type.
+    /// </summary>
+    public SaveAnimatedMP4() : base("SaveAnimatedMP4")
+    {
+    }
+
     /// <summary>
     /// Input frames for the animation.
     /// </summary>
