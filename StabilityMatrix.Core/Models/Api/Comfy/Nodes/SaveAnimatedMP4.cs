@@ -4,8 +4,14 @@ namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 /// Data model for MP4 video export.
 /// Mirrors SaveAnimatedWEBP but exposes MP4‑specific parameters.
 /// </summary>
-public record SaveAnimatedMP4
+public record SaveAnimatedMP4 : NamedComfyNode
 {
+    /// <summary>
+    /// Node name used by UI and workflow builder.
+    /// Must match the ComfyUI class_type.
+    /// </summary>
+    public static string Name => "SaveAnimatedMP4";
+
     /// <summary>
     /// Input frames for the animation.
     /// SMX generator will assign the correct connection type.
