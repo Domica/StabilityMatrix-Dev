@@ -64,7 +64,7 @@
                             Grid.Column="1"
                             Margin="8,8,0,0"
                             SelectedItem="{Binding Format}"
-                            Items="{x:Static helpers:EnumHelpers.AllVideoFormats}"
+                            ItemsSource="{x:Static helpers:EnumHelpers.AllVideoFormats}"
                             DisplayMemberBinding="{Binding .}" />
 
                         <!-- Lossless (WebP only) -->
