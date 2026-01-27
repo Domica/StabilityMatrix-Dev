@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Extensions;
 using StabilityMatrix.Avalonia.Models;
@@ -118,7 +118,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
         applyArgs.InvokeAllPreOutputActions();
 
-        // Animated webp output
+        // Animated webp / video output
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
     }
 
