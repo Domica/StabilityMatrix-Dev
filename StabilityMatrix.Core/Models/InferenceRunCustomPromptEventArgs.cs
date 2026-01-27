@@ -1,4 +1,4 @@
-﻿using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 namespace StabilityMatrix.Core.Models;
 
@@ -10,5 +10,5 @@ public class InferenceQueueCustomPromptEventArgs : EventArgs
 
     public long? SeedOverride { get; init; }
 
-    public List<(string SourcePath, string DestinationRelativePath)> FilesToTransfer { get; init; } = [];
+    public List<(string SourcePath, string DestinationRelativePath)> FilesToTransfer { get; init; } = new();
 }
