@@ -4,7 +4,7 @@ namespace StabilityMatrix.Core.Models;
 
 public class InferenceQueueCustomPromptEventArgs : EventArgs
 {
-    public ComfyNodeBuilder.Builder Builder { get; } = new();
+    public ComfyNodeBuilder Builder { get; } = new();
 
     public NodeDictionary Nodes => Builder.Nodes;
 
