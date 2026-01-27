@@ -9,7 +9,7 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;   // ← OVO JE KLJUČNO (NodeTypes, NE Nodes!)
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
@@ -27,7 +27,6 @@ public partial class VideoOutputSettingsCardViewModel
         IParametersLoadableState,
         IComfyStep
 {
-    // Existing fields
     [ObservableProperty]
     private double fps = 6;
 
@@ -43,9 +42,6 @@ public partial class VideoOutputSettingsCardViewModel
     [ObservableProperty]
     private List<VideoOutputMethod> availableMethods = Enum.GetValues<VideoOutputMethod>().ToList();
 
-    // -----------------------------
-    // NEW MP4 FIELDS
-    // -----------------------------
     [ObservableProperty]
     private VideoFormat format = VideoFormat.WebP;
 
@@ -63,16 +59,12 @@ public partial class VideoOutputSettingsCardViewModel
 
     public bool IsMp4 => Format == VideoFormat.Mp4;
 
-    // -----------------------------
-    // LOAD PARAMETERS
-    // -----------------------------
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
         Fps = parameters.OutputFps;
         Lossless = parameters.Lossless;
         Quality = parameters.VideoQuality;
 
-        // Load format
         if (!string.IsNullOrWhiteSpace(parameters.VideoFormat) &&
             Enum.TryParse(parameters.VideoFormat, true, out VideoFormat fmt))
         {
@@ -92,9 +84,6 @@ public partial class VideoOutputSettingsCardViewModel
         }
     }
 
-    // -----------------------------
-    // SAVE PARAMETERS
-    // -----------------------------
     public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
     {
         return parameters with
@@ -103,8 +92,6 @@ public partial class VideoOutputSettingsCardViewModel
             Lossless = Lossless,
             VideoQuality = Quality,
             VideoOutputMethod = SelectedMethod.ToString(),
-
-            // MP4 fields
             VideoFormat = Format.ToString(),
             VideoCrf = Crf,
             VideoCodec = Codec,
@@ -113,9 +100,6 @@ public partial class VideoOutputSettingsCardViewModel
         };
     }
 
-    // -----------------------------
-    // APPLY STEP (COMFY NODE)
-    // -----------------------------
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
         if (e.Builder.Connections.Primary is null)
@@ -133,12 +117,12 @@ public partial class VideoOutputSettingsCardViewModel
         );
 
         // -----------------------------
-        // WEBP EXPORT (existing behavior)
+        // WEBP EXPORT
         // -----------------------------
         if (Format == VideoFormat.WebP)
         {
             var outputStep = e.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.SaveAnimatedWEBP
+                new SaveAnimatedWEBP   // ← ISPRAVNO: više nema ComfyNodeBuilder.
                 {
                     Name = e.Nodes.GetUniqueName("SaveAnimatedWEBP"),
                     Images = image,
@@ -155,10 +139,10 @@ public partial class VideoOutputSettingsCardViewModel
         }
 
         // -----------------------------
-        // MP4 EXPORT (new behavior)
+        // MP4 EXPORT
         // -----------------------------
         var mp4Step = e.Nodes.AddTypedNode(
-            new SaveAnimatedMP4   // ← sada je NodeTypes.SaveAnimatedMP4
+            new SaveAnimatedMP4
             {
                 Name = e.Nodes.GetUniqueName("SaveAnimatedMP4"),
                 Images = image,
