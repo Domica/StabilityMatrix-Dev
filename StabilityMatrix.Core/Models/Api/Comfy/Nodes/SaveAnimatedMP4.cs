@@ -1,5 +1,6 @@
 using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
+using StabilityMatrix.Core.Models.Api.Comfy.Connections;
+using StabilityMatrix.Core.Models.Api.Comfy.Types;
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
@@ -7,13 +8,13 @@ namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 /// Typed-node wrapper for MP4 video export.
 /// Mirrors SaveAnimatedWEBP but exposes MP4-specific parameters.
 /// </summary>
-[ComfyNode("SaveAnimatedMP4")] // Registers node as Comfy class_type
-public record SaveAnimatedMP4 : ComfyTypedNodeBase
+[ComfyNode("SaveAnimatedMP4")]
+public record SaveAnimatedMP4 : ComfyTypedNodeBase<ImageNodeConnection>
 {
     /// <summary>
     /// Input frames (images) from the video pipeline.
     /// </summary>
-    public required ImageNodeConnection Images { get; init; }
+    public required List<LatentNodeConnection> Images { get; init; }
 
     /// <summary>
     /// Output filename prefix (without extension).
@@ -23,21 +24,21 @@ public record SaveAnimatedMP4 : ComfyTypedNodeBase
     /// <summary>
     /// Output framerate.
     /// </summary>
-    public required double Fps { get; init; }
+    public required int Fps { get; init; }
 
     /// <summary>
-    /// CRF quality value (lower = higher quality).
+    /// CRF quality value (lower is higher quality).
     /// Typical range: 18–28.
     /// </summary>
     public required int Crf { get; init; }
 
     /// <summary>
-    /// Video codec (e.g. "libx264", "libx265").
+    /// Codec name (e.g. libx264, libx265).
     /// </summary>
     public required string Codec { get; init; }
 
     /// <summary>
-    /// Container format (e.g. "mp4").
+    /// Container format (e.g. mp4, mkv).
     /// </summary>
     public required string Container { get; init; }
 }
