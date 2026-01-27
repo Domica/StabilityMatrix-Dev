@@ -1,4 +1,5 @@
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes;  
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
