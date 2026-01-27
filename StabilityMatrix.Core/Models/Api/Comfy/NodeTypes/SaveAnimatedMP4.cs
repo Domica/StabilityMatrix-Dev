@@ -4,25 +4,21 @@ using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 /// <summary>
-/// Typed wrapper for MP4 animation export.
-/// Provides class_type, input mapping and typed node behavior.
+/// Typed wrapper for the MP4 animation export node.
+/// This class connects the plain data model to the Comfy node registry
+/// by providing the class_type and input key metadata via the ComfyNode attribute.
 /// </summary>
-[ComfyNode("SaveAnimatedMP4")]
-public record SaveAnimatedMP4
-    : ComfyTypedNodeBase<global::StabilityMatrix.Core.Models.Api.Comfy.Nodes.SaveAnimatedMP4>
-{
-    public SaveAnimatedMP4()
+[ComfyNode(
+    ClassType = "SaveAnimatedMP4",
+    Inputs = new[]
     {
-        ClassType = "SaveAnimatedMP4";
-
-        Inputs = new()
-        {
-            ["images"] = default!,
-            ["filename_prefix"] = default!,
-            ["fps"] = default!,
-            ["crf"] = default!,
-            ["codec"] = default!,
-            ["container"] = default!
-        };
+        "images",
+        "filename_prefix",
+        "fps",
+        "crf",
+        "codec",
+        "container"
     }
-}
+)]
+public record SaveAnimatedMP4
+    : global::StabilityMatrix.Core.Models.Api.Comfy.Nodes.SaveAnimatedMP4;
