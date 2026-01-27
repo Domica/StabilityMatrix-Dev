@@ -4,11 +4,10 @@ namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 /// <summary>
 /// UI‑visible MP4 animation export node.
-/// Mirrors the structure of other NamedComfyNode‑based output nodes,
-/// providing a strongly‑typed model for workflow construction.
+/// Mirrors the structure of other NamedComfyNode‑based output nodes.
 /// </summary>
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
-public class SaveAnimatedMP4 : NamedComfyNode
+public record SaveAnimatedMP4 : NamedComfyNode
 {
     /// <summary>
     /// Node display name used by the UI and workflow builder.
