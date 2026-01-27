@@ -1,3 +1,4 @@
+using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
@@ -6,6 +7,7 @@ namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 /// Typed-node wrapper for MP4 video export.
 /// Mirrors SaveAnimatedWEBP but exposes MP4-specific parameters.
 /// </summary>
+[ComfyNode("SaveAnimatedMP4")] // Registers node as Comfy class_type
 public record SaveAnimatedMP4 : ComfyTypedNodeBase
 {
     /// <summary>
