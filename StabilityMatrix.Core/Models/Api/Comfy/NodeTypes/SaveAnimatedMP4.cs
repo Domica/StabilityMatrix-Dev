@@ -12,4 +12,5 @@ public record SaveAnimatedMP4 : ComfyTypedNodeBase
     public required int Crf { get; init; }
     public required string Codec { get; init; }
     public required string Container { get; init; }
+    public required int Bitrate { get; init; }
 }
