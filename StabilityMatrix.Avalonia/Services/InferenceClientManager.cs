@@ -534,35 +534,19 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
         /// </summary>
         protected void ResetSharedProperties()
         {
-            // Load local models (SD checkpoints + Z-Image diffusion models) - DEBUG VERSION
-            var allLocalModels = modelIndexService
+        // Load local models (SD checkpoints + Z-Image diffusion models)
+        modelsSource.EditDiff(
+            modelIndexService
                 .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
-                .ToList();
-
-        // DEBUG LOG
-            logger.LogInformation("=== MODEL DISCOVERY DEBUG ===");
-            logger.LogInformation("Found {Count} models total (SD + DiffusionModels)", allLocalModels.Count);
-    
-            foreach (var m in allLocalModels.Where(m => m.SharedFolderType == SharedFolderType.DiffusionModels))
-            {
-                logger.LogInformation("DiffusionModel: {Path}, IsZImage: {IsZImage}", 
-                    m.RelativePath, m.RelativePath.IsZImageModel());
-            }
-
-            var filteredModels = allLocalModels
                 .Where(m => 
+                    // Include all StableDiffusion checkpoints
                     m.SharedFolderType == SharedFolderType.StableDiffusion ||
+                    // For DiffusionModels, only include Z-Image (filter out Wan models)
                     (m.SharedFolderType == SharedFolderType.DiffusionModels && 
                      m.RelativePath.IsZImageModel()))
-                .ToList();
-
-            logger.LogInformation("After filter: {Count} models for Image Inference", filteredModels.Count);
-            logger.LogInformation("=== END DEBUG ===");
-
-            modelsSource.EditDiff(
-                filteredModels.Select(HybridModelFile.FromLocal),
-                HybridModelFile.Comparer
-            );
+                .Select(HybridModelFile.FromLocal),
+            HybridModelFile.Comparer
+        );
 
             // Load local control net models
             controlNetModelsSource.EditDiff(
