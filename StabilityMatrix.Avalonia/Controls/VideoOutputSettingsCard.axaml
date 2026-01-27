@@ -8,6 +8,11 @@
         xmlns:lang="clr-namespace:StabilityMatrix.Avalonia.Languages"
         xmlns:helpers="clr-namespace:StabilityMatrix.Avalonia.Helpers">
 
+    <!-- 🔥 FIX: Add missing converter -->
+    <Styles.Resources>
+        <video:EnumEqualsConverter x:Key="EnumEqualsConverter" />
+    </Styles.Resources>
+
     <Design.PreviewWith>
         <Grid MinWidth="400">
             <controls:VideoOutputSettingsCard
