@@ -560,7 +560,7 @@ public partial class ModelCardViewModel(
         }
         else
         {
-            SetupClipLoaders(e);
+            SetupClipLoadersGGUF(e); //Z-image
         }
     }
 
@@ -702,7 +702,30 @@ public partial class ModelCardViewModel(
             e.Builder.Connections.Base.Clip = clipLoader.Output;
         }
     }
-
+    private void SetupClipLoadersGGUF(ModuleApplyStepEventArgs e)
+    {
+        var isGgufClip = SelectedClip1?.RelativePath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ?? false;
+        
+        if (SelectedClip1 is { IsNone: false })
+        {
+            if (isGgufClip)
+            {
+                var clipLoader = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.CLIPLoaderGGUF
+                    {
+                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoaderGGUF)),
+                        ClipName = SelectedClip1.RelativePath,
+                        Type = SelectedClipType ?? "sd3"
+                    }
+                );
+                e.Builder.Connections.Base.Clip = clipLoader.Output;
+            }
+            else
+            {
+                SetupClipLoaders(e);
+            }
+        }
+    }
     internal class ModelCardModel
     {
         public string? SelectedModelName { get; init; }
