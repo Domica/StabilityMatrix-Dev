@@ -1,14 +1,32 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 /// <summary>
-/// Data model for MP4 video export.
-/// Mirrors other animation output nodes.
+/// UI‑visible MP4 animation export node.
+/// Mirrors the structure of other NamedComfyNode‑based output nodes,
+/// providing a strongly‑typed model for workflow construction.
 /// </summary>
-public record SaveAnimatedMP4
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
+public class SaveAnimatedMP4 : NamedComfyNode
 {
     /// <summary>
+    /// Node display name used by the UI and workflow builder.
+    /// Hides the base property to provide a fixed, explicit identifier.
+    /// </summary>
+    public new string Name { get; set; } = "SaveAnimatedMP4";
+
+    /// <summary>
+    /// Required constructor — NamedComfyNode enforces explicit naming.
+    /// Ensures the node is registered with the correct class_type.
+    /// </summary>
+    public SaveAnimatedMP4() : base("SaveAnimatedMP4")
+    {
+    }
+
+    /// <summary>
     /// Input frames for the animation.
-    /// SMX generator will assign the correct connection type.
+    /// The SMX Comfy generator will assign the correct connection type.
     /// </summary>
     public required object Images { get; init; }
 
