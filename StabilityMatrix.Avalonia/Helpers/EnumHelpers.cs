@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using StabilityMatrix.Core.Extensions;
@@ -23,7 +24,9 @@ public static class EnumHelpers
             .OrderBy(t => t.ToString());
 
     public static IEnumerable<CivitModelType> MetadataEditorCivitModelTypes { get; } =
-        Enum.GetValues(typeof(CivitModelType)).Cast<CivitModelType>().OrderBy(t => t.ToString());
+        Enum.GetValues(typeof(CivitModelType))
+            .Cast<CivitModelType>()
+            .OrderBy(t => t.ToString());
 
     public static IEnumerable<CivitBaseModelType> AllCivitBaseModelTypes { get; } =
         Enum.GetValues(typeof(CivitBaseModelType)).Cast<CivitBaseModelType>();
