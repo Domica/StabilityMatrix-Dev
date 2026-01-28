@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
@@ -58,12 +59,12 @@ public class EnumEqualsConverter : IValueConverter
     /// <param name="targetType">Enum type for conversion</param>
     /// <param name="parameter">Enum value to return if true</param>
     /// <param name="culture">Culture for conversion</param>
-    /// <returns>Enum value if true, otherwise Binding.DoNothing</returns>
+    /// <returns>Enum value if true, otherwise BindingOperations.DoNothing</returns>
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         // If value is not true, don't do anything
         if (!(value is bool boolValue) || !boolValue || parameter == null)
-            return Binding.DoNothing;
+            return BindingOperations.DoNothing;
 
         // If target type is enum, try to parse parameter
         if (targetType.IsEnum)
@@ -81,11 +82,11 @@ public class EnumEqualsConverter : IValueConverter
             }
             catch (ArgumentException)
             {
-                // If parsing fails, return Binding.DoNothing
-                return Binding.DoNothing;
+                // If parsing fails, return BindingOperations.DoNothing
+                return BindingOperations.DoNothing;
             }
         }
 
-        return Binding.DoNothing;
+        return BindingOperations.DoNothing;
     }
 }
