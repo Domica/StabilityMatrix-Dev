@@ -107,7 +107,7 @@ public partial class VideoOutputSettingsCardViewModel
     /// Recommended range: 18–28
     /// </summary>
     [ObservableProperty]
-    private partial int crf;
+    private int crf = 18;
 
     /// <summary>
     /// MP4: Video codec (libx264, libx265)
@@ -125,7 +125,7 @@ public partial class VideoOutputSettingsCardViewModel
     /// MP4: Bitrate in kbps (500–50000)
     /// </summary>
     [ObservableProperty]
-    private partial int bitrate;
+    private int bitrate = 4000;
 
     // ============================================================
     // PARTIAL METHODS FOR CLAMPING
