@@ -1,84 +1,91 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Avalonia.Data;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
 /// <summary>
-/// Enum equality converter for XAML bindings using enum values.
-///
+/// Enum equality converter for XAML binding with enum values.
+/// 
 /// Usage:
 /// <code>
 /// <![CDATA[
-/// <StackPanel IsVisible="{Binding Format,
-///     Converter={StaticResource EnumEqualsConverter},
+/// <StackPanel IsVisible="{Binding Format, 
+///     Converter={StaticResource EnumEqualsConverter}, 
 ///     ConverterParameter=WebP}">
 /// ]]>
 /// </code>
-///
+/// 
 /// Result: True if Format == VideoFormat.WebP
 /// </summary>
 public class EnumEqualsConverter : IValueConverter
 {
     /// <summary>
-    /// Converts an enum value to boolean by comparing it with the parameter.
-    /// Returns true if the values are equal.
+    /// Convert enum value to boolean by comparing with parameter.
+    /// Returns true if values are equal.
     /// </summary>
     /// <param name="value">Enum value (e.g. VideoFormat.WebP)</param>
-    /// <param name="targetType">Target type (usually bool)</param>
-    /// <param name="parameter">Comparison value (e.g. "WebP")</param>
-    /// <param name="culture">Culture info</param>
-    /// <returns>True if values match, otherwise false</returns>
+    /// <param name="targetType">Conversion target type (usually bool)</param>
+    /// <param name="parameter">Value to compare with (e.g. "WebP")</param>
+    /// <param name="culture">Culture for conversion</param>
+    /// <returns>True if values are equal, otherwise False</returns>
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Null check – both value and parameter must be non-null
-        if (value is null || parameter is null)
+        // Null check - both values must be non-null
+        if (value == null || parameter == null)
             return false;
 
-        // Fast path: direct enum comparison (no ToString allocation)
+        // ✅ OPTIMIZATION: Direct comparison without ToString()
+        // This is faster because enum has built-in Equals implementation
         if (value.Equals(parameter))
             return true;
 
-        // Fallback: parameter provided as string (e.g. "WebP")
+        // Fallback: String comparison if parameter is string
+        // This is useful if ConverterParameter is string instead of enum value
         if (value is Enum enumValue && parameter is string strParam)
+        {
             return enumValue.ToString() == strParam;
+        }
 
         return false;
     }
 
     /// <summary>
-    /// Converts a boolean value back to an enum value.
-    /// Enables TwoWay binding scenarios.
+    /// Convert boolean value back to enum value.
+    /// Enables TwoWay binding.
     /// </summary>
     /// <param name="value">Boolean value (true/false)</param>
-    /// <param name="targetType">Target enum type</param>
-    /// <param name="parameter">Enum value to return when true</param>
-    /// <param name="culture">Culture info</param>
-    /// <returns>Enum value when true, otherwise Binding.DoNothing</returns>
+    /// <param name="targetType">Enum type for conversion</param>
+    /// <param name="parameter">Enum value to return if true</param>
+    /// <param name="culture">Culture for conversion</param>
+    /// <returns>Enum value if true, otherwise Binding.DoNothing</returns>
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Only act on true; otherwise leave binding unchanged
-        if (value is not bool boolValue || !boolValue || parameter is null)
-            return BindingOperations.DoNothing;
+        // If value is not true, don't do anything
+        if (!(value is bool boolValue) || !boolValue || parameter == null)
+            return Binding.DoNothing;
 
-        // Target must be an enum
-        if (!targetType.IsEnum)
-            return BindingOperations.DoNothing;
-
-        try
+        // If target type is enum, try to parse parameter
+        if (targetType.IsEnum)
         {
-            // Parameter already matches target enum type
-            if (parameter.GetType() == targetType)
-                return parameter;
+            try
+            {
+                // If parameter is already an enum value, just return it
+                if (parameter.GetType() == targetType)
+                {
+                    return parameter;
+                }
 
-            // Parse enum from string parameter
-            return Enum.Parse(targetType, parameter.ToString()!, ignoreCase: true);
+                // Otherwise try to parse string
+                return Enum.Parse(targetType, parameter.ToString()!);
+            }
+            catch (ArgumentException)
+            {
+                // If parsing fails, return Binding.DoNothing
+                return Binding.DoNothing;
+            }
         }
-        catch
-        {
-            // Parsing failed – do not update binding
-            return BindingOperations.DoNothing;
-        }
+
+        return Binding.DoNothing;
     }
 }
