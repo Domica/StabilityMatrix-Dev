@@ -11,6 +11,7 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
@@ -106,13 +107,8 @@ public partial class VideoOutputSettingsCardViewModel
     /// MP4: Constant Rate Factor - kvaliteta kompresije (0-51)
     /// Preporučeno: 18-28
     /// </summary>
-    private int _crf = 18;
     [ObservableProperty]
-    public int Crf
-    {
-        get => _crf;
-        set => SetProperty(ref _crf, Math.Clamp(value, 0, 51));
-    }
+    private int crf = 18;
 
     /// <summary>
     /// MP4: Video codec (libx264, libx265)
@@ -129,13 +125,8 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// MP4: Bitrate u kbps (500-50000)
     /// </summary>
-    private int _bitrate = 4000;
     [ObservableProperty]
-    public int Bitrate
-    {
-        get => _bitrate;
-        set => SetProperty(ref _bitrate, Math.Clamp(value, 500, 50000));
-    }
+    private int bitrate = 4000;
 
     // ============================================================
     // COMPUTED PROPERTIES
@@ -224,6 +215,46 @@ public partial class VideoOutputSettingsCardViewModel
         {
             Logger.Error(ex, "Failed to save video settings to parameters");
             throw;
+        }
+    }
+
+    // ============================================================
+    // PROPERTY CHANGED HANDLERS - VALIDACIJA
+    // ============================================================
+
+    /// <summary>
+    /// Hvata promjene CRF vrijednosti i validira ih
+    /// </summary>
+    partial void OnCrfChanged(int value)
+    {
+        // Validacija - clamp na 0-51
+        if (value < 0 || value > 51)
+        {
+            Crf = Math.Clamp(value, 0, 51);
+        }
+    }
+
+    /// <summary>
+    /// Hvata promjene Bitrate vrijednosti i validira ih
+    /// </summary>
+    partial void OnBitrateChanged(int value)
+    {
+        // Validacija - clamp na 500-50000
+        if (value < 500 || value > 50000)
+        {
+            Bitrate = Math.Clamp(value, 500, 50000);
+        }
+    }
+
+    /// <summary>
+    /// Hvata promjene FPS vrijednosti i validira ih
+    /// </summary>
+    partial void OnFpsChanged(double value)
+    {
+        // Validacija - clamp na 1-120
+        if (value < 1 || value > 120)
+        {
+            Fps = Math.Clamp(value, 1, 120);
         }
     }
 
