@@ -17,29 +17,29 @@ using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
 /// <summary>
-/// Výstupný formát videa
+/// Video output format
 /// </summary>
 public enum VideoFormat
 {
-    /// <summary>WebP animirana slika - malo manja datoteka, spora kompresija</summary>
+    /// <summary>WebP animated image - smaller file, slower compression</summary>
     WebP = 0,
 
-    /// <summary>MP4 video - bolja kompresija, brža obrada</summary>
+    /// <summary>MP4 video - better compression, faster processing</summary>
     Mp4 = 1
 }
 
 /// <summary>
-/// Metoda kodiranja WebP videa
+/// WebP video encoding method
 /// </summary>
 public enum VideoOutputMethod
 {
-    /// <summary>Uobičajeno kodiranje</summary>
+    /// <summary>Default encoding</summary>
     Default = 0,
 
-    /// <summary>Brže kodiranje (niža kvaliteta)</summary>
+    /// <summary>Faster encoding (lower quality)</summary>
     Fast = 1,
 
-    /// <summary>Sporije kodiranje (viša kvaliteta)</summary>
+    /// <summary>Slow encoding (higher quality)</summary>
     Slow = 2,
 }
 
@@ -157,10 +157,6 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// Load state from GenerationParameters
     /// </summary>
-    // implementation continues...
-}
-
-
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
         try
@@ -169,14 +165,14 @@ public partial class VideoOutputSettingsCardViewModel
             Lossless = parameters.Lossless;
             Quality = Math.Clamp(parameters.VideoQuality, 0, 100);
 
-            // Učitaj format sa fallback-om
+            // Load format with fallback
             if (!string.IsNullOrWhiteSpace(parameters.VideoFormat) &&
                 Enum.TryParse(parameters.VideoFormat, true, out VideoFormat fmt))
             {
                 Format = fmt;
             }
 
-            // MP4 specifične opcije
+            // MP4 specific options
             Crf = Math.Clamp(parameters.VideoCrf, 0, 51);
             Codec = parameters.VideoCodec ?? "libx264";
             Container = parameters.VideoContainer ?? "mp4";
@@ -200,13 +196,13 @@ public partial class VideoOutputSettingsCardViewModel
     }
 
     /// <summary>
-    /// Spremi stanje u GenerationParameters
+    /// Save state to GenerationParameters
     /// </summary>
     public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
     {
         try
         {
-            // Validacija
+            // Validation
             var validFps = Math.Clamp(Fps, 1, 120);
             var validCrf = Math.Clamp(Crf, 0, 51);
             var validBitrate = Math.Clamp(Bitrate, 500, 50000);
@@ -240,7 +236,7 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Primijeni video output korak na Comfy node builder
+    /// Apply video output step to Comfy node builder
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -248,7 +244,7 @@ public partial class VideoOutputSettingsCardViewModel
         {
             Logger.Info($"Applying video output: Format={Format}, FPS={Fps}");
 
-            // ========== VALIDACIJA ==========
+            // ========== VALIDATION ==========
             if (e.Builder.Connections.Primary is null)
                 throw new InvalidOperationException(
                     "Cannot apply video output settings: No primary connection available. " +
@@ -261,7 +257,7 @@ public partial class VideoOutputSettingsCardViewModel
                     "Ensure a model with VAE is loaded."
                 );
 
-            // Validacija vrijednosti
+            // Value validation
             if (Fps < 1 || Fps > 120)
                 throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
 
@@ -280,7 +276,7 @@ public partial class VideoOutputSettingsCardViewModel
                     throw new InvalidOperationException("Container cannot be empty");
             }
 
-            // ========== KONVERZIJA PRIMARNE KONEKCIJE ==========
+            // ========== PRIMARY CONNECTION CONVERSION ==========
             var image = e.Builder.Connections.Primary.Match(
                 _ =>
                     e.Builder.GetPrimaryAsImage(
@@ -328,7 +324,7 @@ public partial class VideoOutputSettingsCardViewModel
                     Crf = Crf,
                     Codec = Codec,
                     Container = Container,
-                    Bitrate = Bitrate  // ← VAŽNO: Dodaj Bitrate!
+                    Bitrate = Bitrate // IMPORTANT: Added Bitrate
                 }
             );
 
