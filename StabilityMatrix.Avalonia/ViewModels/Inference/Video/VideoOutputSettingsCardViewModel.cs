@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Injectio.Attributes;
 using NLog;
@@ -17,37 +18,37 @@ using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
 /// <summary>
-/// Výstupný formát videa
+/// Video output format
 /// </summary>
 public enum VideoFormat
 {
-    /// <summary>WebP animirana slika - malo manja datoteka, spora kompresija</summary>
+    /// <summary>WebP animated image - smaller file, slower compression</summary>
     WebP = 0,
 
-    /// <summary>MP4 video - bolja kompresija, brža obrada</summary>
+    /// <summary>MP4 video - better compression, faster processing</summary>
     Mp4 = 1
 }
 
 /// <summary>
-/// Metoda kodiranja WebP videa
-/// Koristi custom JsonConverter za kompatibilnost sa starim .smproj datotekama
+/// WebP video encoding method
+/// Uses custom JsonConverter for compatibility with old .smproj files
 /// </summary>
 [JsonConverter(typeof(VideoOutputMethodJsonConverter))]
 public enum VideoOutputMethod
 {
-    /// <summary>Uobičajeno kodiranje</summary>
+    /// <summary>Standard encoding</summary>
     Default = 0,
 
-    /// <summary>Brže kodiranje (niža kvaliteta)</summary>
+    /// <summary>Faster encoding (lower quality)</summary>
     Fast = 1,
 
-    /// <summary>Sporije kodiranje (viša kvaliteta)</summary>
+    /// <summary>Slower encoding (higher quality)</summary>
     Slow = 2,
 }
 
 /// <summary>
-/// ViewModel za Video Output Settings Card
-/// Upravljra eksportom videa kao MP4 ili WebP
+/// ViewModel for Video Output Settings Card
+/// Manages video export as MP4 or WebP
 /// </summary>
 [View(typeof(VideoOutputSettingsCard))]
 [ManagedService]
@@ -64,7 +65,7 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Broj frejmova po sekundi (1-120)
+    /// Frames per second (1-120)
     /// </summary>
     [ObservableProperty]
     private double fps = 6;
@@ -76,19 +77,19 @@ public partial class VideoOutputSettingsCardViewModel
     private bool lossless = true;
 
     /// <summary>
-    /// WebP: Kvaliteta kompresije (0-100)
+    /// WebP: Compression quality (0-100)
     /// </summary>
     [ObservableProperty]
     private int quality = 85;
 
     /// <summary>
-    /// WebP: Metoda kodiranja
+    /// WebP: Encoding method
     /// </summary>
     [ObservableProperty]
     private VideoOutputMethod selectedMethod = VideoOutputMethod.Default;
 
     /// <summary>
-    /// Dostupne metode kodiranja
+    /// Available encoding methods
     /// </summary>
     [ObservableProperty]
     private List<VideoOutputMethod> availableMethods = Enum.GetValues<VideoOutputMethod>().ToList();
@@ -98,32 +99,34 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Izabrani video format (WebP ili MP4)
+    /// Selected video format (WebP or MP4)
     /// </summary>
     [ObservableProperty]
     private VideoFormat format = VideoFormat.WebP;
 
     /// <summary>
-    /// MP4: Constant Rate Factor - kvaliteta kompresije (0-51)
-    /// Preporučeno: 18-28
+    /// MP4: Constant Rate Factor - compression quality (0-51)
+    /// Recommended: 18-28
     /// </summary>
     [ObservableProperty]
     private int crf = 18;
 
     /// <summary>
     /// MP4: Video codec (libx264, libx265)
+    /// NOTE: This may be set from ComboBoxItem.Content (string value)
     /// </summary>
     [ObservableProperty]
     private string codec = "libx264";
 
     /// <summary>
     /// MP4: Container format (mp4, mkv)
+    /// NOTE: This may be set from ComboBoxItem.Content (string value)
     /// </summary>
     [ObservableProperty]
     private string container = "mp4";
 
     /// <summary>
-    /// MP4: Bitrate u kbps (500-50000)
+    /// MP4: Bitrate in kbps (500-50000)
     /// </summary>
     [ObservableProperty]
     private int bitrate = 4000;
@@ -133,7 +136,7 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Tekući format je MP4
+    /// Current format is MP4
     /// </summary>
     public bool IsMp4 => Format == VideoFormat.Mp4;
 
@@ -142,7 +145,7 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Učitaj stanje iz GenerationParameters
+    /// Load state from GenerationParameters
     /// </summary>
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
@@ -152,17 +155,17 @@ public partial class VideoOutputSettingsCardViewModel
             Lossless = parameters.Lossless;
             Quality = Math.Clamp(parameters.VideoQuality, 0, 100);
 
-            // Učitaj format sa fallback-om
+            // Load format with fallback
             if (!string.IsNullOrWhiteSpace(parameters.VideoFormat) &&
                 Enum.TryParse(parameters.VideoFormat, true, out VideoFormat fmt))
             {
                 Format = fmt;
             }
 
-            // MP4 specifične opcije
+            // MP4 specific options
             Crf = Math.Clamp(parameters.VideoCrf, 0, 51);
-            Codec = parameters.VideoCodec ?? "libx264";
-            Container = parameters.VideoContainer ?? "mp4";
+            Codec = ExtractStringValue(parameters.VideoCodec ?? "libx264");
+            Container = ExtractStringValue(parameters.VideoContainer ?? "mp4");
             Bitrate = Math.Clamp(parameters.VideoBitrate, 500, 50000);
 
             // Video output method
@@ -183,13 +186,13 @@ public partial class VideoOutputSettingsCardViewModel
     }
 
     /// <summary>
-    /// Spremi stanje u GenerationParameters
+    /// Save state to GenerationParameters
     /// </summary>
     public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
     {
         try
         {
-            // Validacija
+            // Validation
             var validFps = Math.Clamp(Fps, 1, 120);
             var validCrf = Math.Clamp(Crf, 0, 51);
             var validBitrate = Math.Clamp(Bitrate, 500, 50000);
@@ -203,8 +206,8 @@ public partial class VideoOutputSettingsCardViewModel
                 VideoOutputMethod = SelectedMethod.ToString(),
                 VideoFormat = Format.ToString(),
                 VideoCrf = validCrf,
-                VideoCodec = Codec ?? "libx264",
-                VideoContainer = Container ?? "mp4",
+                VideoCodec = ExtractStringValue(Codec) ?? "libx264",
+                VideoContainer = ExtractStringValue(Container) ?? "mp4",
                 VideoBitrate = validBitrate
             };
 
@@ -219,15 +222,15 @@ public partial class VideoOutputSettingsCardViewModel
     }
 
     // ============================================================
-    // PROPERTY CHANGED HANDLERS - VALIDACIJA
+    // PROPERTY CHANGED HANDLERS - VALIDATION
     // ============================================================
 
     /// <summary>
-    /// Hvata promjene CRF vrijednosti i validira ih
+    /// Capture CRF value changes and validate them
     /// </summary>
     partial void OnCrfChanged(int value)
     {
-        // Validacija - clamp na 0-51
+        // Validation - clamp to 0-51
         if (value < 0 || value > 51)
         {
             Crf = Math.Clamp(value, 0, 51);
@@ -235,11 +238,11 @@ public partial class VideoOutputSettingsCardViewModel
     }
 
     /// <summary>
-    /// Hvata promjene Bitrate vrijednosti i validira ih
+    /// Capture Bitrate value changes and validate them
     /// </summary>
     partial void OnBitrateChanged(int value)
     {
-        // Validacija - clamp na 500-50000
+        // Validation - clamp to 500-50000
         if (value < 500 || value > 50000)
         {
             Bitrate = Math.Clamp(value, 500, 50000);
@@ -247,11 +250,11 @@ public partial class VideoOutputSettingsCardViewModel
     }
 
     /// <summary>
-    /// Hvata promjene FPS vrijednosti i validira ih
+    /// Capture FPS value changes and validate them
     /// </summary>
     partial void OnFpsChanged(double value)
     {
-        // Validacija - clamp na 1-120
+        // Validation - clamp to 1-120
         if (value < 1 || value > 120)
         {
             Fps = Math.Clamp(value, 1, 120);
@@ -259,11 +262,46 @@ public partial class VideoOutputSettingsCardViewModel
     }
 
     // ============================================================
+    // HELPER METHODS
+    // ============================================================
+
+    /// <summary>
+    /// Extracts string value from potential ComboBoxItem object.
+    /// 
+    /// XAML ComboBox with hard-coded ComboBoxItem elements may return
+    /// the ComboBoxItem object instead of just the Content string.
+    /// This method handles both cases:
+    /// - If input is ComboBoxItem, extract its Content
+    /// - If input is string, return as-is
+    /// - Otherwise, return ToString()
+    /// </summary>
+    private static string? ExtractStringValue(object? value)
+    {
+        if (value == null)
+            return null;
+
+        // If it's a ComboBoxItem, extract the Content
+        if (value is ComboBoxItem item)
+        {
+            return item.Content?.ToString();
+        }
+
+        // If it's already a string, return it
+        if (value is string str)
+        {
+            return str;
+        }
+
+        // Otherwise, convert to string
+        return value.ToString();
+    }
+
+    // ============================================================
     // COMFY NODE GENERATION
     // ============================================================
 
     /// <summary>
-    /// Primijeni video output korak na Comfy node builder
+    /// Apply video output step to Comfy node builder
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -271,7 +309,7 @@ public partial class VideoOutputSettingsCardViewModel
         {
             Logger.Info($"Applying video output: Format={Format}, FPS={Fps}");
 
-            // ========== VALIDACIJA ==========
+            // ========== VALIDATION ==========
             if (e.Builder.Connections.Primary is null)
                 throw new InvalidOperationException(
                     "Cannot apply video output settings: No primary connection available. " +
@@ -284,7 +322,7 @@ public partial class VideoOutputSettingsCardViewModel
                     "Ensure a model with VAE is loaded."
                 );
 
-            // Validacija vrijednosti
+            // Validate values
             if (Fps < 1 || Fps > 120)
                 throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
 
@@ -296,14 +334,18 @@ public partial class VideoOutputSettingsCardViewModel
                 if (Bitrate < 500 || Bitrate > 50000)
                     throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
 
-                if (string.IsNullOrWhiteSpace(Codec))
+                // Extract codec value (may be ComboBoxItem)
+                var codecValue = ExtractStringValue(Codec);
+                if (string.IsNullOrWhiteSpace(codecValue))
                     throw new InvalidOperationException("Codec cannot be empty");
 
-                if (string.IsNullOrWhiteSpace(Container))
+                // Extract container value (may be ComboBoxItem)
+                var containerValue = ExtractStringValue(Container);
+                if (string.IsNullOrWhiteSpace(containerValue))
                     throw new InvalidOperationException("Container cannot be empty");
             }
 
-            // ========== KONVERZIJA PRIMARNE KONEKCIJE ==========
+            // ========== CONVERT PRIMARY CONNECTION ==========
             var image = e.Builder.Connections.Primary.Match(
                 _ =>
                     e.Builder.GetPrimaryAsImage(
@@ -341,6 +383,13 @@ public partial class VideoOutputSettingsCardViewModel
             // ========== MP4 EXPORT ==========
             Logger.Debug("Creating SaveAnimatedMP4 node");
 
+            // IMPORTANT: Extract string values from potential ComboBoxItem objects
+            var finalCodec = ExtractStringValue(Codec) ?? "libx264";
+            var finalContainer = ExtractStringValue(Container) ?? "mp4";
+
+            Logger.Debug($"Codec value: {finalCodec} (type: {finalCodec.GetType().Name})");
+            Logger.Debug($"Container value: {finalContainer} (type: {finalContainer.GetType().Name})");
+
             var mp4Step = e.Nodes.AddTypedNode(
                 new SaveAnimatedMP4
                 {
@@ -349,14 +398,14 @@ public partial class VideoOutputSettingsCardViewModel
                     FilenamePrefix = "InferenceVideo",
                     Fps = Fps,
                     Crf = Crf,
-                    Codec = Codec,
-                    Container = Container,
-                    Bitrate = Bitrate  // ← VAŽNO: Dodaj Bitrate!
+                    Codec = finalCodec,
+                    Container = finalContainer,
+                    Bitrate = Bitrate
                 }
             );
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
-            Logger.Info($"MP4 node added: {mp4Step.Name} (CRF={Crf}, Codec={Codec}, Bitrate={Bitrate}kbps)");
+            Logger.Info($"MP4 node added: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)");
         }
         catch (InvalidOperationException ex)
         {
