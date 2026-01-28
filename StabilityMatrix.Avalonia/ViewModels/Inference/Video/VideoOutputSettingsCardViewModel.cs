@@ -52,17 +52,17 @@ public enum VideoOutputMethod
 [RegisterTransient<VideoOutputSettingsCardViewModel>]
 public partial class VideoOutputSettingsCardViewModel
     : LoadableViewModelBase,
-        IParametersLoadableState,
-        IComfyStep
+      IParametersLoadableState,
+      IComfyStep
 {
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
 
     // ============================================================
-    // OBSERVABLE PROPERTIES - WebP & MP4 Common
+    // OBSERVABLE PROPERTIES – WebP & MP4 Common
     // ============================================================
 
     /// <summary>
-    /// Broj frejmova po sekundi (1-120)
+    /// Frames per second (1–120)
     /// </summary>
     [ObservableProperty]
     private double fps = 6;
@@ -74,43 +74,44 @@ public partial class VideoOutputSettingsCardViewModel
     private bool lossless = true;
 
     /// <summary>
-    /// WebP: Kvaliteta kompresije (0-100)
+    /// WebP: Compression quality (0–100)
     /// </summary>
     [ObservableProperty]
     private int quality = 85;
 
     /// <summary>
-    /// WebP: Metoda kodiranja
+    /// WebP: Encoding method
     /// </summary>
     [ObservableProperty]
     private VideoOutputMethod selectedMethod = VideoOutputMethod.Default;
 
     /// <summary>
-    /// Dostupne metode kodiranja
+    /// Available encoding methods
     /// </summary>
     [ObservableProperty]
-    private List<VideoOutputMethod> availableMethods = Enum.GetValues<VideoOutputMethod>().ToList();
+    private List<VideoOutputMethod> availableMethods =
+        Enum.GetValues<VideoOutputMethod>().ToList();
 
     // ============================================================
-    // OBSERVABLE PROPERTIES - MP4 Specific
+    // OBSERVABLE PROPERTIES – MP4 Specific
     // ============================================================
 
     /// <summary>
-    /// Izabrani video format (WebP ili MP4)
+    /// Selected output format (WebP or MP4)
     /// </summary>
     [ObservableProperty]
     private VideoFormat format = VideoFormat.WebP;
 
     /// <summary>
-    /// MP4: Constant Rate Factor - kvaliteta kompresije (0-51)
-    /// Preporučeno: 18-28
+    /// MP4: Constant Rate Factor – compression quality (0–51)
+    /// Recommended range: 18–28
     /// </summary>
-    private int _crf = 18;
     [ObservableProperty]
-    public int Crf
+    private int crf = 18;
+
+    partial void OnCrfChanging(int value)
     {
-        get => _crf;
-        set => SetProperty(ref _crf, Math.Clamp(value, 0, 51));
+        crf = Math.Clamp(value, 0, 51);
     }
 
     /// <summary>
@@ -126,14 +127,14 @@ public partial class VideoOutputSettingsCardViewModel
     private string container = "mp4";
 
     /// <summary>
-    /// MP4: Bitrate u kbps (500-50000)
+    /// MP4: Bitrate in kbps (500–50000)
     /// </summary>
-    private int _bitrate = 4000;
     [ObservableProperty]
-    public int Bitrate
+    private int bitrate = 4000;
+
+    partial void OnBitrateChanging(int value)
     {
-        get => _bitrate;
-        set => SetProperty(ref _bitrate, Math.Clamp(value, 500, 50000));
+        bitrate = Math.Clamp(value, 500, 50000);
     }
 
     // ============================================================
@@ -141,7 +142,7 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Tekući format je MP4
+    /// Indicates whether the current format is MP4
     /// </summary>
     public bool IsMp4 => Format == VideoFormat.Mp4;
 
@@ -150,8 +151,11 @@ public partial class VideoOutputSettingsCardViewModel
     // ============================================================
 
     /// <summary>
-    /// Učitaj stanje iz GenerationParameters
+    /// Load state from GenerationParameters
     /// </summary>
+    // (implementation continues...)
+}
+
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
         try
