@@ -361,7 +361,7 @@ public partial class VideoOutputSettingsCardViewModel
                 );
 
                 e.Builder.Connections.OutputNodes.Add(outputStep);
-                e.Builder.Connections.OutputNodeNames.Add(outputStep.Name);
+                    e.Builder.Connections.OutputNodeNames.Append(outputStep.Name);
 
                 Logger.Info($"WebP node added: {outputStep.Name}");
                 return;
@@ -390,7 +390,7 @@ public partial class VideoOutputSettingsCardViewModel
             );
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
-            e.Builder.Connections.OutputNodeNames.Add(mp4Step.Name);
+                e.Builder.Connections.OutputNodeNames.Append(mp4Step.Name);
 
             Logger.Info($"MP4 node added: {mp4Step.Name}");
         }
