@@ -9,6 +9,7 @@ using StabilityMatrix.Core.Extensions;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Core.Models.Database;
 using StabilityMatrix.Core.Models.Inference;
+using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 namespace StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
