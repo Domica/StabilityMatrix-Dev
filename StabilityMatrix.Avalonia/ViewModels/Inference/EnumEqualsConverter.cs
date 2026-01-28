@@ -60,11 +60,11 @@ public class EnumEqualsConverter : IValueConverter
     {
         // Only act on true; otherwise leave binding unchanged
         if (value is not bool boolValue || !boolValue || parameter is null)
-            return Binding.DoNothing;
+            return BindingOperations.DoNothing;
 
         // Target must be an enum
         if (!targetType.IsEnum)
-            return Binding.DoNothing;
+            return BindingOperations.DoNothing;
 
         try
         {
@@ -78,7 +78,7 @@ public class EnumEqualsConverter : IValueConverter
         catch
         {
             // Parsing failed – do not update binding
-            return Binding.DoNothing;
+            return BindingOperations.DoNothing;
         }
     }
 }
