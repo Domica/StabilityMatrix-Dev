@@ -44,8 +44,8 @@ public enum VideoOutputMethod
 }
 
 /// <summary>
-/// ViewModel za Video Output Settings Card
-/// Upravljra eksportom videa kao MP4 ili WebP
+/// ViewModel for Video Output Settings Card
+/// Handles video export as MP4 or WebP
 /// </summary>
 [View(typeof(VideoOutputSettingsCard))]
 [ManagedService]
@@ -107,12 +107,7 @@ public partial class VideoOutputSettingsCardViewModel
     /// Recommended range: 18–28
     /// </summary>
     [ObservableProperty]
-    private int crf = 18;
-
-    partial void OnCrfChanging(int value)
-    {
-        crf = Math.Clamp(value, 0, 51);
-    }
+    private partial int crf;
 
     /// <summary>
     /// MP4: Video codec (libx264, libx265)
@@ -130,7 +125,16 @@ public partial class VideoOutputSettingsCardViewModel
     /// MP4: Bitrate in kbps (500–50000)
     /// </summary>
     [ObservableProperty]
-    private int bitrate = 4000;
+    private partial int bitrate;
+
+    // ============================================================
+    // PARTIAL METHODS FOR CLAMPING
+    // ============================================================
+
+    partial void OnCrfChanging(int value)
+    {
+        crf = Math.Clamp(value, 0, 51);
+    }
 
     partial void OnBitrateChanging(int value)
     {
@@ -153,8 +157,9 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// Load state from GenerationParameters
     /// </summary>
-    // (implementation continues...)
+    // implementation continues...
 }
+
 
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
