@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
+using Avalonia.Data;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
