@@ -94,6 +94,26 @@ public partial class VideoOutputSettingsCardViewModel
     [ObservableProperty]
     private List<VideoOutputMethod> availableMethods = Enum.GetValues<VideoOutputMethod>().ToList();
 
+    /// <summary>
+    /// Available video codecs for MP4 export
+    /// </summary>
+    public static IEnumerable<string> AvailableCodecs { get; } =
+        new[]
+        {
+            "libx264",  // H.264
+            "libx265"   // H.265/HEVC
+        };
+
+    /// <summary>
+    /// Available video containers for MP4 export
+    /// </summary>
+    public static IEnumerable<string> AvailableContainers { get; } =
+        new[]
+        {
+            "mp4",  // Standard MP4 container
+            "mkv"   // Matroska container
+        };
+
     // ============================================================
     // OBSERVABLE PROPERTIES - MP4 Specific
     // ============================================================
