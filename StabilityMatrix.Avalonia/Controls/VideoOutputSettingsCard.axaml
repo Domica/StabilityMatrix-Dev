@@ -8,7 +8,6 @@
         xmlns:lang="clr-namespace:StabilityMatrix.Avalonia.Languages"
         xmlns:helpers="clr-namespace:StabilityMatrix.Avalonia.Helpers">
 
-    <!-- 🔥 FIX: Add missing converter -->
     <Styles.Resources>
         <video:EnumEqualsConverter x:Key="EnumEqualsConverter" />
     </Styles.Resources>
@@ -140,7 +139,8 @@
                                 Text="Codec" />
                             <ComboBox
                                 Margin="8,8,0,0"
-                                SelectedItem="{Binding Codec}">
+                                SelectedValuePath="Content"
+                                SelectedValue="{Binding Codec}">
                                 <ComboBoxItem Content="libx264" />
                                 <ComboBoxItem Content="libx265" />
                             </ComboBox>
@@ -158,7 +158,8 @@
                                 Text="Container" />
                             <ComboBox
                                 Margin="8,8,0,0"
-                                SelectedItem="{Binding Container}">
+                                SelectedValuePath="Content"
+                                SelectedValue="{Binding Container}">
                                 <ComboBoxItem Content="mp4" />
                                 <ComboBoxItem Content="mkv" />
                             </ComboBox>
