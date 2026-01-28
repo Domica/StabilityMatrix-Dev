@@ -296,16 +296,34 @@ public partial class VideoOutputSettingsCardViewModel
             }
 
             // ========== CONVERT PRIMARY CONNECTION ==========
+            Logger.Info($"Resolving image connection from Primary + VAE");
+
+            var vaeSource =
+                e.Builder.Connections.PrimaryVAE
+                ?? e.Builder.Connections.Refiner.VAE
+                ?? e.Builder.Connections.Base.VAE;
+
+            if (vaeSource == null)
+            {
+                Logger.Warn("No VAE source found — cannot resolve image connection");
+                throw new InvalidOperationException("No VAE found for image conversion");
+            }
+
+            Logger.Info($"Using VAE source: {vaeSource.GetType().Name}");
+
             var image = e.Builder.Connections.Primary.Match(
-                _ =>
-                    e.Builder.GetPrimaryAsImage(
-                        e.Builder.Connections.PrimaryVAE
-                            ?? e.Builder.Connections.Refiner.VAE
-                            ?? e.Builder.Connections.Base.VAE
-                            ?? throw new InvalidOperationException("No VAE found")
-                    ),
-                image => image
+                _ => e.Builder.GetPrimaryAsImage(vaeSource),
+                img => img
             );
+
+            if (image == null)
+            {
+                Logger.Warn("Resolved image is null — prompt will have no outputs");
+                throw new InvalidOperationException("Resolved image connection is null");
+            }
+
+            Logger.Info($"Resolved image type: {image.GetType().Name}");
+
 
             // ========== WEBP EXPORT ==========
             if (Format == VideoFormat.WebP)
