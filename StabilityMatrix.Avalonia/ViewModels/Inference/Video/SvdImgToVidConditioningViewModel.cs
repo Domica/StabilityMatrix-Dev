@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Controls;
@@ -17,8 +17,8 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 [RegisterTransient<SvdImgToVidConditioningViewModel>]
 public partial class SvdImgToVidConditioningViewModel
     : LoadableViewModelBase,
-        IParametersLoadableState,
-        IComfyStep
+      IParametersLoadableState,
+      IComfyStep
 {
     [ObservableProperty]
     private int width = 1024;
@@ -100,6 +100,7 @@ public partial class SvdImgToVidConditioningViewModel
             svdImgToVidConditioningNode.Output1,
             svdImgToVidConditioningNode.Output2
         );
+
         e.Builder.Connections.Primary = svdImgToVidConditioningNode.Output3;
     }
 }
