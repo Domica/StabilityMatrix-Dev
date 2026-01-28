@@ -139,11 +139,8 @@
                                 Text="Codec" />
                             <ComboBox
                                 Margin="8,8,0,0"
-                                SelectedValuePath="Content"
-                                SelectedValue="{Binding Codec}">
-                                <ComboBoxItem Content="libx264" />
-                                <ComboBoxItem Content="libx265" />
-                            </ComboBox>
+                                ItemsSource="{Binding AvailableCodecs}"
+                                SelectedItem="{Binding Codec}" />
                         </StackPanel>
 
                         <!-- MP4 Container -->
@@ -158,11 +155,8 @@
                                 Text="Container" />
                             <ComboBox
                                 Margin="8,8,0,0"
-                                SelectedValuePath="Content"
-                                SelectedValue="{Binding Container}">
-                                <ComboBoxItem Content="mp4" />
-                                <ComboBoxItem Content="mkv" />
-                            </ComboBox>
+                                ItemsSource="{Binding AvailableContainers}"
+                                SelectedItem="{Binding Container}" />
                         </StackPanel>
 
                         <!-- MP4 Bitrate -->
