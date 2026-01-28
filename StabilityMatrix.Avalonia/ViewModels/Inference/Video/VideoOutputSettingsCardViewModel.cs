@@ -352,6 +352,7 @@ public partial class VideoOutputSettingsCardViewModel
                 }
             );
 
+
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info($"MP4 node added: {mp4Step.Name}");
         }
