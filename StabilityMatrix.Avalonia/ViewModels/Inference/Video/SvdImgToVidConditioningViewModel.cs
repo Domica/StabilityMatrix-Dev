@@ -41,6 +41,16 @@ public partial class SvdImgToVidConditioningViewModel
     [ObservableProperty]
     private double minCfg = 1.0d;
 
+    /// <summary>
+    /// Design-time fallback for codec options
+    /// </summary>
+    public List<string> AvailableCodecs { get; } = new() { "libx264", "libx265" };
+
+    /// <summary>
+    /// Design-time fallback for container options
+    /// </summary>
+    public List<string> AvailableContainers { get; } = new() { "mp4", "mkv" };
+
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
         Width = parameters.Width;
@@ -100,7 +110,6 @@ public partial class SvdImgToVidConditioningViewModel
             svdImgToVidConditioningNode.Output1,
             svdImgToVidConditioningNode.Output2
         );
-
         e.Builder.Connections.Primary = svdImgToVidConditioningNode.Output3;
     }
 }
