@@ -314,6 +314,7 @@ public partial class VideoOutputSettingsCardViewModel
             // ========== CONVERT PRIMARY CONNECTION ==========
             Logger.Info("Resolving image connection from Primary + VAE");
 
+            // Resolve VAE source
             var vaeSource =
                 e.Builder.Connections.PrimaryVAE
                 ?? e.Builder.Connections.Refiner.VAE
@@ -327,6 +328,7 @@ public partial class VideoOutputSettingsCardViewModel
 
             Logger.Info($"Using VAE source: {vaeSource.GetType().Name}");
 
+            // Resolve image
             var image = e.Builder.Connections.Primary.Match(
                 _ => e.Builder.GetPrimaryAsImage(vaeSource),
                 img => img
@@ -359,6 +361,8 @@ public partial class VideoOutputSettingsCardViewModel
                 );
 
                 e.Builder.Connections.OutputNodes.Add(outputStep);
+                e.Builder.Connections.OutputNodeNames.Add(outputStep.Name);
+
                 Logger.Info($"WebP node added: {outputStep.Name}");
                 return;
             }
@@ -386,6 +390,8 @@ public partial class VideoOutputSettingsCardViewModel
             );
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
+            e.Builder.Connections.OutputNodeNames.Add(mp4Step.Name);
+
             Logger.Info($"MP4 node added: {mp4Step.Name}");
         }
         catch (InvalidOperationException ex)
