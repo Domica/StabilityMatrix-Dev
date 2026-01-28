@@ -61,6 +61,20 @@ public partial class VideoOutputSettingsCardViewModel
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
 
     // ============================================================
+    // AVAILABLE OPTIONS FOR XAML BINDING
+    // ============================================================
+
+    /// <summary>
+    /// Available MP4 codecs
+    /// </summary>
+    public List<string> AvailableCodecs { get; } = new() { "libx264", "libx265" };
+
+    /// <summary>
+    /// Available MP4 containers
+    /// </summary>
+    public List<string> AvailableContainers { get; } = new() { "mp4", "mkv" };
+
+    // ============================================================
     // OBSERVABLE PROPERTIES - WebP & MP4 Common
     // ============================================================
 
@@ -139,6 +153,7 @@ public partial class VideoOutputSettingsCardViewModel
     /// Current format is MP4
     /// </summary>
     public bool IsMp4 => Format == VideoFormat.Mp4;
+
     // ============================================================
     // STATE MANAGEMENT
     // ============================================================
@@ -253,6 +268,7 @@ public partial class VideoOutputSettingsCardViewModel
 
         return value.ToString();
     }
+
     // ============================================================
     // COMFY NODE GENERATION
     // ============================================================
@@ -295,37 +311,34 @@ public partial class VideoOutputSettingsCardViewModel
                     throw new InvalidOperationException("Container cannot be empty");
             }
 
-         // ========== CONVERT PRIMARY CONNECTION ==========
-Logger.Info("Resolving image connection from Primary + VAE");
+            // ========== CONVERT PRIMARY CONNECTION ==========
+            Logger.Info("Resolving image connection from Primary + VAE");
 
-// Resolve VAE source
-var vaeSource =
-    e.Builder.Connections.PrimaryVAE
-    ?? e.Builder.Connections.Refiner.VAE
-    ?? e.Builder.Connections.Base.VAE;
+            var vaeSource =
+                e.Builder.Connections.PrimaryVAE
+                ?? e.Builder.Connections.Refiner.VAE
+                ?? e.Builder.Connections.Base.VAE;
 
-if (vaeSource == null)
-{
-    Logger.Warn("No VAE source found — cannot resolve image connection");
-    throw new InvalidOperationException("No VAE found for image conversion");
-}
+            if (vaeSource == null)
+            {
+                Logger.Warn("No VAE source found — cannot resolve image connection");
+                throw new InvalidOperationException("No VAE found for image conversion");
+            }
 
-Logger.Info($"Using VAE source: {vaeSource.GetType().Name}");
+            Logger.Info($"Using VAE source: {vaeSource.GetType().Name}");
 
-// Resolve image
-var image = e.Builder.Connections.Primary.Match(
-    _ => e.Builder.GetPrimaryAsImage(vaeSource),
-    img => img
-);
+            var image = e.Builder.Connections.Primary.Match(
+                _ => e.Builder.GetPrimaryAsImage(vaeSource),
+                img => img
+            );
 
-if (image == null)
-{
-    Logger.Warn("Resolved image is null — prompt will have no outputs");
-    throw new InvalidOperationException("Resolved image connection is null");
-}
+            if (image == null)
+            {
+                Logger.Warn("Resolved image is null — prompt will have no outputs");
+                throw new InvalidOperationException("Resolved image connection is null");
+            }
 
-Logger.Info($"Resolved image type: {image.GetType().Name}");
-
+            Logger.Info($"Resolved image type: {image.GetType().Name}");
 
             // ========== WEBP EXPORT ==========
             if (Format == VideoFormat.WebP)
@@ -371,7 +384,6 @@ Logger.Info($"Resolved image type: {image.GetType().Name}");
                     Bitrate = Bitrate
                 }
             );
-
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info($"MP4 node added: {mp4Step.Name}");
