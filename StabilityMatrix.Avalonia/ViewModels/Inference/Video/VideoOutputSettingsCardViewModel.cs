@@ -55,24 +55,10 @@ public enum VideoOutputMethod
 [RegisterTransient<VideoOutputSettingsCardViewModel>]
 public partial class VideoOutputSettingsCardViewModel
     : LoadableViewModelBase,
-      IParametersLoadableState,
-      IComfyStep
+        IParametersLoadableState,
+        IComfyStep
 {
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-
-    // ============================================================
-    // AVAILABLE OPTIONS FOR XAML BINDING
-    // ============================================================
-
-    /// <summary>
-    /// Available MP4 codecs
-    /// </summary>
-    public List<string> AvailableCodecs { get; } = new() { "libx264", "libx265" };
-
-    /// <summary>
-    /// Available MP4 containers
-    /// </summary>
-    public List<string> AvailableContainers { get; } = new() { "mp4", "mkv" };
 
     // ============================================================
     // OBSERVABLE PROPERTIES - WebP & MP4 Common
@@ -169,17 +155,20 @@ public partial class VideoOutputSettingsCardViewModel
             Lossless = parameters.Lossless;
             Quality = Math.Clamp(parameters.VideoQuality, 0, 100);
 
+            // Load format with fallback
             if (!string.IsNullOrWhiteSpace(parameters.VideoFormat) &&
                 Enum.TryParse(parameters.VideoFormat, true, out VideoFormat fmt))
             {
                 Format = fmt;
             }
 
+            // MP4 specific options
             Crf = Math.Clamp(parameters.VideoCrf, 0, 51);
             Codec = ExtractStringValue(parameters.VideoCodec ?? "libx264");
             Container = ExtractStringValue(parameters.VideoContainer ?? "mp4");
             Bitrate = Math.Clamp(parameters.VideoBitrate, 500, 50000);
 
+            // Video output method
             if (!string.IsNullOrWhiteSpace(parameters.VideoOutputMethod))
             {
                 SelectedMethod = Enum.TryParse<VideoOutputMethod>(parameters.VideoOutputMethod, true, out var method)
@@ -187,11 +176,11 @@ public partial class VideoOutputSettingsCardViewModel
                     : VideoOutputMethod.Default;
             }
 
-            Logger.Info($"Video settings loaded (Format={Format}, CRF={Crf}, Bitrate={Bitrate})");
+            Logger.Debug($"Video settings loaded: Format={Format}, CRF={Crf}, Bitrate={Bitrate}");
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Failed to load video settings");
+            Logger.Error(ex, "Failed to load video settings from parameters");
             throw;
         }
     }
@@ -203,25 +192,31 @@ public partial class VideoOutputSettingsCardViewModel
     {
         try
         {
+            // Validation
+            var validFps = Math.Clamp(Fps, 1, 120);
+            var validCrf = Math.Clamp(Crf, 0, 51);
+            var validBitrate = Math.Clamp(Bitrate, 500, 50000);
+            var validQuality = Math.Clamp(Quality, 0, 100);
+
             var result = parameters with
             {
-                OutputFps = Math.Clamp(Fps, 1, 120),
+                OutputFps = validFps,
                 Lossless = Lossless,
-                VideoQuality = Math.Clamp(Quality, 0, 100),
+                VideoQuality = validQuality,
                 VideoOutputMethod = SelectedMethod.ToString(),
                 VideoFormat = Format.ToString(),
-                VideoCrf = Math.Clamp(Crf, 0, 51),
+                VideoCrf = validCrf,
                 VideoCodec = ExtractStringValue(Codec) ?? "libx264",
                 VideoContainer = ExtractStringValue(Container) ?? "mp4",
-                VideoBitrate = Math.Clamp(Bitrate, 500, 50000)
+                VideoBitrate = validBitrate
             };
 
-            Logger.Info($"Video settings saved (Format={Format}, CRF={result.VideoCrf}, Bitrate={result.VideoBitrate})");
+            Logger.Debug($"Video settings saved: Format={Format}, CRF={validCrf}, Bitrate={validBitrate}");
             return result;
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Failed to save video settings");
+            Logger.Error(ex, "Failed to save video settings to parameters");
             throw;
         }
     }
@@ -230,22 +225,40 @@ public partial class VideoOutputSettingsCardViewModel
     // PROPERTY CHANGED HANDLERS - VALIDATION
     // ============================================================
 
+    /// <summary>
+    /// Capture CRF value changes and validate them
+    /// </summary>
     partial void OnCrfChanged(int value)
     {
+        // Validation - clamp to 0-51
         if (value < 0 || value > 51)
+        {
             Crf = Math.Clamp(value, 0, 51);
+        }
     }
 
+    /// <summary>
+    /// Capture Bitrate value changes and validate them
+    /// </summary>
     partial void OnBitrateChanged(int value)
     {
+        // Validation - clamp to 500-50000
         if (value < 500 || value > 50000)
+        {
             Bitrate = Math.Clamp(value, 500, 50000);
+        }
     }
 
+    /// <summary>
+    /// Capture FPS value changes and validate them
+    /// </summary>
     partial void OnFpsChanged(double value)
     {
+        // Validation - clamp to 1-120
         if (value < 1 || value > 120)
+        {
             Fps = Math.Clamp(value, 1, 120);
+        }
     }
 
     // ============================================================
@@ -254,18 +267,32 @@ public partial class VideoOutputSettingsCardViewModel
 
     /// <summary>
     /// Extracts string value from potential ComboBoxItem object.
+    /// 
+    /// XAML ComboBox with hard-coded ComboBoxItem elements may return
+    /// the ComboBoxItem object instead of just the Content string.
+    /// This method handles both cases:
+    /// - If input is ComboBoxItem, extract its Content
+    /// - If input is string, return as-is
+    /// - Otherwise, return ToString()
     /// </summary>
     private static string? ExtractStringValue(object? value)
     {
         if (value == null)
             return null;
 
+        // If it's a ComboBoxItem, extract the Content
         if (value is ComboBoxItem item)
+        {
             return item.Content?.ToString();
+        }
 
+        // If it's already a string, return it
         if (value is string str)
+        {
             return str;
+        }
 
+        // Otherwise, convert to string
         return value.ToString();
     }
 
@@ -285,14 +312,17 @@ public partial class VideoOutputSettingsCardViewModel
             // ========== VALIDATION ==========
             if (e.Builder.Connections.Primary is null)
                 throw new InvalidOperationException(
-                    "Cannot apply video output settings: No primary connection available."
+                    "Cannot apply video output settings: No primary connection available. " +
+                    "Ensure an image or latent output is connected."
                 );
 
             if (e.Builder.Connections.PrimaryVAE is null)
                 throw new InvalidOperationException(
-                    "Cannot apply video output settings: No VAE available."
+                    "Cannot apply video output settings: No VAE available. " +
+                    "Ensure a model with VAE is loaded."
                 );
 
+            // Validate values
             if (Fps < 1 || Fps > 120)
                 throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
 
@@ -302,50 +332,35 @@ public partial class VideoOutputSettingsCardViewModel
                     throw new InvalidOperationException($"CRF must be between 0 and 51, got: {Crf}");
 
                 if (Bitrate < 500 || Bitrate > 50000)
-                    throw new InvalidOperationException($"Bitrate must be between 500 and 50000, got: {Bitrate}");
+                    throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
 
-                if (string.IsNullOrWhiteSpace(ExtractStringValue(Codec)))
+                // Extract codec value (may be ComboBoxItem)
+                var codecValue = ExtractStringValue(Codec);
+                if (string.IsNullOrWhiteSpace(codecValue))
                     throw new InvalidOperationException("Codec cannot be empty");
 
-                if (string.IsNullOrWhiteSpace(ExtractStringValue(Container)))
+                // Extract container value (may be ComboBoxItem)
+                var containerValue = ExtractStringValue(Container);
+                if (string.IsNullOrWhiteSpace(containerValue))
                     throw new InvalidOperationException("Container cannot be empty");
             }
 
             // ========== CONVERT PRIMARY CONNECTION ==========
-            Logger.Info("Resolving image connection from Primary + VAE");
-
-            // Resolve VAE source
-            var vaeSource =
-                e.Builder.Connections.PrimaryVAE
-                ?? e.Builder.Connections.Refiner.VAE
-                ?? e.Builder.Connections.Base.VAE;
-
-            if (vaeSource == null)
-            {
-                Logger.Warn("No VAE source found — cannot resolve image connection");
-                throw new InvalidOperationException("No VAE found for image conversion");
-            }
-
-            Logger.Info($"Using VAE source: {vaeSource.GetType().Name}");
-
-            // Resolve image
             var image = e.Builder.Connections.Primary.Match(
-                _ => e.Builder.GetPrimaryAsImage(vaeSource),
-                img => img
+                _ =>
+                    e.Builder.GetPrimaryAsImage(
+                        e.Builder.Connections.PrimaryVAE
+                            ?? e.Builder.Connections.Refiner.VAE
+                            ?? e.Builder.Connections.Base.VAE
+                            ?? throw new InvalidOperationException("No VAE found")
+                    ),
+                image => image
             );
-
-            if (image == null)
-            {
-                Logger.Warn("Resolved image is null — prompt will have no outputs");
-                throw new InvalidOperationException("Resolved image connection is null");
-            }
-
-            Logger.Info($"Resolved image type: {image.GetType().Name}");
 
             // ========== WEBP EXPORT ==========
             if (Format == VideoFormat.WebP)
             {
-                Logger.Info("Creating WebP export node");
+                Logger.Debug("Creating SaveAnimatedWEBP node");
 
                 var outputStep = e.Nodes.AddTypedNode(
                     new ComfyNodeBuilder.SaveAnimatedWEBP
@@ -361,21 +376,19 @@ public partial class VideoOutputSettingsCardViewModel
                 );
 
                 e.Builder.Connections.OutputNodes.Add(outputStep);
-                    e.Builder.Connections.OutputNodeNames =
-                        e.Builder.Connections.OutputNodeNames.Append(outputStep.Name);
-
-
                 Logger.Info($"WebP node added: {outputStep.Name}");
                 return;
             }
 
             // ========== MP4 EXPORT ==========
-            Logger.Info("Creating MP4 export node");
+            Logger.Debug("Creating SaveAnimatedMP4 node");
 
+            // IMPORTANT: Extract string values from potential ComboBoxItem objects
             var finalCodec = ExtractStringValue(Codec) ?? "libx264";
             var finalContainer = ExtractStringValue(Container) ?? "mp4";
 
-            Logger.Info($"Using codec={finalCodec}, container={finalContainer}, bitrate={Bitrate}");
+            Logger.Debug($"Codec value: {finalCodec} (type: {finalCodec.GetType().Name})");
+            Logger.Debug($"Container value: {finalContainer} (type: {finalContainer.GetType().Name})");
 
             var mp4Step = e.Nodes.AddTypedNode(
                 new SaveAnimatedMP4
@@ -392,11 +405,7 @@ public partial class VideoOutputSettingsCardViewModel
             );
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
-                e.Builder.Connections.OutputNodeNames =
-                    e.Builder.Connections.OutputNodeNames.Append(mp4Step.Name);
-
-
-            Logger.Info($"MP4 node added: {mp4Step.Name}");
+            Logger.Info($"MP4 node added: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)");
         }
         catch (InvalidOperationException ex)
         {
