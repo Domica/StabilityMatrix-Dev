@@ -6,87 +6,79 @@ using Avalonia.Data;
 namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 
 /// <summary>
-/// Enum equality converter za XAML binding sa enum vrijednostima.
-/// 
-/// Korištenje:
+/// Enum equality converter for XAML bindings using enum values.
+///
+/// Usage:
 /// <code>
 /// <![CDATA[
-/// <StackPanel IsVisible="{Binding Format, 
-///     Converter={StaticResource EnumEqualsConverter}, 
+/// <StackPanel IsVisible="{Binding Format,
+///     Converter={StaticResource EnumEqualsConverter},
 ///     ConverterParameter=WebP}">
 /// ]]>
 /// </code>
-/// 
-/// Rezultat: True ako je Format == VideoFormat.WebP
+///
+/// Result: True if Format == VideoFormat.WebP
 /// </summary>
 public class EnumEqualsConverter : IValueConverter
 {
     /// <summary>
-    /// Konvertuj enum vrijednost u boolean poređenjem sa parametrom.
-    /// Vraća true ako su vrijednosti jednake.
+    /// Converts an enum value to boolean by comparing it with the parameter.
+    /// Returns true if the values are equal.
     /// </summary>
-    /// <param name="value">Enum vrijednost (npr. VideoFormat.WebP)</param>
-    /// <param name="targetType">Tip konverzije (obično bool)</param>
-    /// <param name="parameter">Vrijednost za poređenje (npr. "WebP")</param>
-    /// <param name="culture">Kultura za konverziju</param>
-    /// <returns>True ako su vrijednosti jednake, inače False</returns>
+    /// <param name="value">Enum value (e.g. VideoFormat.WebP)</param>
+    /// <param name="targetType">Target type (usually bool)</param>
+    /// <param name="parameter">Comparison value (e.g. "WebP")</param>
+    /// <param name="culture">Culture info</param>
+    /// <returns>True if values match, otherwise false</returns>
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Null check - obje vrijednosti moraju biti non-null
-        if (value == null || parameter == null)
+        // Null check – both value and parameter must be non-null
+        if (value is null || parameter is null)
             return false;
 
-        // ✅ OPTIMIZACIJA: Direktno poređenje bez ToString()
-        // To je brže jer enum ima ugrađenu Equals implementaciju
+        // Fast path: direct enum comparison (no ToString allocation)
         if (value.Equals(parameter))
             return true;
 
-        // Fallback: String poređenje ako je parameter string
-        // Ovo je korisno ako je ConverterParameter string umjesto enum vrijednosti
+        // Fallback: parameter provided as string (e.g. "WebP")
         if (value is Enum enumValue && parameter is string strParam)
-        {
             return enumValue.ToString() == strParam;
-        }
 
         return false;
     }
 
     /// <summary>
-    /// Konvertuj boolean vrijednost nazad u enum vrijednost.
-    /// Omogućava TwoWay binding.
+    /// Converts a boolean value back to an enum value.
+    /// Enables TwoWay binding scenarios.
     /// </summary>
-    /// <param name="value">Boolean vrijednost (true/false)</param>
-    /// <param name="targetType">Enum tip za konverziju</param>
-    /// <param name="parameter">Enum vrijednost za vraćanje ako je true</param>
-    /// <param name="culture">Kultura za konverziju</param>
-    /// <returns>Enum vrijednost ako je true, inače Binding.DoNothing</returns>
+    /// <param name="value">Boolean value (true/false)</param>
+    /// <param name="targetType">Target enum type</param>
+    /// <param name="parameter">Enum value to return when true</param>
+    /// <param name="culture">Culture info</param>
+    /// <returns>Enum value when true, otherwise Binding.DoNothing</returns>
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Ako vrijednost nije true, nemoj ništa raditi
-        if (!(value is bool boolValue) || !boolValue || parameter == null)
+        // Only act on true; otherwise leave binding unchanged
+        if (value is not bool boolValue || !boolValue || parameter is null)
             return Binding.DoNothing;
 
-        // Ako je target type enum, pokušaj parsirati parameter
-        if (targetType.IsEnum)
+        // Target must be an enum
+        if (!targetType.IsEnum)
+            return Binding.DoNothing;
+
+        try
         {
-            try
-            {
-                // Ako je parameter već enum vrijednost, samo ga vrati
-                if (parameter.GetType() == targetType)
-                {
-                    return parameter;
-                }
+            // Parameter already matches target enum type
+            if (parameter.GetType() == targetType)
+                return parameter;
 
-                // Inače pokušaj parsirati string
-                return Enum.Parse(targetType, parameter.ToString()!);
-            }
-            catch (ArgumentException)
-            {
-                // Ako parsiranje ne uspije, vrati Binding.DoNothing
-                return Binding.DoNothing;
-            }
+            // Parse enum from string parameter
+            return Enum.Parse(targetType, parameter.ToString()!, ignoreCase: true);
         }
-
-        return Binding.DoNothing;
+        catch
+        {
+            // Parsing failed – do not update binding
+            return Binding.DoNothing;
+        }
     }
 }
