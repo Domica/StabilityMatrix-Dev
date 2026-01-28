@@ -49,10 +49,6 @@ public enum VideoOutputMethod
 /// <summary>
 /// ViewModel for Video Output Settings Card
 /// Manages video export as MP4 or WebP
-/// 
-/// NOTE: This ViewModel ONLY creates the output nodes and adds them to the node dictionary.
-/// The actual output node registration (OutputNodeNames) is handled by ComfyPromptBuilder
-/// or the appropriate output module in the inference pipeline.
 /// </summary>
 [View(typeof(VideoOutputSettingsCard))]
 [ManagedService]
@@ -307,9 +303,13 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// Apply video output step to Comfy node builder
     /// 
-    /// Creates SaveAnimatedWEBP or SaveAnimatedMP4 nodes and adds them to the node dictionary.
-    /// The actual registration of output nodes (adding to OutputNodeNames) is handled
-    /// by ComfyPromptBuilder or the appropriate output module.
+    /// Creates SaveAnimatedWEBP or SaveAnimatedMP4 nodes, adds them to the node dictionary,
+    /// and registers them as output nodes via OutputNodes list.
+    /// 
+    /// How it works:
+    /// 1. Create the node with AddTypedNode()
+    /// 2. Add to OutputNodes list
+    /// 3. OutputNodeNames is auto-generated from OutputNodes
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -383,8 +383,9 @@ public partial class VideoOutputSettingsCardViewModel
                     }
                 );
 
-                // NOTE: Do NOT add to OutputNodes here - that's handled by ComfyPromptBuilder
-                Logger.Info($"WebP node created: {outputStep.Name}");
+                // ✅ CORRECT: Add to OutputNodes - this registers it as an output
+                e.Builder.Connections.OutputNodes.Add(outputStep);
+                Logger.Info($"WebP node added to outputs: {outputStep.Name}");
                 return;
             }
 
@@ -412,8 +413,9 @@ public partial class VideoOutputSettingsCardViewModel
                 }
             );
 
-            // NOTE: Do NOT add to OutputNodes here - that's handled by ComfyPromptBuilder
-            Logger.Info($"MP4 node created: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)");
+            // ✅ CORRECT: Add to OutputNodes - this registers it as an output
+            e.Builder.Connections.OutputNodes.Add(mp4Step);
+            Logger.Info($"MP4 node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)");
         }
         catch (InvalidOperationException ex)
         {
