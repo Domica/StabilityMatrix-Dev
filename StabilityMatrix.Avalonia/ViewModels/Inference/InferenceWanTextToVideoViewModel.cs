@@ -117,14 +117,15 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
                     ClassType = "WANMemoryCleanupNode",
                     Inputs = new Dictionary<string, object?>
                     {
-                    ["anything"] = null,
-                    ["offload_wan_models"] = true,
-                    ["offload_cache"] = true
+                        ["anything"] = null,
+                        ["offload_wan_models"] = true,
+                        ["offload_cache"] = true
                     }
                 }
             );
         }
 
+    }
 
     /// <inheritdoc />
     protected override async Task GenerateImageImpl(
