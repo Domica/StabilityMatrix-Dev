@@ -38,6 +38,14 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
     [JsonPropertyName("VideoOutput")]
     public VideoOutputSettingsCardViewModel VideoOutputSettingsCardViewModel { get; }
 
+    private bool _useMemoryCleanup = false;
+    public bool UseMemoryCleanup
+    {
+        get => _useMemoryCleanup;
+        set => this.RaiseAndSetIfChanged(ref _useMemoryCleanup, value);
+    }
+
+
     public InferenceWanTextToVideoViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager inferenceClientManager,
@@ -82,6 +90,13 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             BatchSizeCardViewModel,
             VideoOutputSettingsCardViewModel
         );
+        StackCardViewModel.AddCard(new SettingToggleViewModel(
+        "Use Memory Cleanup",
+        "Enable VRAM cleanup after WAN inference",
+        () => UseMemoryCleanup,
+        v => UseMemoryCleanup = v
+    ));
+
     }
 
     /// <inheritdoc />
