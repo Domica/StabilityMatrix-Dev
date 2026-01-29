@@ -10,6 +10,8 @@ using StabilityMatrix.Avalonia.Views.Inference;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
+using ReactiveUI;
+
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
