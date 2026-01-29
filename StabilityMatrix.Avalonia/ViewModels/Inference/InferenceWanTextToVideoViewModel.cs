@@ -209,7 +209,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             }
         }
     }
-
+}
     /// <inheritdoc />
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
