@@ -238,10 +238,23 @@ else
             batchArgs.Add(generationArgs);
         }
 
-        // Run batches
-        foreach (var args in batchArgs)
+    // Run batches
+    foreach (var args in batchArgs)
+    {
+        await RunGeneration(args, cancellationToken);
+
+        // Show VRAM freed info if cleanup node was used
+        if (UseMemoryCleanup && args.Parameters.TryGetValue("vram_freed_mb", out var freedObj))
         {
-            await RunGeneration(args, cancellationToken);
+            if (freedObj is float freed)
+            {
+                NotificationService.ShowInfo($"VRAM Freed: {freed:F2} MB");
+                Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
+            }
+            else
+            {
+                Logger.Warn("MemoryCleanup: vram_freed_mb returned but not a float");
+            }
         }
     }
 
