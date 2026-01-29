@@ -131,6 +131,8 @@
         <PackageReference Include="Polly.Contrib.WaitAndRetry" />
         <PackageReference Include="Polly.Extensions.Http" />
         <PackageReference Include="Projektanker.Icons.Avalonia.FontAwesome" />
+        <PackageReference Include="ReactiveUI" Version="19.4.1" />
+        <PackageReference Include="ReactiveUI.Fody" Version="19.4.1" />
         <PackageReference Include="RockLib.Reflection.Optimized" />
         <PackageReference Include="Semi.Avalonia"/>
         <PackageReference Include="Sentry" />
