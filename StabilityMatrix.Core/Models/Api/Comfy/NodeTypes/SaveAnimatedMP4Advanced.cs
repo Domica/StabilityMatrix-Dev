@@ -108,12 +108,12 @@ public record SaveAnimatedMP4Advanced : ComfyTypedNodeBase
     public required int Bitrate { get; init; }
 
     // Hidden metadata inputs for advanced filename generation
-    public string? ModelName { get; init; }
-    public string? ModelPath { get; init; }
-    public int? Seed { get; init; }
-    public string? SamplerName { get; init; }
-    public string? SchedulerName { get; init; }
-    public double? Cfg { get; init; }
-    public int? Steps { get; init; }
-    public string? VaeName { get; init; }
+    public string? ModelName { get; set; }
+    public string? ModelPath { get; set; }
+    public int? Seed { get; set; }
+    public string? SamplerName { get; set; }
+    public string? SchedulerName { get; set; }
+    public double? Cfg { get; set; }
+    public int? Steps { get; set; }
+    public string? VaeName { get; set; }
 }
