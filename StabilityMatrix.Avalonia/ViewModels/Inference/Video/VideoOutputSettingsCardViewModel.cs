@@ -316,15 +316,9 @@ public partial class VideoOutputSettingsCardViewModel
     /// Apply video output step to Comfy node builder
     /// Creates SaveAnimatedWEBP or SaveAnimatedMP4Advanced (custom node) nodes
     /// 
-    /// For SaveAnimatedMP4Advanced, adds hidden inputs for:
-    /// - model_name: From base model
-    /// - model_path: From base model path
-    /// - seed: From generation parameters
-    /// - sampler_name: From sampler
-    /// - scheduler_name: From scheduler
-    /// - cfg: From CFG scale
-    /// - steps: From generation steps
-    /// - vae_name: From VAE connection
+    /// NOTE: Hidden inputs for SaveAnimatedMP4Advanced (model_name, seed, etc.)
+    /// are automatically passed by ComfyUI through the prompt JSON.
+    /// They are defined in the Python node's INPUT_TYPES "hidden" section.
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -409,26 +403,6 @@ public partial class VideoOutputSettingsCardViewModel
             Logger.Debug($"Codec value: {finalCodec}");
             Logger.Debug($"Container value: {finalContainer}");
 
-            // Get hidden input values from connections
-            var modelName = e.Builder.Connections.Base?.Model?.Name ?? "";
-            var modelPath = e.Builder.Connections.Base?.Model?.Path ?? "";
-            var seed = e.Builder.Parameters?.Seed ?? -1;
-            var samplerName = e.Builder.Parameters?.Sampler ?? "";
-            var schedulerName = e.Builder.Parameters?.Scheduler ?? "";
-            var cfg = e.Builder.Parameters?.CfgScale ?? 0.0;
-            var steps = e.Builder.Parameters?.Steps ?? 0;
-            var vaeName = e.Builder.Connections.PrimaryVAE?.Name ?? "";
-
-            Logger.Debug($"Hidden inputs for filename generation:");
-            Logger.Debug($"  - modelName: {modelName}");
-            Logger.Debug($"  - modelPath: {modelPath}");
-            Logger.Debug($"  - seed: {seed}");
-            Logger.Debug($"  - samplerName: {samplerName}");
-            Logger.Debug($"  - schedulerName: {schedulerName}");
-            Logger.Debug($"  - cfg: {cfg}");
-            Logger.Debug($"  - steps: {steps}");
-            Logger.Debug($"  - vaeName: {vaeName}");
-
             var mp4Step = e.Nodes.AddTypedNode(
                 new SaveAnimatedMP4Advanced
                 {
@@ -442,10 +416,6 @@ public partial class VideoOutputSettingsCardViewModel
                     Bitrate = Bitrate
                 }
             );
-
-            // NOTE: Hidden inputs are passed through the node's INPUT_TYPES "hidden" section
-            // ComfyUI will automatically pass these if they're defined in the node
-            // The Python node will extract them from the prompt
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info(
