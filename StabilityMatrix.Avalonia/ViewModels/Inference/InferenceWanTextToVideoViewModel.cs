@@ -109,7 +109,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
 
         // WAN Memory Cleanup (toggle-controlled)
-        if (Settings.WanMemoryCleanupEnabled)
+        if (settingsManager.Settings.WanMemoryCleanupEnabled)
         {
             var cleanupNode = new NamedComfyNode(builder.Nodes.GetUniqueName("WANMemoryCleanup"))
             {
