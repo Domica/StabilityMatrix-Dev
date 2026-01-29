@@ -139,7 +139,7 @@
                     IconSource="Refresh">
                     <ui:SettingsExpander.Footer>
                         <ToggleSwitch Margin="0,-8,0,-6" IsChecked="{Binding WanMemoryCleanupEnabled}" />
-                        </ui:SettingsExpander.Footer>
+                    </ui:SettingsExpander.Footer>
                 </ui:SettingsExpander>
 
                 <!--  Output Image Files  -->
