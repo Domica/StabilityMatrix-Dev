@@ -327,6 +327,8 @@ public abstract partial class InferenceGenerationViewModelBase
             {
                 // ADDITION - Set hidden inputs for SaveAnimatedMP4Advanced nodes
                 // This passes model name, seed, sampler, etc. to the Python node for filename generation
+                // ADDITION - Set hidden inputs for SaveAnimatedMP4Advanced nodes
+                // This passes model name, seed, sampler, etc. to the Python node for filename generation
                 foreach (var node in nodes.Values)
                 {
                     if (node is SaveAnimatedMP4Advanced mp4)
@@ -351,16 +353,22 @@ public abstract partial class InferenceGenerationViewModelBase
                         Logger.Debug($"[MP4Hidden] steps: {steps}");
                         Logger.Debug($"[MP4Hidden] vae: {vae}");
                         
-                        // Set the hidden input values on the node
-                        mp4.Hidden ??= new Dictionary<string, object>();
-                        mp4.Hidden["model_name"] = modelName;
-                        mp4.Hidden["model_path"] = modelPath;
-                        mp4.Hidden["seed"] = seed;
-                        mp4.Hidden["sampler_name"] = sampler;
-                        mp4.Hidden["scheduler_name"] = scheduler;
-                        mp4.Hidden["cfg"] = cfg;
-                        mp4.Hidden["steps"] = steps;
-                        mp4.Hidden["vae_name"] = vae;
+                        // Update the node with hidden inputs using 'with' operator
+                        // Since SaveAnimatedMP4Advanced is a record (immutable), we use 'with' to create new instance
+                        var updatedMp4 = mp4 with
+                        {
+                            ModelName = modelName,
+                            ModelPath = modelPath,
+                            Seed = seed,
+                            SamplerName = sampler,
+                            SchedulerName = scheduler,
+                            Cfg = cfg,
+                            Steps = steps,
+                            VaeName = vae
+                        };
+                        
+                        // Replace the node in the dictionary
+                        nodes[node.Name] = updatedMp4;
                         
                         Logger.Debug("Hidden inputs set successfully for SaveAnimatedMP4Advanced");
                     }
