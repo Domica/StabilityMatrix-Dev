@@ -890,6 +890,7 @@ public abstract partial class InferenceGenerationViewModelBase
         public InferenceProjectDocument? Project { get; init; }
         public bool ClearOutputImages { get; init; } = true;
         public List<(string SourcePath, string DestinationRelativePath)> FilesToTransfer { get; init; } = [];
+        public Dictionary<string, object>? Extra { get; init; }
     }
 
     public class BuildPromptEventArgs : EventArgs
