@@ -11,7 +11,6 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
 using StabilityMatrix.Avalonia.ViewModels.Settings;
-using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using NLog;
@@ -22,26 +21,14 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 [RegisterScoped<InferenceWanTextToVideoViewModel>, ManagedService]
 public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase, IParametersLoadableState
 {
-    [JsonIgnore]
-    public StackCardViewModel StackCardViewModel { get; }
+    [JsonIgnore] public StackCardViewModel StackCardViewModel { get; }
 
-    [JsonPropertyName("Model")]
-    public WanModelCardViewModel ModelCardViewModel { get; }
-
-    [JsonPropertyName("Sampler")]
-    public SamplerCardViewModel SamplerCardViewModel { get; }
-
-    [JsonPropertyName("BatchSize")]
-    public BatchSizeCardViewModel BatchSizeCardViewModel { get; }
-
-    [JsonPropertyName("Seed")]
-    public SeedCardViewModel SeedCardViewModel { get; }
-
-    [JsonPropertyName("Prompt")]
-    public PromptCardViewModel PromptCardViewModel { get; }
-
-    [JsonPropertyName("VideoOutput")]
-    public VideoOutputSettingsCardViewModel VideoOutputSettingsCardViewModel { get; }
+    [JsonPropertyName("Model")] public WanModelCardViewModel ModelCardViewModel { get; }
+    [JsonPropertyName("Sampler")] public SamplerCardViewModel SamplerCardViewModel { get; }
+    [JsonPropertyName("BatchSize")] public BatchSizeCardViewModel BatchSizeCardViewModel { get; }
+    [JsonPropertyName("Seed")] public SeedCardViewModel SeedCardViewModel { get; }
+    [JsonPropertyName("Prompt")] public PromptCardViewModel PromptCardViewModel { get; }
+    [JsonPropertyName("VideoOutput")] public VideoOutputSettingsCardViewModel VideoOutputSettingsCardViewModel { get; }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -58,27 +45,23 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         SeedCardViewModel.GenerateNewSeed();
 
         ModelCardViewModel = vmFactory.Get<WanModelCardViewModel>();
-
-        SamplerCardViewModel = vmFactory.Get<WanSamplerCardViewModel>(samplerCard =>
+        SamplerCardViewModel = vmFactory.Get<WanSamplerCardViewModel>(sampler =>
         {
-            samplerCard.IsDimensionsEnabled = true;
-            samplerCard.IsCfgScaleEnabled = true;
-            samplerCard.IsSamplerSelectionEnabled = true;
-            samplerCard.IsSchedulerSelectionEnabled = true;
-            samplerCard.DenoiseStrength = 1.0d;
-            samplerCard.EnableAddons = true;
-            samplerCard.IsLengthEnabled = true;
-            samplerCard.Width = 832;
-            samplerCard.Height = 480;
-            samplerCard.Length = 33;
+            sampler.IsDimensionsEnabled = true;
+            sampler.IsCfgScaleEnabled = true;
+            sampler.IsSamplerSelectionEnabled = true;
+            sampler.IsSchedulerSelectionEnabled = true;
+            sampler.DenoiseStrength = 1.0d;
+            sampler.EnableAddons = true;
+            sampler.IsLengthEnabled = true;
+            sampler.Width = 832;
+            sampler.Height = 480;
+            sampler.Length = 33;
         });
 
         PromptCardViewModel = AddDisposable(vmFactory.Get<PromptCardViewModel>());
         BatchSizeCardViewModel = vmFactory.Get<BatchSizeCardViewModel>();
-
-        VideoOutputSettingsCardViewModel = vmFactory.Get<VideoOutputSettingsCardViewModel>(vm =>
-            vm.Fps = 16.0d
-        );
+        VideoOutputSettingsCardViewModel = vmFactory.Get<VideoOutputSettingsCardViewModel>(vm => vm.Fps = 16.0d);
 
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
         StackCardViewModel.AddCards(
@@ -124,6 +107,23 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
         // Animated webp output
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
+
+        // ---------------------------------------------------------
+        // WAN MEMORY CLEANUP NODE (same integration style as TiledVAE)
+        // ---------------------------------------------------------
+        builder.Nodes.AddTypedNode(
+            new NamedComfyNode
+            {
+                Name = builder.Nodes.GetUniqueName("WANMemoryCleanup"),
+                ClassType = "WANMemoryCleanupNode",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["anything"] = null,
+                    ["offload_wan_models"] = true,
+                    ["offload_cache"] = true
+                }
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -138,7 +138,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         if (!await ModelCardViewModel.ValidateModel())
             return;
 
-        // If enabled, randomize the seed
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
         if (overrides is not { UseCurrentSeed: true } && seedCard.IsRandomizeEnabled)
             seedCard.GenerateNewSeed();
@@ -153,22 +152,16 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides, SeedOverride = seed };
             BuildPrompt(buildPromptArgs);
 
-            // update seed in project for batches
             var inferenceProject = InferenceProjectDocument.FromLoadable(this);
             if (inferenceProject.State?["Seed"]?["Seed"] is not null)
-            {
                 inferenceProject = inferenceProject.WithState(x => x["Seed"]["Seed"] = seed);
-            }
 
             var generationArgs = new ImageGenerationEventArgs
             {
                 Client = ClientManager.Client,
                 Nodes = buildPromptArgs.Builder.ToNodeDictionary(),
                 OutputNodeNames = buildPromptArgs.Builder.Connections.OutputNodeNames.ToArray(),
-                Parameters = SaveStateToParameters(new GenerationParameters()) with
-                {
-                    Seed = Convert.ToUInt64(seed),
-                },
+                Parameters = SaveStateToParameters(new GenerationParameters()) with { Seed = Convert.ToUInt64(seed) },
                 Project = inferenceProject,
                 FilesToTransfer = buildPromptArgs.FilesToTransfer,
                 BatchIndex = i,
@@ -178,12 +171,10 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             batchArgs.Add(generationArgs);
         }
 
-        // Run batches
         foreach (var args in batchArgs)
         {
             await RunGeneration(args, cancellationToken);
 
-            // Show VRAM freed info if cleanup node was used
             if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
             {
                 if (freedObj is float freed)
@@ -208,7 +199,17 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         parameters = VideoOutputSettingsCardViewModel.SaveStateToParameters(parameters);
 
         parameters.Seed = (ulong)SeedCardViewModel.Seed;
-
         return parameters;
+    }
+
+    /// <inheritdoc />
+    public void LoadStateFromParameters(GenerationParameters parameters)
+    {
+        SamplerCardViewModel.LoadStateFromParameters(parameters);
+        ModelCardViewModel.LoadStateFromParameters(parameters);
+        PromptCardViewModel.LoadStateFromParameters(parameters);
+        VideoOutputSettingsCardViewModel.LoadStateFromParameters(parameters);
+
+        SeedCardViewModel.Seed = (long)parameters.Seed;
     }
 }
