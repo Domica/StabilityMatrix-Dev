@@ -413,14 +413,16 @@ public partial class VideoOutputSettingsCardViewModel
             }
         );
             // Hidden inputs for SaveAnimatedMP4Advanced
-            mp4Step.ModelName     = e.Builder.Connections.Base.Model.Name;
-            mp4Step.ModelPath     = e.Builder.Connections.Base.Model.Path;
-            mp4Step.Seed          = (int)e.Builder.Seed;
-            mp4Step.SamplerName   = e.Builder.Sampler.Name;
-            mp4Step.SchedulerName = e.Builder.Scheduler.Name;
-            mp4Step.Cfg           = e.Builder.CfgScale;
-            mp4Step.Steps         = e.Builder.Steps;
-            mp4Step.VaeName       = e.Builder.Connections.PrimaryVAE.Name;
+           var p = e.Builder.GenerationParameters;
+
+            mp4Step.ModelName     = p.ModelName;
+            mp4Step.ModelPath     = p.ModelPath;
+            mp4Step.Seed          = p.Seed;
+            mp4Step.SamplerName   = p.Sampler;
+            mp4Step.SchedulerName = p.Scheduler;
+            mp4Step.Cfg           = p.CfgScale;
+            mp4Step.Steps         = p.Steps;
+            mp4Step.VaeName       = p.Vae;
 
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
