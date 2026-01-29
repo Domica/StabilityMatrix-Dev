@@ -109,9 +109,9 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
 
         // WAN Memory Cleanup (toggle-controlled)
-        if (SettingsManager.Settings.WanMemoryCleanupEnabled)
+        if (this.SettingsManager.Settings.WanMemoryCleanupEnabled)
         {
-            builder.Nodes.AddNode(
+            builder.Nodes.Add(
                 new NamedComfyNode(builder.Nodes.GetUniqueName("WANMemoryCleanup"))
                 {
                     ClassType = "WANMemoryCleanupNode",
@@ -175,11 +175,10 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         {
             await RunGeneration(args, cancellationToken);
 
-            if (args.OutputMetadata != null && args.OutputMetadata.TryGetValue("vram_freed_mb", out var freedObj))
+            if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
             {
                 if (freedObj is float freed)
                 {
-                    NotificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
                     Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
                 }
                 else
