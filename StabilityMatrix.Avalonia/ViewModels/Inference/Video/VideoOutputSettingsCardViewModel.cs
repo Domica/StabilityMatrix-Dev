@@ -317,89 +317,89 @@ public partial class VideoOutputSettingsCardViewModel
     /// Creates SaveAnimatedWEBP or SaveAnimatedMP4Advanced (custom node) nodes
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
+{
+    try
     {
-        try
-        {
-            Logger.Info($"Applying video output: Format={Format}, FPS={Fps}");
+        Logger.Info($"Applying video output: Format={Format}, FPS={Fps}");
 
-            // ========== VALIDATION ==========
-            if (e.Builder.Connections.Primary is null)
-                throw new InvalidOperationException(
-                    "Cannot apply video output settings: No primary connection available. " +
-                    "Ensure an image or latent output is connected."
-                );
-
-            if (e.Builder.Connections.PrimaryVAE is null)
-                throw new InvalidOperationException(
-                    "Cannot apply video output settings: No VAE available. " +
-                    "Ensure a model with VAE is loaded."
-                );
-
-            if (Fps < 1 || Fps > 120)
-                throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
-
-            if (Format == VideoFormat.Mp4)
-            {
-                if (Crf < 0 || Crf > 51)
-                    throw new InvalidOperationException($"CRF must be between 0 and 51, got: {Crf}");
-
-                if (Bitrate < 500 || Bitrate > 50000)
-                    throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
-
-                var codecValue = ExtractStringValue(Codec);
-                if (string.IsNullOrWhiteSpace(codecValue))
-                    throw new InvalidOperationException("Codec cannot be empty");
-
-                var containerValue = ExtractStringValue(Container);
-                if (string.IsNullOrWhiteSpace(containerValue))
-                    throw new InvalidOperationException("Container cannot be empty");
-            }
-
-            // ========== CONVERT PRIMARY CONNECTION ==========
-            var image = e.Builder.Connections.Primary.Match(
-                _ =>
-                    e.Builder.GetPrimaryAsImage(
-                        e.Builder.Connections.PrimaryVAE
-                            ?? e.Builder.Connections.Refiner.VAE
-                            ?? e.Builder.Connections.Base.VAE
-                            ?? throw new InvalidOperationException("No VAE found")
-                    ),
-                image => image
+        // ========== VALIDATION ==========
+        if (e.Builder.Connections.Primary is null)
+            throw new InvalidOperationException(
+                "Cannot apply video output settings: No primary connection available. " +
+                "Ensure an image or latent output is connected."
             );
 
-            // ========== WEBP EXPORT ==========
-            if (Format == VideoFormat.WebP)
-            {
-                Logger.Debug("Creating SaveAnimatedWEBP node");
+        if (e.Builder.Connections.PrimaryVAE is null)
+            throw new InvalidOperationException(
+                "Cannot apply video output settings: No VAE available. " +
+                "Ensure a model with VAE is loaded."
+            );
 
-                var outputStep = e.Nodes.AddTypedNode(
-                    new ComfyNodeBuilder.SaveAnimatedWEBP
-                    {
-                        Name = e.Nodes.GetUniqueName("SaveAnimatedWEBP"),
-                        Images = image,
-                        FilenamePrefix = "InferenceVideo",
-                        Fps = Fps,
-                        Lossless = Lossless,
-                        Quality = Quality,
-                        Method = SelectedMethod.ToString().ToLowerInvariant()
-                    }
-                );
+        if (Fps < 1 || Fps > 120)
+            throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
 
-                e.Builder.Connections.OutputNodes.Add(outputStep);
-                Logger.Info($"WebP node added to outputs: {outputStep.Name}");
-                return;
-            }
+        if (Format == VideoFormat.Mp4)
+        {
+            if (Crf < 0 || Crf > 51)
+                throw new InvalidOperationException($"CRF must be between 0 and 51, got: {Crf}");
 
-            // ========== MP4 EXPORT (with SaveAnimatedMP4Advanced custom node) ==========
-            Logger.Debug("Creating SaveAnimatedMP4Advanced node");
+            if (Bitrate < 500 || Bitrate > 50000)
+                throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
 
-            var finalCodec = ExtractStringValue(Codec) ?? "libx264";
-            var finalContainer = ExtractStringValue(Container) ?? "mp4";
+            var codecValue = ExtractStringValue(Codec);
+            if (string.IsNullOrWhiteSpace(codecValue))
+                throw new InvalidOperationException("Codec cannot be empty");
 
-            Logger.Debug($"Codec value: {finalCodec}");
-            Logger.Debug($"Container value: {finalContainer}");
+            var containerValue = ExtractStringValue(Container);
+            if (string.IsNullOrWhiteSpace(containerValue))
+                throw new InvalidOperationException("Container cannot be empty");
+        }
 
-            var mp4Step = e.Nodes.AddTypedNode(
+        // ========== CONVERT PRIMARY CONNECTION ==========
+        var image = e.Builder.Connections.Primary.Match(
+            _ =>
+                e.Builder.GetPrimaryAsImage(
+                    e.Builder.Connections.PrimaryVAE
+                        ?? e.Builder.Connections.Refiner.VAE
+                        ?? e.Builder.Connections.Base.VAE
+                        ?? throw new InvalidOperationException("No VAE found")
+                ),
+            image => image
+        );
+
+        // ========== WEBP EXPORT ==========
+        if (Format == VideoFormat.WebP)
+        {
+            Logger.Debug("Creating SaveAnimatedWEBP node");
+
+            var outputStep = e.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.SaveAnimatedWEBP
+                {
+                    Name = e.Nodes.GetUniqueName("SaveAnimatedWEBP"),
+                    Images = image,
+                    FilenamePrefix = "InferenceVideo",
+                    Fps = Fps,
+                    Lossless = Lossless,
+                    Quality = Quality,
+                    Method = SelectedMethod.ToString().ToLowerInvariant()
+                }
+            );
+
+            e.Builder.Connections.OutputNodes.Add(outputStep);
+            Logger.Info($"WebP node added to outputs: {outputStep.Name}");
+            return;
+        }
+
+        // ========== MP4 EXPORT (with SaveAnimatedMP4Advanced custom node) ==========
+        Logger.Debug("Creating SaveAnimatedMP4Advanced node");
+
+        var finalCodec = ExtractStringValue(Codec) ?? "libx264";
+        var finalContainer = ExtractStringValue(Container) ?? "mp4";
+
+        Logger.Debug($"Codec value: {finalCodec}");
+        Logger.Debug($"Container value: {finalContainer}");
+
+        var mp4Step = e.Nodes.AddTypedNode(
             new SaveAnimatedMP4Advanced
             {
                 Name = e.Nodes.GetUniqueName("SaveAnimatedMP4Advanced"),
@@ -412,21 +412,21 @@ public partial class VideoOutputSettingsCardViewModel
                 Bitrate = Bitrate
             }
         );
-            e.Builder.Connections.OutputNodes.Add(mp4Step);
-            Logger.Info(
-                $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
+
+        e.Builder.Connections.OutputNodes.Add(mp4Step);
+        Logger.Info(
+            $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
         );
-        
-        catch (InvalidOperationException ex)
-        {
+    }
+    catch (InvalidOperationException ex)
+    {
         Logger.Error(ex, "Invalid video output configuration");
         throw;
-        }
-        catch (Exception ex)
-        {
+    }
+    catch (Exception ex)
+    {
         Logger.Error(ex, "Failed to apply video output settings");
         throw;
-        }
-
-        }
+    }
+}
 }
