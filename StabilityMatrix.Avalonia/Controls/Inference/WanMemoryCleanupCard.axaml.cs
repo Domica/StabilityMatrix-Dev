@@ -1,7 +1,11 @@
-using Avalonia.Controls;
+using StabilityMatrix.Avalonia.Controls;
 
 namespace StabilityMatrix.Avalonia.Controls;
 
-public class WanMemoryCleanupCard : Control
+public partial class WanMemoryCleanupCard : UserControlBase
 {
+    public WanMemoryCleanupCard()
+    {
+        InitializeComponent();
+    }
 }
