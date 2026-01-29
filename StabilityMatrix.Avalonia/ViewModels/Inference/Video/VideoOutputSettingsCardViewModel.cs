@@ -412,19 +412,6 @@ public partial class VideoOutputSettingsCardViewModel
                 Bitrate = Bitrate
             }
         );
-            // Hidden inputs for SaveAnimatedMP4Advanced
-            var p = e.Builder.Parameters;
-
-            mp4Step.ModelName     = p.ModelName;
-            mp4Step.ModelPath     = p.ModelPath;
-            mp4Step.Seed          = p.Seed;
-            mp4Step.SamplerName   = p.Sampler;
-            mp4Step.SchedulerName = p.Scheduler;
-            mp4Step.Cfg           = p.CfgScale;
-            mp4Step.Steps         = p.Steps;
-            mp4Step.VaeName       = p.Vae;
-
-
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info(
                 $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
