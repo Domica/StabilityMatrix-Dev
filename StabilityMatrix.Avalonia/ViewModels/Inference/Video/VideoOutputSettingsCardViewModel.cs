@@ -415,16 +415,18 @@ public partial class VideoOutputSettingsCardViewModel
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info(
                 $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
-            );
+        );
+        
         catch (InvalidOperationException ex)
         {
-            Logger.Error(ex, "Invalid video output configuration");
-            throw;
+        Logger.Error(ex, "Invalid video output configuration");
+        throw;
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Failed to apply video output settings");
-            throw;
+        Logger.Error(ex, "Failed to apply video output settings");
+        throw;
         }
-    }
+
+        }
 }
