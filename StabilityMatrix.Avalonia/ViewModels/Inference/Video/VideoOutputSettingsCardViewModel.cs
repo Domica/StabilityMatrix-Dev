@@ -416,6 +416,21 @@ public partial class VideoOutputSettingsCardViewModel
             Logger.Info(
                 $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
             );
+        // Hidden inputs for SaveAnimatedMP4Advanced
+        var baseConn = e.Builder.Connections.Base;
+        var p = e.Builder.GenerationParameters;
+
+        mp4Step.ModelName     = baseConn.Model.Name;
+        mp4Step.ModelPath     = baseConn.Model.Path;
+        
+        mp4Step.Seed          = p.Seed;
+        mp4Step.SamplerName   = p.Sampler;
+        mp4Step.SchedulerName = p.Scheduler;
+        mp4Step.Cfg           = p.CfgScale;
+        mp4Step.Steps         = p.Steps;
+
+        mp4Step.VaeName       = e.Builder.Connections.PrimaryVAE.Name;
+        
         }
         catch (InvalidOperationException ex)
         {
