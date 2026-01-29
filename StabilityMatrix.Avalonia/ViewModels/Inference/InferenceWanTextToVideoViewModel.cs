@@ -31,7 +31,8 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
     [JsonPropertyName("VideoOutput")] public VideoOutputSettingsCardViewModel VideoOutputSettingsCardViewModel { get; }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
+    private readonly ISettingsManager settingsManager;
+    
     public InferenceWanTextToVideoViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager inferenceClientManager,
@@ -41,6 +42,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
     )
         : base(vmFactory, inferenceClientManager, notificationService, settingsManager, runningPackageService)
     {
+        this.settingsManager = settingsManager;
         SeedCardViewModel = vmFactory.Get<SeedCardViewModel>();
         SeedCardViewModel.GenerateNewSeed();
 
