@@ -169,6 +169,27 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides, SeedOverride = seed };
             BuildPrompt(buildPromptArgs);
 
+            if (UseMemoryCleanup)
+            {
+                var cleanupNode = new ComfyNode
+                {
+                    Type = "WANMemoryCleanupNode",
+                    Id = buildPromptArgs.Builder.GenerateNodeId(),
+                    Inputs = new Dictionary<string, object>
+                {
+                    { "offload_model", false },
+                    { "offload_cache", true }
+                }
+    };
+
+    buildPromptArgs.Builder.InsertNodeAfter("WANInferenceNode", cleanupNode);
+    Logger.Info("MemoryCleanup: enabled and injected into workflow");
+}
+else
+{
+    Logger.Info("MemoryCleanup: disabled");
+}
+
             // update seed in project for batches
             var inferenceProject = InferenceProjectDocument.FromLoadable(this);
             if (inferenceProject.State?["Seed"]?["Seed"] is not null)
