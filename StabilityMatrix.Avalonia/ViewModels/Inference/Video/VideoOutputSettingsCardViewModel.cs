@@ -413,7 +413,7 @@ public partial class VideoOutputSettingsCardViewModel
             }
         );
             // Hidden inputs for SaveAnimatedMP4Advanced
-           var p = e.Builder.GenerationParameters;
+            var p = e.Builder.Parameters;
 
             mp4Step.ModelName     = p.ModelName;
             mp4Step.ModelPath     = p.ModelPath;
