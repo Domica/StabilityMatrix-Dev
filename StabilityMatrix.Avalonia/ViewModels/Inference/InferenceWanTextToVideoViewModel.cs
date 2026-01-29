@@ -111,7 +111,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         // WAN Memory Cleanup (toggle-controlled)
         if (SettingsManager.Settings.WanMemoryCleanupEnabled)
         {
-            builder.Nodes.AddTypedNode(
+            builder.Nodes.AddNode(
                 new NamedComfyNode(builder.Nodes.GetUniqueName("WANMemoryCleanup"))
                 {
                     ClassType = "WANMemoryCleanupNode",
@@ -124,7 +124,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
                 }
             );
         }
-
     }
 
     /// <inheritdoc />
