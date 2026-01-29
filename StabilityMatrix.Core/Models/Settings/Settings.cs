@@ -254,6 +254,8 @@ public class Settings
 
     public int InferenceDimensionStepChange { get; set; } = 128;
 
+    public bool WanMemoryCleanupEnabled { get; set; } = true;
+    
     [JsonIgnore]
     public bool IsHolidayModeActive =>
         HolidayModeSetting == HolidayMode.Automatic
