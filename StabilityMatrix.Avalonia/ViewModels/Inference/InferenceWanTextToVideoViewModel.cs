@@ -182,21 +182,31 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
                 var cleanupNode = new ComfyNode
                 {
                     Type = "WANMemoryCleanupNode",
-                    Id = buildPromptArgs.Builder.GenerateNodeId(),
+                    Id = buildPromptArgs.Builder.Nodes.GetNextId(),
                     Inputs = new Dictionary<string, object>
-                {
-                    { "offload_model", false },
-                    { "offload_cache", true }
-                }
-    };
+                    {
+                        { "anything", null }, // required passthrough
+                        { "offload_wan_models", true },
+                        { "offload_cache", true }
+                    }
+                };
 
-    buildPromptArgs.Builder.InsertNodeAfter("WANInferenceNode", cleanupNode);
-    Logger.Info("MemoryCleanup: enabled and injected into workflow");
+    if (buildPromptArgs.Builder.Nodes.ContainsKey("WANInferenceNode"))
+    {
+        buildPromptArgs.Builder.Nodes.InsertAfter("WANInferenceNode", cleanupNode);
+        Logger.Info("MemoryCleanup: enabled and injected after WANInferenceNode");
+    }
+    else
+    {
+        buildPromptArgs.Builder.Nodes.Add(cleanupNode);
+        Logger.Warn("MemoryCleanup: WANInferenceNode not found, appended cleanup node at end");
+    }
 }
 else
 {
     Logger.Info("MemoryCleanup: disabled");
 }
+
 
             // update seed in project for batches
             var inferenceProject = InferenceProjectDocument.FromLoadable(this);
