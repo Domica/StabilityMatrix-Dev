@@ -139,14 +139,7 @@ public partial class InferenceSettingsViewModel : PageViewModelBase
             settings => settings.IsInferenceImageBrowserUseRecycleBinForDelete,
             true
         );
-        
-        settingsManager.RelayPropertyFor(
-            this,
-            vm => vm.WanMemoryCleanupEnabled,
-            settings => settings.WanMemoryCleanupEnabled,
-            true
-        );
-        
+     
         settingsManager.RelayPropertyFor(
             this,
             vm => vm.FilterExtraNetworksByBaseModel,
