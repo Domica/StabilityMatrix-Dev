@@ -253,8 +253,6 @@ public class Settings
     public string? CivitModelBrowserFileNamePattern { get; set; }
 
     public int InferenceDimensionStepChange { get; set; } = 128;
-
-    public bool WanMemoryCleanupEnabled { get; set; } = true;
     
     [JsonIgnore]
     public bool IsHolidayModeActive =>
