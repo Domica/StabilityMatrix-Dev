@@ -400,18 +400,28 @@ public partial class VideoOutputSettingsCardViewModel
             Logger.Debug($"Container value: {finalContainer}");
 
             var mp4Step = e.Nodes.AddTypedNode(
-                new SaveAnimatedMP4Advanced
-                {
-                    Name = e.Nodes.GetUniqueName("SaveAnimatedMP4Advanced"),
-                    Images = image,
-                    FilenamePrefix = "InferenceVideo",
-                    Fps = Fps,
-                    Crf = Crf,
-                    Codec = finalCodec,
-                    Container = finalContainer,
-                    Bitrate = Bitrate
-                }
-            );
+            new SaveAnimatedMP4Advanced
+            {
+                Name = e.Nodes.GetUniqueName("SaveAnimatedMP4Advanced"),
+                Images = image,
+                FilenamePrefix = "InferenceVideo",
+                Fps = Fps,
+                Crf = Crf,
+                Codec = finalCodec,
+                Container = finalContainer,
+                Bitrate = Bitrate
+            }
+        );
+            // Hidden inputs for SaveAnimatedMP4Advanced
+            mp4Step.ModelName     = e.Builder.Connections.Base.Model.DisplayName;
+            mp4Step.ModelPath     = e.Builder.Connections.Base.Model.FilePath;
+            mp4Step.Seed          = (int)e.Builder.Seed;
+            mp4Step.SamplerName   = e.Builder.Sampler.Name;
+            mp4Step.SchedulerName = e.Builder.Scheduler.Name;
+            mp4Step.Cfg           = e.Builder.CfgScale;
+            mp4Step.Steps         = e.Builder.Steps;
+            mp4Step.VaeName       = e.Builder.Connections.PrimaryVAE.DisplayName;
+
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info(
