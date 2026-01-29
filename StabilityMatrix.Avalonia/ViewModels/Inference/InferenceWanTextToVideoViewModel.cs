@@ -183,15 +183,16 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             {
                 var cleanupNode = new ComfyNode
                 {
-                    Type = "WANMemoryCleanupNode",
-                    Id = buildPromptArgs.Builder.Nodes.GetNextId(),
-                    Inputs = new Dictionary<string, object>
+                    ClassType = "WANMemoryCleanupNode",
+                    NodeId = buildPromptArgs.Builder.GetNextNodeId(),
+                    Inputs = new Dictionary<string, object?>
                     {
-                        { "anything", null }, // required passthrough
+                        { "anything", null },
                         { "offload_wan_models", true },
                         { "offload_cache", true }
                     }
                 };
+
 
     if (buildPromptArgs.Builder.Nodes.ContainsKey("WANInferenceNode"))
     {
