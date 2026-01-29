@@ -104,6 +104,16 @@ public record SaveAnimatedMP4Advanced : ComfyTypedNodeBase
     /// - 5000-10000 kbps: High quality
     /// - 10000+ kbps: Archive/Master quality
     /// </summary>
-    [Range(500, 50000)]
+        [Range(500, 50000)]
     public required int Bitrate { get; init; }
+
+    // Hidden metadata inputs for advanced filename generation
+    public string? ModelName { get; init; }
+    public string? ModelPath { get; init; }
+    public int? Seed { get; init; }
+    public string? SamplerName { get; init; }
+    public string? SchedulerName { get; init; }
+    public double? Cfg { get; init; }
+    public int? Steps { get; init; }
+    public string? VaeName { get; init; }
 }
