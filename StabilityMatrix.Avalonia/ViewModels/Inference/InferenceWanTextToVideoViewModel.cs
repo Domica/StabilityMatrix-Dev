@@ -180,35 +180,35 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             BuildPrompt(buildPromptArgs);
 
             if (UseMemoryCleanup)
-            {
-                var cleanupNode = new ComfyNode
-                {
-                    ClassType = "WANMemoryCleanupNode",
-                    NodeId = buildPromptArgs.Builder.GetNextNodeId(),
-                    Inputs = new Dictionary<string, object?>
-                    {
-                        { "anything", null },
-                        { "offload_wan_models", true },
-                        { "offload_cache", true }
-                    }
-                };
-
+{
+    var cleanupNode = new ComfyNode
+    {
+        ClassType = "WANMemoryCleanupNode",
+        NodeId = buildPromptArgs.Builder.GetNextNodeId(),
+        Inputs = new Dictionary<string, object?>
+        {
+            { "anything", null },
+            { "offload_wan_models", true },
+            { "offload_cache", true }
+        }
+    };
 
     if (buildPromptArgs.Builder.Nodes.ContainsKey("WANInferenceNode"))
     {
-        buildPromptArgs.Builder.Nodes.InsertAfter("WANInferenceNode", cleanupNode);
-        Logger.Info("MemoryCleanup: enabled and injected after WANInferenceNode");
+        buildPromptArgs.Builder.InsertNodeAfter("WANInferenceNode", cleanupNode);
+        Logger.Info("MemoryCleanup: injected after WANInferenceNode");
     }
     else
     {
-        buildPromptArgs.Builder.Nodes.Add(cleanupNode);
-        Logger.Warn("MemoryCleanup: WANInferenceNode not found, appended cleanup node at end");
+        buildPromptArgs.Builder.AddNode(cleanupNode);
+        Logger.Warn("MemoryCleanup: WANInferenceNode not found, appended at end");
     }
 }
 else
 {
     Logger.Info("MemoryCleanup: disabled");
 }
+
 
 
             // update seed in project for batches
