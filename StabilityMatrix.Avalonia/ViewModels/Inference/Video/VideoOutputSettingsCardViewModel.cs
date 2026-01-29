@@ -417,7 +417,7 @@ public partial class VideoOutputSettingsCardViewModel
         Logger.Info(
             $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
         );
-    }
+        }
     catch (InvalidOperationException ex)
     {
         Logger.Error(ex, "Invalid video output configuration");
