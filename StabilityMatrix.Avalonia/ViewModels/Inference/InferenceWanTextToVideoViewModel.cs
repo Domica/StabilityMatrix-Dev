@@ -196,11 +196,11 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         await RunGeneration(args, cancellationToken);
 
         // Show VRAM freed info if cleanup node was used
-        if (args.Parameters.TryGetValue("vram_freed_mb", out var freedObj))
+        if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
         {
             if (freedObj is float freed)
             {
-                NotificationService.ShowInfo($"VRAM Freed: {freed:F2} MB");
+                notificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
                 Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
             }
             else
