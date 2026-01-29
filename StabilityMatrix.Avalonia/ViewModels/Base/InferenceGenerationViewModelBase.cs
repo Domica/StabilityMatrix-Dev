@@ -276,28 +276,6 @@ public abstract partial class InferenceGenerationViewModelBase
         var nodes = args.Nodes;
         var parameters = args.Parameters!;
 
-        // ADDITION
-        foreach (var node in nodes.Values)
-        {
-            if (node is SaveAnimatedMP4Advanced mp4)
-            {
-                var baseConn = args.Builder.Connections.Base;
-                var vaeConn  = args.Builder.Connections.PrimaryVAE;
-                var p        = args.Parameters;
-
-                mp4.ModelName     = baseConn?.Model?.Name;
-                mp4.ModelPath     = baseConn?.Model?.Path;
-        
-                mp4.Seed          = p.Seed;
-                mp4.SamplerName   = p.Sampler;
-                mp4.Cfg           = p.CfgScale;
-                mp4.Steps         = p.Steps;
-
-                mp4.SchedulerName = p.Scheduler;
-                mp4.VaeName       = vaeConn?.Name;
-            }
-        }
-
         // Checks
         if (args.Parameters is null)
             throw new InvalidOperationException("Parameters is null");
