@@ -44,12 +44,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
     [JsonPropertyName("VideoOutput")]
     public VideoOutputSettingsCardViewModel VideoOutputSettingsCardViewModel { get; }
 
-    private bool _useMemoryCleanup = false;
-    public bool UseMemoryCleanup
-    {
-        get => _useMemoryCleanup;
-        set => SetProperty(ref _useMemoryCleanup, value);
-    }
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 
@@ -97,17 +91,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             BatchSizeCardViewModel,
             VideoOutputSettingsCardViewModel
         );
-        StackCardViewModel.AddCard(
-        new BooleanSettingCardViewModel(
-            "Use Memory Cleanup",
-            "Enable VRAM cleanup after WAN inference",
-            () => UseMemoryCleanup,
-            v => UseMemoryCleanup = v
-        )
-    );
-
-
-
+       
     }
 
     /// <inheritdoc />
@@ -179,39 +163,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
             var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides, SeedOverride = seed };
             BuildPrompt(buildPromptArgs);
-
-            if (UseMemoryCleanup)
-{
-    var cleanupNode = new ComfyNode
-    {
-        ClassType = "WANMemoryCleanupNode",
-        NodeId = buildPromptArgs.Builder.GetNextNodeId(),
-        Inputs = new Dictionary<string, object?>
-        {
-            { "anything", null },
-            { "offload_wan_models", true },
-            { "offload_cache", true }
-        }
-    };
-
-    if (buildPromptArgs.Builder.Nodes.ContainsKey("WANInferenceNode"))
-    {
-        buildPromptArgs.Builder.InsertNodeAfter("WANInferenceNode", cleanupNode);
-        Logger.Info("MemoryCleanup: injected after WANInferenceNode");
-    }
-    else
-    {
-        buildPromptArgs.Builder.AddNode(cleanupNode);
-        Logger.Warn("MemoryCleanup: WANInferenceNode not found, appended at end");
-    }
-}
-else
-{
-    Logger.Info("MemoryCleanup: disabled");
-}
-
-
-
+        
             // update seed in project for batches
             var inferenceProject = InferenceProjectDocument.FromLoadable(this);
             if (inferenceProject.State?["Seed"]?["Seed"] is not null)
@@ -244,7 +196,7 @@ else
         await RunGeneration(args, cancellationToken);
 
         // Show VRAM freed info if cleanup node was used
-        if (UseMemoryCleanup && args.Parameters.TryGetValue("vram_freed_mb", out var freedObj))
+        if (args.Parameters.TryGetValue("vram_freed_mb", out var freedObj))
         {
             if (freedObj is float freed)
             {
