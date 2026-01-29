@@ -189,36 +189,25 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
             batchArgs.Add(generationArgs);
         }
+// Run batches
+foreach (var args in batchArgs)
+{
+    await RunGeneration(args, cancellationToken);
 
-    // Run batches
-    foreach (var args in batchArgs)
+    // Show VRAM freed info if cleanup node was used
+    if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
     {
-        await RunGeneration(args, cancellationToken);
-
-        // Show VRAM freed info if cleanup node was used
-        if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
+        if (freedObj is float freed)
         {
-            if (freedObj is float freed)
-            {
-                notificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
-                Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
-            }
-            else
-            {
-                Logger.Warn("MemoryCleanup: vram_freed_mb returned but not a float");
-            }
+            notificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
+            Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
+        }
+        else
+        {
+            Logger.Warn("MemoryCleanup: vram_freed_mb returned but not a float");
         }
     }
 }
-    /// <inheritdoc />
-    public void LoadStateFromParameters(GenerationParameters parameters)
-    {
-        SamplerCardViewModel.LoadStateFromParameters(parameters);
-        ModelCardViewModel.LoadStateFromParameters(parameters);
-        PromptCardViewModel.LoadStateFromParameters(parameters);
-        VideoOutputSettingsCardViewModel.LoadStateFromParameters(parameters);
-        SeedCardViewModel.Seed = Convert.ToInt64(parameters.Seed);
-    }
 
     /// <inheritdoc />
     public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
