@@ -88,7 +88,7 @@
             </sg:SpacedGrid>
 
             <!--  General  -->
-            <sg:SpacedGrid RowDefinitions="Auto,*,*,*,*" RowSpacing="4">
+            <sg:SpacedGrid RowDefinitions="Auto,*,*,*" RowSpacing="4">
                 <TextBlock
                     Margin="0,0,0,4"
                     FontWeight="Medium"
@@ -134,7 +134,7 @@
                 </ui:SettingsExpander>
                 <!--  Output Image Files  -->
                 <ui:SettingsExpander
-                    Grid.Row="4"
+                    Grid.Row="3"
                     Header="{x:Static lang:Resources.Label_OutputImageFiles}"
                     IsExpanded="True">
                     <ui:SettingsExpander.IconSource>
@@ -159,7 +159,7 @@
 
                 <ui:TeachingTip
                     Title="Format Variables"
-                    Grid.Row="4"
+                    Grid.Row="3"
                     IsOpen="{Binding #OutputImageFileNameFormatTextBox.IsFocused}"
                     PreferredPlacement="Top"
                     Target="{Binding #OutputImageFileNameFormatTextBox, Mode=OneWay}">
