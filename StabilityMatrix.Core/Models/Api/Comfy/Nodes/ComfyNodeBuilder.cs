@@ -417,6 +417,26 @@ public class ComfyNodeBuilder
         public required string Codec { get; init; }
         public required string Container { get; init; }
     }
+    public record SaveAnimatedMP4Advanced : ComfyTypedNodeBase
+    {
+        public required ImageNodeConnection Images { get; init; }
+        public required string FilenamePrefix { get; init; }
+        public required double Fps { get; init; }
+        public required int Crf { get; init; }
+        public required string Codec { get; init; }
+        public required string Container { get; init; }
+        public required int Bitrate { get; init; }
+
+        // HIDDEN INPUTS
+        public string? ModelName { get; init; }
+        public string? ModelPath { get; init; }
+        public int? Seed { get; init; }
+        public string? SamplerName { get; init; }
+        public string? SchedulerName { get; init; }
+        public double? Cfg { get; init; }
+        public int? Steps { get; init; }
+        public string? VaeName { get; init; }
+    }
 
     public record UNETLoader : ComfyTypedNodeBase<ModelNodeConnection>
     {
