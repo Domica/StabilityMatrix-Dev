@@ -325,55 +325,6 @@ public abstract partial class InferenceGenerationViewModelBase
 
             try
             {
-                // ADDITION - Set hidden inputs for SaveAnimatedMP4Advanced nodes
-                // This passes model name, seed, sampler, etc. to the Python node for filename generation
-                // ADDITION - Set hidden inputs for SaveAnimatedMP4Advanced nodes
-                // This passes model name, seed, sampler, etc. to the Python node for filename generation
-                foreach (var node in nodes.Values)
-                {
-                    if (node is SaveAnimatedMP4Advanced mp4)
-                    {
-                        Logger.Debug("Found SaveAnimatedMP4Advanced node, setting hidden inputs for filename generation");
-                        
-                        // Get values from builder connections
-                        var modelName = args.Builder.Connections.Base?.Model?.Name ?? "UnknownModel";
-                        var modelPath = args.Builder.Connections.Base?.Model?.Path ?? "";
-                        var seed = args.Builder.Connections.Seed;
-                        var sampler = args.Builder.Connections.PrimarySampler?.Name ?? "";
-                        var scheduler = args.Builder.Connections.PrimaryScheduler?.Name ?? "";
-                        var cfg = args.Builder.Connections.PrimaryCfg ?? 0.0;
-                        var steps = args.Builder.Connections.PrimarySteps ?? 0;
-                        var vae = args.Builder.Connections.PrimaryVAE?.Name ?? "";
-                        
-                        Logger.Debug($"[MP4Hidden] modelName: {modelName}");
-                        Logger.Debug($"[MP4Hidden] seed: {seed}");
-                        Logger.Debug($"[MP4Hidden] sampler: {sampler}");
-                        Logger.Debug($"[MP4Hidden] scheduler: {scheduler}");
-                        Logger.Debug($"[MP4Hidden] cfg: {cfg}");
-                        Logger.Debug($"[MP4Hidden] steps: {steps}");
-                        Logger.Debug($"[MP4Hidden] vae: {vae}");
-                        
-                        // Update the node with hidden inputs using 'with' operator
-                        // Since SaveAnimatedMP4Advanced is a record (immutable), we use 'with' to create new instance
-                        var updatedMp4 = mp4 with
-                        {
-                            ModelName = modelName,
-                            ModelPath = modelPath,
-                            Seed = seed,
-                            SamplerName = sampler,
-                            SchedulerName = scheduler,
-                            Cfg = cfg,
-                            Steps = steps,
-                            VaeName = vae
-                        };
-                        
-                        // Replace the node in the dictionary
-                        nodes[node.Name] = updatedMp4;
-                        
-                        Logger.Debug("Hidden inputs set successfully for SaveAnimatedMP4Advanced");
-                    }
-                }
-
                 promptTask = await client.QueuePromptAsync(nodes, cancellationToken);
             }
             catch (ApiException e)
