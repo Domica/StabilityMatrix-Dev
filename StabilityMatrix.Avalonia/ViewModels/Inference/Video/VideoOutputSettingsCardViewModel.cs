@@ -250,7 +250,6 @@ public partial class VideoOutputSettingsCardViewModel
     /// </summary>
     partial void OnCrfChanged(int value)
     {
-        // Validation - clamp to 0-51
         if (value < 0 || value > 51)
         {
             Crf = Math.Clamp(value, 0, 51);
@@ -262,7 +261,6 @@ public partial class VideoOutputSettingsCardViewModel
     /// </summary>
     partial void OnBitrateChanged(int value)
     {
-        // Validation - clamp to 500-50000
         if (value < 500 || value > 50000)
         {
             Bitrate = Math.Clamp(value, 500, 50000);
@@ -274,7 +272,6 @@ public partial class VideoOutputSettingsCardViewModel
     /// </summary>
     partial void OnFpsChanged(double value)
     {
-        // Validation - clamp to 1-120
         if (value < 1 || value > 120)
         {
             Fps = Math.Clamp(value, 1, 120);
@@ -287,32 +284,22 @@ public partial class VideoOutputSettingsCardViewModel
 
     /// <summary>
     /// Extracts string value from potential ComboBoxItem object.
-    /// 
-    /// XAML ComboBox with hard-coded ComboBoxItem elements may return
-    /// the ComboBoxItem object instead of just the Content string.
-    /// This method handles both cases:
-    /// - If input is ComboBoxItem, extract its Content
-    /// - If input is string, return as-is
-    /// - Otherwise, return ToString()
     /// </summary>
     private static string? ExtractStringValue(object? value)
     {
         if (value == null)
             return null;
 
-        // If it's a ComboBoxItem, extract the Content
         if (value is ComboBoxItem item)
         {
             return item.Content?.ToString();
         }
 
-        // If it's already a string, return it
         if (value is string str)
         {
             return str;
         }
 
-        // Otherwise, convert to string
         return value.ToString();
     }
 
@@ -322,14 +309,6 @@ public partial class VideoOutputSettingsCardViewModel
 
     /// <summary>
     /// Apply video output step to Comfy node builder
-    /// 
-    /// Creates SaveAnimatedWEBP or SaveAnimatedMP4 nodes, adds them to the node dictionary,
-    /// and registers them as output nodes via OutputNodes list.
-    /// 
-    /// How it works:
-    /// 1. Create the node with AddTypedNode()
-    /// 2. Add to OutputNodes list
-    /// 3. OutputNodeNames is auto-generated from OutputNodes
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -350,7 +329,6 @@ public partial class VideoOutputSettingsCardViewModel
                     "Ensure a model with VAE is loaded."
                 );
 
-            // Validate values
             if (Fps < 1 || Fps > 120)
                 throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
 
@@ -362,12 +340,10 @@ public partial class VideoOutputSettingsCardViewModel
                 if (Bitrate < 500 || Bitrate > 50000)
                     throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
 
-                // Extract codec value (may be ComboBoxItem)
                 var codecValue = ExtractStringValue(Codec);
                 if (string.IsNullOrWhiteSpace(codecValue))
                     throw new InvalidOperationException("Codec cannot be empty");
 
-                // Extract container value (may be ComboBoxItem)
                 var containerValue = ExtractStringValue(Container);
                 if (string.IsNullOrWhiteSpace(containerValue))
                     throw new InvalidOperationException("Container cannot be empty");
@@ -403,7 +379,6 @@ public partial class VideoOutputSettingsCardViewModel
                     }
                 );
 
-                // ✅ CORRECT: Add to OutputNodes - this registers it as an output
                 e.Builder.Connections.OutputNodes.Add(outputStep);
                 Logger.Info($"WebP node added to outputs: {outputStep.Name}");
                 return;
@@ -412,12 +387,11 @@ public partial class VideoOutputSettingsCardViewModel
             // ========== MP4 EXPORT ==========
             Logger.Debug("Creating SaveAnimatedMP4 node");
 
-            // IMPORTANT: Extract string values from potential ComboBoxItem objects
             var finalCodec = ExtractStringValue(Codec) ?? "libx264";
             var finalContainer = ExtractStringValue(Container) ?? "mp4";
 
-            Logger.Debug($"Codec value: {finalCodec} (type: {finalCodec.GetType().Name})");
-            Logger.Debug($"Container value: {finalContainer} (type: {finalContainer.GetType().Name})");
+            Logger.Debug($"Codec value: {finalCodec}");
+            Logger.Debug($"Container value: {finalContainer}");
 
             var mp4Step = e.Nodes.AddTypedNode(
                 new SaveAnimatedMP4
@@ -433,9 +407,10 @@ public partial class VideoOutputSettingsCardViewModel
                 }
             );
 
-            // ✅ CORRECT: Add to OutputNodes - this registers it as an output
             e.Builder.Connections.OutputNodes.Add(mp4Step);
-            Logger.Info($"MP4 node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)");
+            Logger.Info(
+                $"MP4 node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
+            );
         }
         catch (InvalidOperationException ex)
         {
