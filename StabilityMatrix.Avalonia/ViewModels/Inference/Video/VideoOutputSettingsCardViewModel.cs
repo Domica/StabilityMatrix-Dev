@@ -49,6 +49,7 @@ public enum VideoOutputMethod
 /// <summary>
 /// ViewModel for Video Output Settings Card
 /// Manages video export as MP4 or WebP
+/// Uses SaveAnimatedMP4Advanced custom node for MP4 export with full encoding control
 /// </summary>
 [View(typeof(VideoOutputSettingsCard))]
 [ManagedService]
@@ -127,26 +128,28 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// MP4: Constant Rate Factor - compression quality (0-51)
     /// Recommended: 18-28
+    /// NOTE: Sent to SaveAnimatedMP4Advanced custom node
     /// </summary>
     [ObservableProperty]
     private int crf = 18;
 
     /// <summary>
     /// MP4: Video codec (libx264, libx265)
-    /// NOTE: This may be set from ComboBoxItem.Content (string value)
+    /// NOTE: Sent to SaveAnimatedMP4Advanced custom node
     /// </summary>
     [ObservableProperty]
     private string codec = "libx264";
 
     /// <summary>
     /// MP4: Container format (mp4, mkv)
-    /// NOTE: This may be set from ComboBoxItem.Content (string value)
+    /// NOTE: Sent to SaveAnimatedMP4Advanced custom node
     /// </summary>
     [ObservableProperty]
     private string container = "mp4";
 
     /// <summary>
     /// MP4: Bitrate in kbps (500-50000)
+    /// NOTE: Sent to SaveAnimatedMP4Advanced custom node
     /// </summary>
     [ObservableProperty]
     private int bitrate = 4000;
@@ -284,6 +287,8 @@ public partial class VideoOutputSettingsCardViewModel
 
     /// <summary>
     /// Extracts string value from potential ComboBoxItem object.
+    /// XAML ComboBox with hard-coded ComboBoxItem elements may return
+    /// the ComboBoxItem object instead of just the Content string.
     /// </summary>
     private static string? ExtractStringValue(object? value)
     {
@@ -309,6 +314,7 @@ public partial class VideoOutputSettingsCardViewModel
 
     /// <summary>
     /// Apply video output step to Comfy node builder
+    /// Creates SaveAnimatedWEBP or SaveAnimatedMP4Advanced (custom node) nodes
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -384,8 +390,8 @@ public partial class VideoOutputSettingsCardViewModel
                 return;
             }
 
-            // ========== MP4 EXPORT ==========
-            Logger.Debug("Creating SaveAnimatedMP4 node");
+            // ========== MP4 EXPORT (with SaveAnimatedMP4Advanced custom node) ==========
+            Logger.Debug("Creating SaveAnimatedMP4Advanced node");
 
             var finalCodec = ExtractStringValue(Codec) ?? "libx264";
             var finalContainer = ExtractStringValue(Container) ?? "mp4";
@@ -394,9 +400,9 @@ public partial class VideoOutputSettingsCardViewModel
             Logger.Debug($"Container value: {finalContainer}");
 
             var mp4Step = e.Nodes.AddTypedNode(
-                new SaveAnimatedMP4
+                new SaveAnimatedMP4Advanced
                 {
-                    Name = e.Nodes.GetUniqueName("SaveAnimatedMP4"),
+                    Name = e.Nodes.GetUniqueName("SaveAnimatedMP4Advanced"),
                     Images = image,
                     FilenamePrefix = "InferenceVideo",
                     Fps = Fps,
@@ -409,7 +415,7 @@ public partial class VideoOutputSettingsCardViewModel
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info(
-                $"MP4 node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
+                $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
             );
         }
         catch (InvalidOperationException ex)
