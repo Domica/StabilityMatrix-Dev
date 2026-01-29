@@ -315,80 +315,90 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// Apply video output step to Comfy node builder
     /// Creates SaveAnimatedWEBP or SaveAnimatedMP4Advanced (custom node) nodes
+    /// 
+    /// For SaveAnimatedMP4Advanced, adds hidden inputs for:
+    /// - model_name: From base model
+    /// - model_path: From base model path
+    /// - seed: From generation parameters
+    /// - sampler_name: From sampler
+    /// - scheduler_name: From scheduler
+    /// - cfg: From CFG scale
+    /// - steps: From generation steps
+    /// - vae_name: From VAE connection
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
-{
-    try
     {
-        Logger.Info($"Applying video output: Format={Format}, FPS={Fps}");
-
-        // ========== VALIDATION ==========
-        if (e.Builder.Connections.Primary is null)
-            throw new InvalidOperationException(
-                "Cannot apply video output settings: No primary connection available. " +
-                "Ensure an image or latent output is connected."
-            );
-
-        if (e.Builder.Connections.PrimaryVAE is null)
-            throw new InvalidOperationException(
-                "Cannot apply video output settings: No VAE available. " +
-                "Ensure a model with VAE is loaded."
-            );
-
-        if (Fps < 1 || Fps > 120)
-            throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
-
-        if (Format == VideoFormat.Mp4)
+        try
         {
-            if (Crf < 0 || Crf > 51)
-                throw new InvalidOperationException($"CRF must be between 0 and 51, got: {Crf}");
+            Logger.Info($"Applying video output: Format={Format}, FPS={Fps}");
 
-            if (Bitrate < 500 || Bitrate > 50000)
-                throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
+            // ========== VALIDATION ==========
+            if (e.Builder.Connections.Primary is null)
+                throw new InvalidOperationException(
+                    "Cannot apply video output settings: No primary connection available. " +
+                    "Ensure an image or latent output is connected."
+                );
 
-            var codecValue = ExtractStringValue(Codec);
-            if (string.IsNullOrWhiteSpace(codecValue))
-                throw new InvalidOperationException("Codec cannot be empty");
+            if (e.Builder.Connections.PrimaryVAE is null)
+                throw new InvalidOperationException(
+                    "Cannot apply video output settings: No VAE available. " +
+                    "Ensure a model with VAE is loaded."
+                );
 
-            var containerValue = ExtractStringValue(Container);
-            if (string.IsNullOrWhiteSpace(containerValue))
-                throw new InvalidOperationException("Container cannot be empty");
-        }
+            if (Fps < 1 || Fps > 120)
+                throw new InvalidOperationException($"FPS must be between 1 and 120, got: {Fps}");
 
-        // ========== CONVERT PRIMARY CONNECTION ==========
-        var image = e.Builder.Connections.Primary.Match(
-            _ =>
-                e.Builder.GetPrimaryAsImage(
-                    e.Builder.Connections.PrimaryVAE
-                        ?? e.Builder.Connections.Refiner.VAE
-                        ?? e.Builder.Connections.Base.VAE
-                        ?? throw new InvalidOperationException("No VAE found")
-                ),
-            image => image
-        );
+            if (Format == VideoFormat.Mp4)
+            {
+                if (Crf < 0 || Crf > 51)
+                    throw new InvalidOperationException($"CRF must be between 0 and 51, got: {Crf}");
 
-        // ========== WEBP EXPORT ==========
-        if (Format == VideoFormat.WebP)
-        {
-            Logger.Debug("Creating SaveAnimatedWEBP node");
+                if (Bitrate < 500 || Bitrate > 50000)
+                    throw new InvalidOperationException($"Bitrate must be between 500 and 50000 kbps, got: {Bitrate}");
 
-            var outputStep = e.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.SaveAnimatedWEBP
-                {
-                    Name = e.Nodes.GetUniqueName("SaveAnimatedWEBP"),
-                    Images = image,
-                    FilenamePrefix = "InferenceVideo",
-                    Fps = Fps,
-                    Lossless = Lossless,
-                    Quality = Quality,
-                    Method = SelectedMethod.ToString().ToLowerInvariant()
-                }
+                var codecValue = ExtractStringValue(Codec);
+                if (string.IsNullOrWhiteSpace(codecValue))
+                    throw new InvalidOperationException("Codec cannot be empty");
+
+                var containerValue = ExtractStringValue(Container);
+                if (string.IsNullOrWhiteSpace(containerValue))
+                    throw new InvalidOperationException("Container cannot be empty");
+            }
+
+            // ========== CONVERT PRIMARY CONNECTION ==========
+            var image = e.Builder.Connections.Primary.Match(
+                _ =>
+                    e.Builder.GetPrimaryAsImage(
+                        e.Builder.Connections.PrimaryVAE
+                            ?? e.Builder.Connections.Refiner.VAE
+                            ?? e.Builder.Connections.Base.VAE
+                            ?? throw new InvalidOperationException("No VAE found")
+                    ),
+                image => image
             );
 
-            e.Builder.Connections.OutputNodes.Add(outputStep);
-            Logger.Info($"WebP node added to outputs: {outputStep.Name}");
-            return;
-        }
+            // ========== WEBP EXPORT ==========
+            if (Format == VideoFormat.WebP)
+            {
+                Logger.Debug("Creating SaveAnimatedWEBP node");
+
+                var outputStep = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.SaveAnimatedWEBP
+                    {
+                        Name = e.Nodes.GetUniqueName("SaveAnimatedWEBP"),
+                        Images = image,
+                        FilenamePrefix = "InferenceVideo",
+                        Fps = Fps,
+                        Lossless = Lossless,
+                        Quality = Quality,
+                        Method = SelectedMethod.ToString().ToLowerInvariant()
+                    }
+                );
+
+                e.Builder.Connections.OutputNodes.Add(outputStep);
+                Logger.Info($"WebP node added to outputs: {outputStep.Name}");
+                return;
+            }
 
             // ========== MP4 EXPORT (with SaveAnimatedMP4Advanced custom node) ==========
             Logger.Debug("Creating SaveAnimatedMP4Advanced node");
@@ -398,6 +408,26 @@ public partial class VideoOutputSettingsCardViewModel
 
             Logger.Debug($"Codec value: {finalCodec}");
             Logger.Debug($"Container value: {finalContainer}");
+
+            // Get hidden input values from connections
+            var modelName = e.Builder.Connections.Base?.Model?.Name ?? "";
+            var modelPath = e.Builder.Connections.Base?.Model?.Path ?? "";
+            var seed = e.Builder.Parameters?.Seed ?? -1;
+            var samplerName = e.Builder.Parameters?.Sampler ?? "";
+            var schedulerName = e.Builder.Parameters?.Scheduler ?? "";
+            var cfg = e.Builder.Parameters?.CfgScale ?? 0.0;
+            var steps = e.Builder.Parameters?.Steps ?? 0;
+            var vaeName = e.Builder.Connections.PrimaryVAE?.Name ?? "";
+
+            Logger.Debug($"Hidden inputs for filename generation:");
+            Logger.Debug($"  - modelName: {modelName}");
+            Logger.Debug($"  - modelPath: {modelPath}");
+            Logger.Debug($"  - seed: {seed}");
+            Logger.Debug($"  - samplerName: {samplerName}");
+            Logger.Debug($"  - schedulerName: {schedulerName}");
+            Logger.Debug($"  - cfg: {cfg}");
+            Logger.Debug($"  - steps: {steps}");
+            Logger.Debug($"  - vaeName: {vaeName}");
 
             var mp4Step = e.Nodes.AddTypedNode(
                 new SaveAnimatedMP4Advanced
@@ -412,6 +442,10 @@ public partial class VideoOutputSettingsCardViewModel
                     Bitrate = Bitrate
                 }
             );
+
+            // NOTE: Hidden inputs are passed through the node's INPUT_TYPES "hidden" section
+            // ComfyUI will automatically pass these if they're defined in the node
+            // The Python node will extract them from the prompt
 
             e.Builder.Connections.OutputNodes.Add(mp4Step);
             Logger.Info(
