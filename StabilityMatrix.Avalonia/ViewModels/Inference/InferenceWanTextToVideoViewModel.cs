@@ -110,22 +110,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         // Animated webp output
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
 
-        // WAN Memory Cleanup (toggle-controlled)
-        if (settingsManager.Settings.WanMemoryCleanupEnabled)
-        {
-            var cleanupNode = new NamedComfyNode(builder.Nodes.GetUniqueName("WANMemoryCleanup"))
-            {
-                ClassType = "WANMemoryCleanupNode",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["anything"] = null,
-                    ["offload_wan_models"] = true,
-                    ["offload_cache"] = true
-                }
-            };
-
-            builder.Nodes.Add(cleanupNode.Name, cleanupNode);
-        }
 
    }
 
