@@ -125,8 +125,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             builder.Nodes.Add(cleanupNode.Name, cleanupNode);
         }
 
-        }
-    }
+   }
 
     /// <inheritdoc />
     protected override async Task GenerateImageImpl(
