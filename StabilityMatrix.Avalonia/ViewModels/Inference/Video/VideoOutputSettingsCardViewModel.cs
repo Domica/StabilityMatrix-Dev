@@ -315,16 +315,6 @@ public partial class VideoOutputSettingsCardViewModel
     /// <summary>
     /// Apply video output step to Comfy node builder
     /// Creates SaveAnimatedWEBP or SaveAnimatedMP4Advanced (custom node) nodes
-    /// 
-    /// For SaveAnimatedMP4Advanced, sets hidden inputs for filename generation:
-    /// - model_name: From base model
-    /// - model_path: From base model path
-    /// - seed: From builder connections
-    /// - sampler_name: From primary sampler
-    /// - scheduler_name: From primary scheduler
-    /// - cfg: From primary CFG
-    /// - steps: From primary steps
-    /// - vae_name: From primary VAE
     /// </summary>
     public void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -410,24 +400,15 @@ public partial class VideoOutputSettingsCardViewModel
             Logger.Debug($"Container value: {finalContainer}");
 
             // Get hidden input values from builder connections
-            var modelName = e.Builder.Connections.Base?.Model?.Name ?? "UnknownModel";
-            var modelPath = e.Builder.Connections.Base?.Model?.Path ?? "";
-            var seed = e.Builder.Connections.Seed;
-            var samplerName = e.Builder.Connections.PrimarySampler?.Name ?? "";
-            var schedulerName = e.Builder.Connections.PrimaryScheduler?.Name ?? "";
+            // Note: Some properties like Model.Name, VAE.Name are not directly accessible
+            var seed = (int)(e.Builder.Connections.Seed % int.MaxValue);
             var cfg = e.Builder.Connections.PrimaryCfg ?? 0.0;
             var steps = e.Builder.Connections.PrimarySteps ?? 0;
-            var vaeName = e.Builder.Connections.PrimaryVAE?.Name ?? "";
 
-            Logger.Debug($"[MP4Hidden] modelName: {modelName}");
             Logger.Debug($"[MP4Hidden] seed: {seed}");
-            Logger.Debug($"[MP4Hidden] sampler: {samplerName}");
-            Logger.Debug($"[MP4Hidden] scheduler: {schedulerName}");
             Logger.Debug($"[MP4Hidden] cfg: {cfg}");
             Logger.Debug($"[MP4Hidden] steps: {steps}");
-            Logger.Debug($"[MP4Hidden] vae: {vaeName}");
 
-            // Create node with all hidden inputs
             var mp4Step = e.Nodes.AddTypedNode(
                 new SaveAnimatedMP4Advanced
                 {
@@ -439,15 +420,11 @@ public partial class VideoOutputSettingsCardViewModel
                     Codec = finalCodec,
                     Container = finalContainer,
                     Bitrate = Bitrate,
-                    // Hidden inputs for filename generation
-                    ModelName = modelName,
-                    ModelPath = modelPath,
+                    // Hidden inputs with available data
                     Seed = seed,
-                    SamplerName = samplerName,
-                    SchedulerName = schedulerName,
                     Cfg = cfg,
-                    Steps = steps,
-                    VaeName = vaeName
+                    Steps = steps
+                    // ModelName, ModelPath, SamplerName, SchedulerName, VaeName will use default values
                 }
             );
 
