@@ -276,29 +276,27 @@ public abstract partial class InferenceGenerationViewModelBase
         var nodes = args.Nodes;
         var parameters = args.Parameters!;
 
-        // 🔥 OVDJE UBACUJEŠ BLOK
+        // ADDITION
         foreach (var node in nodes.Values)
         {
             if (node is SaveAnimatedMP4Advanced mp4)
             {
-                var model = args.Project?.Model;
-                var vae = args.Project?.Vae;
-                var p = args.Parameters;
+                var baseConn = args.Builder.Connections.Base;
+                var vaeConn  = args.Builder.Connections.PrimaryVAE;
+                var p        = args.Parameters;
 
-                mp4.ModelName     = model?.Name;
-                mp4.ModelPath     = model?.Path;
-
+                mp4.ModelName     = baseConn?.Model?.Name;
+                mp4.ModelPath     = baseConn?.Model?.Path;
+        
                 mp4.Seed          = p.Seed;
                 mp4.SamplerName   = p.Sampler;
                 mp4.Cfg           = p.CfgScale;
                 mp4.Steps         = p.Steps;
 
-                mp4.SchedulerName = args.Project?.Scheduler;
-                mp4.VaeName       = vae?.Name;
+                mp4.SchedulerName = p.Scheduler;
+                mp4.VaeName       = vaeConn?.Name;
             }
         }
-
-
 
         // Checks
         if (args.Parameters is null)
