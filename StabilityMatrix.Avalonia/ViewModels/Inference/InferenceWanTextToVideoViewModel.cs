@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Extensions;
 using StabilityMatrix.Avalonia.Models;
@@ -15,7 +15,6 @@ using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using NLog;
-
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -46,7 +45,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-
     public InferenceWanTextToVideoViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager inferenceClientManager,
@@ -76,7 +74,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         });
 
         PromptCardViewModel = AddDisposable(vmFactory.Get<PromptCardViewModel>());
-
         BatchSizeCardViewModel = vmFactory.Get<BatchSizeCardViewModel>();
 
         VideoOutputSettingsCardViewModel = vmFactory.Get<VideoOutputSettingsCardViewModel>(vm =>
@@ -91,7 +88,6 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             BatchSizeCardViewModel,
             VideoOutputSettingsCardViewModel
         );
-       
     }
 
     /// <inheritdoc />
@@ -121,9 +117,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         );
 
         BatchSizeCardViewModel.ApplyStep(applyArgs);
-
         PromptCardViewModel.ApplyStep(applyArgs);
-
         SamplerCardViewModel.ApplyStep(applyArgs);
 
         applyArgs.InvokeAllPreOutputActions();
@@ -139,9 +133,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
     )
     {
         if (!await CheckClientConnectedWithPrompt() || !ClientManager.IsConnected)
-        {
             return;
-        }
 
         if (!await ModelCardViewModel.ValidateModel())
             return;
@@ -149,12 +141,9 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         // If enabled, randomize the seed
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
         if (overrides is not { UseCurrentSeed: true } && seedCard.IsRandomizeEnabled)
-        {
             seedCard.GenerateNewSeed();
-        }
 
         var batches = BatchSizeCardViewModel.BatchCount;
-
         var batchArgs = new List<ImageGenerationEventArgs>();
 
         for (var i = 0; i < batches; i++)
@@ -163,7 +152,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
             var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides, SeedOverride = seed };
             BuildPrompt(buildPromptArgs);
-        
+
             // update seed in project for batches
             var inferenceProject = InferenceProjectDocument.FromLoadable(this);
             if (inferenceProject.State?["Seed"]?["Seed"] is not null)
@@ -183,31 +172,32 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
                 Project = inferenceProject,
                 FilesToTransfer = buildPromptArgs.FilesToTransfer,
                 BatchIndex = i,
-                // Only clear output images on the first batch
                 ClearOutputImages = i == 0,
             };
 
             batchArgs.Add(generationArgs);
         }
-// Run batches
-foreach (var args in batchArgs)
-{
-    await RunGeneration(args, cancellationToken);
 
-    // Show VRAM freed info if cleanup node was used
-    if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
-    {
-        if (freedObj is float freed)
+        // Run batches
+        foreach (var args in batchArgs)
         {
-            notificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
-            Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
-        }
-        else
-        {
-            Logger.Warn("MemoryCleanup: vram_freed_mb returned but not a float");
+            await RunGeneration(args, cancellationToken);
+
+            // Show VRAM freed info if cleanup node was used
+            if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
+            {
+                if (freedObj is float freed)
+                {
+                    notificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
+                    Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
+                }
+                else
+                {
+                    Logger.Warn("MemoryCleanup: vram_freed_mb returned but not a float");
+                }
+            }
         }
     }
-}
 
     /// <inheritdoc />
     public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
