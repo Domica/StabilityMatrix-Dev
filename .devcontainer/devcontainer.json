@@ -5,5 +5,15 @@
             "password": "vscode"
         }
     },
-    "forwardPorts": [6080]
+    // Dodan port 5901 koji VNC klijent treba, uz port 6080 za web pristup
+    "forwardPorts": [6080, 5901], 
+    "portsAttributes": {
+        "6080": {
+            "label": "Web VNC Access",
+            "onAutoForward": "openBrowser" 
+        },
+        "5901": {
+            "label": "VNC Client Port"
+        }
+    }
 }
