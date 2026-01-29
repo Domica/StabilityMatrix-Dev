@@ -96,17 +96,9 @@ public partial class InferenceSettingsViewModel : PageViewModelBase
     [ObservableProperty]
     private bool isImageViewerPixelGridEnabled = true;
 
-    // WAN Memory Cleanup toggle – manual property (NOT ObservableProperty)
-    public bool WanMemoryCleanupEnabled
-    {
-        get => settingsManager.Settings.Get("WanMemoryCleanupEnabled", true);
-        set
-        {
-            settingsManager.Settings.Set("WanMemoryCleanupEnabled", value);
-            OnPropertyChanged();
-        }
-    }
-
+    [ObservableProperty]
+    private bool wanMemoryCleanupEnabled = true;
+    
     public InferenceSettingsViewModel(
         INotificationService notificationService,
         IPrerequisiteHelper prerequisiteHelper,
