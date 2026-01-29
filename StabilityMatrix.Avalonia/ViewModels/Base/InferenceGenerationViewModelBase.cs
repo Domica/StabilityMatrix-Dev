@@ -274,6 +274,7 @@ public abstract partial class InferenceGenerationViewModelBase
     {
         var client = args.Client;
         var nodes = args.Nodes;
+        var parameters = args.Parameters!;
 
         // Checks
         if (args.Parameters is null)
