@@ -390,43 +390,43 @@ public partial class VideoOutputSettingsCardViewModel
             return;
         }
 
-        // ========== MP4 EXPORT (with SaveAnimatedMP4Advanced custom node) ==========
-        Logger.Debug("Creating SaveAnimatedMP4Advanced node");
+            // ========== MP4 EXPORT (with SaveAnimatedMP4Advanced custom node) ==========
+            Logger.Debug("Creating SaveAnimatedMP4Advanced node");
 
-        var finalCodec = ExtractStringValue(Codec) ?? "libx264";
-        var finalContainer = ExtractStringValue(Container) ?? "mp4";
+            var finalCodec = ExtractStringValue(Codec) ?? "libx264";
+            var finalContainer = ExtractStringValue(Container) ?? "mp4";
 
-        Logger.Debug($"Codec value: {finalCodec}");
-        Logger.Debug($"Container value: {finalContainer}");
+            Logger.Debug($"Codec value: {finalCodec}");
+            Logger.Debug($"Container value: {finalContainer}");
 
-        var mp4Step = e.Nodes.AddTypedNode(
-            new SaveAnimatedMP4Advanced
-            {
-                Name = e.Nodes.GetUniqueName("SaveAnimatedMP4Advanced"),
-                Images = image,
-                FilenamePrefix = "InferenceVideo",
-                Fps = Fps,
-                Crf = Crf,
-                Codec = finalCodec,
-                Container = finalContainer,
-                Bitrate = Bitrate
-            }
-        );
+            var mp4Step = e.Nodes.AddTypedNode(
+                new SaveAnimatedMP4Advanced
+                {
+                    Name = e.Nodes.GetUniqueName("SaveAnimatedMP4Advanced"),
+                    Images = image,
+                    FilenamePrefix = "InferenceVideo",
+                    Fps = Fps,
+                    Crf = Crf,
+                    Codec = finalCodec,
+                    Container = finalContainer,
+                    Bitrate = Bitrate
+                }
+            );
 
-        e.Builder.Connections.OutputNodes.Add(mp4Step);
-        Logger.Info(
-            $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
-        );
+            e.Builder.Connections.OutputNodes.Add(mp4Step);
+            Logger.Info(
+                $"MP4 (Advanced) node added to outputs: {mp4Step.Name} (CRF={Crf}, Codec={finalCodec}, Container={finalContainer}, Bitrate={Bitrate}kbps)"
+            );
         }
-    catch (InvalidOperationException ex)
-    {
-        Logger.Error(ex, "Invalid video output configuration");
-        throw;
+        catch (InvalidOperationException ex)
+        {
+            Logger.Error(ex, "Invalid video output configuration");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to apply video output settings");
+            throw;
+        }
     }
-    catch (Exception ex)
-    {
-        Logger.Error(ex, "Failed to apply video output settings");
-        throw;
-    }
-}
 }
