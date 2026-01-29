@@ -276,21 +276,28 @@ public abstract partial class InferenceGenerationViewModelBase
         var nodes = args.Nodes;
         var parameters = args.Parameters!;
 
-        // Inject hidden metadata into SaveAnimatedMP4Advanced nodes
+        // 🔥 OVDJE UBACUJEŠ BLOK
         foreach (var node in nodes.Values)
         {
             if (node is SaveAnimatedMP4Advanced mp4)
             {
-                mp4.ModelName     = parameters.ModelName;
-                mp4.ModelPath     = parameters.ModelPath;
-                mp4.Seed          = parameters.Seed;
-                mp4.SamplerName   = parameters.Sampler;
-                mp4.SchedulerName = parameters.Scheduler;
-                mp4.Cfg           = parameters.CfgScale;
-                mp4.Steps         = parameters.Steps;
-                mp4.VaeName       = parameters.Vae;
+                var model = args.Project?.Model;
+                var vae = args.Project?.Vae;
+                var p = args.Parameters;
+
+                mp4.ModelName     = model?.Name;
+                mp4.ModelPath     = model?.Path;
+
+                mp4.Seed          = p.Seed;
+                mp4.SamplerName   = p.Sampler;
+                mp4.Cfg           = p.CfgScale;
+                mp4.Steps         = p.Steps;
+
+                mp4.SchedulerName = args.Project?.Scheduler;
+                mp4.VaeName       = vae?.Name;
             }
         }
+
 
 
         // Checks
