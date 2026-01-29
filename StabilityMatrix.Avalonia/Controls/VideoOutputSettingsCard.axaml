@@ -139,7 +139,7 @@
                                 Text="Codec" />
                             <ComboBox
                                 Margin="8,8,0,0"
-                                ItemsSource="{Binding AvailableCodecs}"
+                                ItemsSource="{x:Static video:VideoOutputSettingsCardViewModel.AvailableCodecs}"
                                 SelectedItem="{Binding Codec}" />
                         </StackPanel>
 
@@ -155,7 +155,7 @@
                                 Text="Container" />
                             <ComboBox
                                 Margin="8,8,0,0"
-                                ItemsSource="{Binding AvailableContainers}"
+                                ItemsSource="{x:Static video:VideoOutputSettingsCardViewModel.AvailableContainers}"
                                 SelectedItem="{Binding Container}" />
                         </StackPanel>
 
