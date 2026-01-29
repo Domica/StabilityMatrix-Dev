@@ -10,7 +10,6 @@ using StabilityMatrix.Avalonia.Views.Inference;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
-using ReactiveUI;
 using StabilityMatrix.Avalonia.ViewModels.Settings;
 using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 using StabilityMatrix.Core.Models.Api.Comfy;
@@ -49,7 +48,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
     public bool UseMemoryCleanup
     {
         get => _useMemoryCleanup;
-        set => this.RaiseAndSetIfChanged(ref _useMemoryCleanup, value);
+        set => SetProperty(ref _useMemoryCleanup, value);
     }
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
