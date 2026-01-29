@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
@@ -104,16 +105,24 @@ public record SaveAnimatedMP4Advanced : ComfyTypedNodeBase
     /// - 5000-10000 kbps: High quality
     /// - 10000+ kbps: Archive/Master quality
     /// </summary>
-        [Range(500, 50000)]
+    [Range(500, 50000)]
     public required int Bitrate { get; init; }
 
-    // Hidden metadata inputs for advanced filename generation
-    public string? ModelName { get; set; }
-    public string? ModelPath { get; set; }
-    public int? Seed { get; set; }
-    public string? SamplerName { get; set; }
-    public string? SchedulerName { get; set; }
-    public double? Cfg { get; set; }
-    public int? Steps { get; set; }
-    public string? VaeName { get; set; }
+    /// <summary>
+    /// Dictionary for storing hidden inputs that will be passed to the Python node.
+    /// These inputs are automatically extracted by ComfyUI and passed to the node's save_video method.
+    /// 
+    /// Contains:
+    /// - model_name: Name of the model used
+    /// - model_path: Path to the model file
+    /// - seed: Generation seed
+    /// - sampler_name: Name of the sampler used
+    /// - scheduler_name: Name of the scheduler used
+    /// - cfg: CFG scale value
+    /// - steps: Number of sampling steps
+    /// - vae_name: Name of the VAE used
+    /// 
+    /// These are used by the Python node to generate descriptive filenames.
+    /// </summary>
+    public Dictionary<string, object>? Hidden { get; set; }
 }
