@@ -97,12 +97,15 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
             BatchSizeCardViewModel,
             VideoOutputSettingsCardViewModel
         );
-        StackCardViewModel.AddCard(new SettingToggleViewModel(
-        "Use Memory Cleanup",
-        "Enable VRAM cleanup after WAN inference",
-        () => UseMemoryCleanup,
-        v => UseMemoryCleanup = v
-    ));
+        StackCardViewModel.Cards.Add(
+            new ToggleCardViewModel(
+            "Use Memory Cleanup",
+            "Enable VRAM cleanup after WAN inference",
+            () => UseMemoryCleanup,
+            v => UseMemoryCleanup = v
+        )
+    );
+
 
     }
 
