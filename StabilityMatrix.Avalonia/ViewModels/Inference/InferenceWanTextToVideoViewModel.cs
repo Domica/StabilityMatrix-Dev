@@ -108,23 +108,23 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         // Animated webp output
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
 
-        // ---------------------------------------------------------
-        // WAN MEMORY CLEANUP NODE (same integration style as TiledVAE)
-        // ---------------------------------------------------------
-        builder.Nodes.AddTypedNode(
-            new NamedComfyNode
-            {
-                Name = builder.Nodes.GetUniqueName("WANMemoryCleanup"),
-                ClassType = "WANMemoryCleanupNode",
-                Inputs = new Dictionary<string, object?>
+        /// WAN Memory Cleanup (toggle-controlled)
+        if (SettingsManager.Settings.WanMemoryCleanupEnabled)
+        {
+            builder.Nodes.AddTypedNode(
+                new NamedComfyNode(builder.Nodes.GetUniqueName("WANMemoryCleanup"))
                 {
+                    ClassType = "WANMemoryCleanupNode",
+                    Inputs = new Dictionary<string, object?>
+                    {
                     ["anything"] = null,
                     ["offload_wan_models"] = true,
                     ["offload_cache"] = true
+                    }
                 }
-            }
-        );
-    }
+            );
+        }
+
 
     /// <inheritdoc />
     protected override async Task GenerateImageImpl(
@@ -175,11 +175,11 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
         {
             await RunGeneration(args, cancellationToken);
 
-            if (args.Metadata != null && args.Metadata.TryGetValue("vram_freed_mb", out var freedObj))
+            if (args.OutputMetadata != null && args.OutputMetadata.TryGetValue("vram_freed_mb", out var freedObj))
             {
                 if (freedObj is float freed)
                 {
-                    notificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
+                    NotificationService.NotifyInformation($"VRAM Freed: {freed:F2} MB");
                     Logger.Info($"MemoryCleanup: VRAM Freed = {freed:F2} MB");
                 }
                 else
