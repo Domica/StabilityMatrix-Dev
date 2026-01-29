@@ -276,6 +276,23 @@ public abstract partial class InferenceGenerationViewModelBase
         var nodes = args.Nodes;
         var parameters = args.Parameters!;
 
+        // Inject hidden metadata into SaveAnimatedMP4Advanced nodes
+        foreach (var node in nodes.Values)
+        {
+            if (node is SaveAnimatedMP4Advanced mp4)
+            {
+                mp4.ModelName     = parameters.ModelName;
+                mp4.ModelPath     = parameters.ModelPath;
+                mp4.Seed          = parameters.Seed;
+                mp4.SamplerName   = parameters.Sampler;
+                mp4.SchedulerName = parameters.Scheduler;
+                mp4.Cfg           = parameters.CfgScale;
+                mp4.Steps         = parameters.Steps;
+                mp4.VaeName       = parameters.Vae;
+            }
+        }
+
+
         // Checks
         if (args.Parameters is null)
             throw new InvalidOperationException("Parameters is null");
