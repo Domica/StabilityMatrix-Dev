@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
@@ -13,6 +12,7 @@ namespace StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 /// - Codec selection (libx264 or libx265)
 /// - Container format (mp4 or mkv)
 /// - Bitrate configuration
+/// - Advanced filename generation with model/seed/sampler info
 /// 
 /// Node Source: StabilityMatrix/custom_nodes/save_animated_mp4_advanced.py
 /// 
@@ -108,21 +108,53 @@ public record SaveAnimatedMP4Advanced : ComfyTypedNodeBase
     [Range(500, 50000)]
     public required int Bitrate { get; init; }
 
+    // ========== HIDDEN INPUTS - Used for advanced filename generation ==========
+    
     /// <summary>
-    /// Dictionary for storing hidden inputs that will be passed to the Python node.
-    /// These inputs are automatically extracted by ComfyUI and passed to the node's save_video method.
-    /// 
-    /// Contains:
-    /// - model_name: Name of the model used
-    /// - model_path: Path to the model file
-    /// - seed: Generation seed
-    /// - sampler_name: Name of the sampler used
-    /// - scheduler_name: Name of the scheduler used
-    /// - cfg: CFG scale value
-    /// - steps: Number of sampling steps
-    /// - vae_name: Name of the VAE used
-    /// 
-    /// These are used by the Python node to generate descriptive filenames.
+    /// Model name (e.g., "sd15", "sdxl", "pony")
+    /// Used for filename generation
     /// </summary>
-    public Dictionary<string, object>? Hidden { get; set; }
+    public string ModelName { get; init; } = "";
+
+    /// <summary>
+    /// Model file path
+    /// Used for filename generation to extract model name if ModelName is empty
+    /// </summary>
+    public string ModelPath { get; init; } = "";
+
+    /// <summary>
+    /// Generation seed
+    /// Used for filename generation
+    /// </summary>
+    public int Seed { get; init; } = -1;
+
+    /// <summary>
+    /// Sampler name (e.g., "DPM++", "Euler", "Heun")
+    /// Used for filename generation
+    /// </summary>
+    public string SamplerName { get; init; } = "";
+
+    /// <summary>
+    /// Scheduler name (e.g., "karras", "simple")
+    /// Used for filename generation
+    /// </summary>
+    public string SchedulerName { get; init; } = "";
+
+    /// <summary>
+    /// CFG Scale value
+    /// Used for filename generation
+    /// </summary>
+    public double Cfg { get; init; } = 0.0;
+
+    /// <summary>
+    /// Number of sampling steps
+    /// Used for filename generation
+    /// </summary>
+    public int Steps { get; init; } = 0;
+
+    /// <summary>
+    /// VAE name
+    /// Used for filename generation
+    /// </summary>
+    public string VaeName { get; init; } = "";
 }
