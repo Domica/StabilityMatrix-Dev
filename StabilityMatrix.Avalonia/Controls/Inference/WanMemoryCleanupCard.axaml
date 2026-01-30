@@ -1,18 +1,21 @@
-<controls:UserControlBase
-    x:Class="StabilityMatrix.Avalonia.Controls.WanMemoryCleanupCard"
+<Styles
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:controls="clr-namespace:StabilityMatrix.Avalonia.Controls"
+    xmlns:controls="using:StabilityMatrix.Avalonia.Controls"
     xmlns:vmInference="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference"
-    d:DataContext="{d:DesignInstance vmInference:WanMemoryCleanupCardViewModel}"
-    mc:Ignorable="d"
-    d:DesignWidth="400"
-    d:DesignHeight="100">
-    <controls:Card>
-        <StackPanel Spacing="8">
-            <TextBlock Text="WAN Memory Cleanup enabled - models and cache will be offloaded after generation" />
-        </StackPanel>
-    </controls:Card>
-</controls:UserControlBase>
+    x:DataType="vmInference:WanMemoryCleanupCardViewModel">
+    <Design.PreviewWith>
+        <controls:WanMemoryCleanupCard />
+    </Design.PreviewWith>
+    <Style Selector="controls|WanMemoryCleanupCard">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <controls:Card>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="WAN Memory Cleanup enabled - models and cache will be offloaded after generation" />
+                    </StackPanel>
+                </controls:Card>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
