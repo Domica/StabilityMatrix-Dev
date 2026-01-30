@@ -102,6 +102,7 @@
         <StyleInclude Source="Controls/Inference/PlasmaNoiseCard.axaml" />
         <StyleInclude Source="Controls/Inference/NrsCard.axaml" />
         <StyleInclude Source="Controls/Inference/CfzCudnnToggleCard.axaml" />
+        <StyleInclude Source="Controls/Inference/WanMemoryCleanupCard.axaml" />
         <labs:ControlThemes />
 
         <Style Selector="DockControl">
