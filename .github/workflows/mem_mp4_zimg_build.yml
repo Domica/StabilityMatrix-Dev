@@ -2,9 +2,9 @@ name: Build SM (Windows) - MP4
 
 on:
   push:
-    branches: [ "mp4_work" ]
+    branches: [ "mem_mp4_zimg" ]
   pull_request:
-    branches: [ "mp4_work" ]
+    branches: [ "mem_mp4_zimg" ]
   workflow_dispatch:
 
 jobs:
