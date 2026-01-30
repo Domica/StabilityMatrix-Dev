@@ -1,4 +1,4 @@
-name: Build SM (Windows) - MP4
+name: Build SM (Windows) - MEM/MP4/ZIMG
 
 on:
   push:
