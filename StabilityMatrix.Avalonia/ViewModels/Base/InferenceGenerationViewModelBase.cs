@@ -44,6 +44,7 @@ using StabilityMatrix.Core.Models.Packages.Extensions;
 using StabilityMatrix.Core.Models.Settings;
 using StabilityMatrix.Core.Services;
 using Notification = DesktopNotifications.Notification;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Base;
 
@@ -274,6 +275,7 @@ public abstract partial class InferenceGenerationViewModelBase
     {
         var client = args.Client;
         var nodes = args.Nodes;
+        var parameters = args.Parameters!;
 
         // Checks
         if (args.Parameters is null)

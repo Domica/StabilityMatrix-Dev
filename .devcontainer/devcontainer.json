@@ -1,0 +1,9 @@
+{
+    "name": "Avalonia UI",
+    "features": {
+        "ghcr.io/devcontainers/features/desktop-lite:1": {
+            "password": "vscode"
+        }
+    },
+    "forwardPorts": [6080]
+}

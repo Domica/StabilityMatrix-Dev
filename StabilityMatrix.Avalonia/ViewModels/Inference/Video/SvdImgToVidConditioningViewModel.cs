@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Controls;
@@ -17,8 +17,8 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference.Video;
 [RegisterTransient<SvdImgToVidConditioningViewModel>]
 public partial class SvdImgToVidConditioningViewModel
     : LoadableViewModelBase,
-        IParametersLoadableState,
-        IComfyStep
+      IParametersLoadableState,
+      IComfyStep
 {
     [ObservableProperty]
     private int width = 1024;
@@ -40,6 +40,16 @@ public partial class SvdImgToVidConditioningViewModel
 
     [ObservableProperty]
     private double minCfg = 1.0d;
+
+    /// <summary>
+    /// Design-time fallback for codec options
+    /// </summary>
+    public List<string> AvailableCodecs { get; } = new() { "libx264", "libx265" };
+
+    /// <summary>
+    /// Design-time fallback for container options
+    /// </summary>
+    public List<string> AvailableContainers { get; } = new() { "mp4", "mkv" };
 
     public void LoadStateFromParameters(GenerationParameters parameters)
     {

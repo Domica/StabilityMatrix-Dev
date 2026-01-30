@@ -31,6 +31,16 @@ public record GenerationParameters
     public int? ModelVersionId { get; set; }
     public List<int>? ExtraNetworkModelVersionIds { get; set; }
 
+    // ---------------------------------------------------------
+    // MP4 SUPPORT (ADDED)
+    // ---------------------------------------------------------
+    public string? VideoFormat { get; set; }
+    public int VideoCrf { get; set; }
+    public string? VideoCodec { get; set; }
+    public string? VideoContainer { get; set; }
+    public int VideoBitrate { get; set; }
+    // ---------------------------------------------------------
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

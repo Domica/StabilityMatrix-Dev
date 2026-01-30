@@ -107,7 +107,7 @@ public class InferenceWanTextToVideoViewModel : InferenceGenerationViewModelBase
 
         applyArgs.InvokeAllPreOutputActions();
 
-        // Animated webp output
+        // Animated webp / video output
         VideoOutputSettingsCardViewModel.ApplyStep(applyArgs);
 
 
