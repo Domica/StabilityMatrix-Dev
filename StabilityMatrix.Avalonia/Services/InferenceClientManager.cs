@@ -26,6 +26,7 @@ using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.FileInterfaces;
 using StabilityMatrix.Core.Models.Packages;
 using StabilityMatrix.Core.Services;
+using StabilityMatrix.Core.Models.FileInterfaces;
 
 namespace StabilityMatrix.Avalonia.Services;
 
@@ -354,15 +355,22 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
     {
         EnsureConnected();
 
-        // Get model names
+        // Get model names (checkpoints)
         if (await Client.GetModelNamesAsync() is { } modelNames)
         {
-            modelsSource.EditDiff(
-                modelNames.Select(HybridModelFile.FromRemote),
-                HybridModelFile.RemoteLocalComparer
-            );
+            var remoteModels = modelNames.Select(HybridModelFile.FromRemote);
+    
+            // Get current local Z-Image models
+            var localZImageModels = modelIndexService
+                .FindByModelType(SharedFolderType.DiffusionModels)
+                .Where(m => m.RelativePath.IsZImageModel())
+                .Select(HybridModelFile.FromLocal);
+    
+            // Merge remote checkpoints with local Z-Image models
+            var allModels = remoteModels.Concat(localZImageModels);
+    
+            modelsSource.EditDiff(allModels, HybridModelFile.RemoteLocalComparer);
         }
-
         // Get control net model names
         if (
             await Client.GetNodeOptionNamesAsync("ControlNetLoader", "control_net_name") is
@@ -521,25 +529,30 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
         }
     }
 
-    /// <summary>
-    /// Clears shared properties and sets them to local defaults
-    /// </summary>
-    protected void ResetSharedProperties()
-    {
-        // Load local models
+        /// <summary>
+        /// Clears shared properties and sets them to local defaults
+        /// </summary>
+        protected void ResetSharedProperties()
+        {
+        // Load local models (SD checkpoints + Z-Image diffusion models)
         modelsSource.EditDiff(
             modelIndexService
-                .FindByModelType(SharedFolderType.StableDiffusion)
+                .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
+                .Where(m => 
+                    // Include all StableDiffusion checkpoints
+                    m.SharedFolderType == SharedFolderType.StableDiffusion ||
+                    // For DiffusionModels, only include Z-Image (filter out Wan models)
+                    (m.SharedFolderType == SharedFolderType.DiffusionModels && 
+                     m.RelativePath.IsZImageModel()))
                 .Select(HybridModelFile.FromLocal),
             HybridModelFile.Comparer
         );
 
-        // Load local control net models
-        controlNetModelsSource.EditDiff(
-            modelIndexService.FindByModelType(SharedFolderType.ControlNet).Select(HybridModelFile.FromLocal),
-            HybridModelFile.Comparer
-        );
-
+            // Load local control net models
+            controlNetModelsSource.EditDiff(
+                modelIndexService.FindByModelType(SharedFolderType.ControlNet).Select(HybridModelFile.FromLocal),
+                HybridModelFile.Comparer
+            );
         // Downloadable ControlNet models
         var downloadableControlNets = RemoteModels.ControlNetModels.Where(u =>
             !controlNetModelsSource.Lookup(u.GetId()).HasValue

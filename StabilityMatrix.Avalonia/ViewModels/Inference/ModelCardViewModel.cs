@@ -15,6 +15,7 @@ using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Core.Models.Inference;
+using StabilityMatrix.Core.Models.FileInterfaces;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -195,47 +196,89 @@ public partial class ModelCardViewModel(
         return new ComfyNodeBuilder.CheckpointLoaderSimple { Name = nodeName, CkptName = model.RelativePath };
     }
 
-    /// <inheritdoc />
-    public virtual void ApplyStep(ModuleApplyStepEventArgs e)
-    {
-        if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
+            /// <inheritdoc />
+        public virtual void ApplyStep(ModuleApplyStepEventArgs e)
         {
-            SetupDefaultModelLoader(e);
+        // Auto-detect Z-Image and switch to Unet loader
+        if (SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels &&
+            SelectedModel.RelativePath.IsZImageModel())
+        {
+            SelectedModelLoader = ModelLoader.Unet;
+            SelectedUnetModel = SelectedModel;
+            SelectedModel = null;
+        
+        // Enable required settings for Z-Image
+        if (!IsVaeSelectionEnabled)
+            IsVaeSelectionEnabled = true;
+        
+        if (!IsClipModelSelectionEnabled)
+            IsClipModelSelectionEnabled = true;
+        
+        // Set CLIP type to sd3 (works with single CLIP)
+        if (string.IsNullOrEmpty(SelectedClipType))
+            SelectedClipType = "sd3";
+        
+        // Auto-select Qwen CLIP if available and not already selected
+        if (SelectedClip1 == null || SelectedClip1.IsNone)
+        {
+            var qwenClip = ClientManager.ClipModels.FirstOrDefault(c => 
+                c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase) ||
+                c.RelativePath.Contains("Qwen", StringComparison.Ordinal));
+            
+            if (qwenClip != null)
+                SelectedClip1 = qwenClip;
         }
-        else // UNET/GGUF UNET workflow
+        
+        // Auto-select Z-Image VAE if available and not already selected
+        if (SelectedVae == null || SelectedVae.IsDefault)
         {
-            SetupStandaloneModelLoader(e);
-        }
-
-        // Clip skip all models if enabled
-        if (IsClipSkipEnabled)
-        {
-            foreach (var (modelName, model) in e.Builder.Connections.Models)
-            {
-                if (model.Clip is not { } modelClip)
-                    continue;
-
-                var clipSetLastLayer = e.Nodes.AddTypedNode(
-                    new ComfyNodeBuilder.CLIPSetLastLayer
-                    {
-                        Name = $"CLIP_Skip_{modelName}",
-                        Clip = modelClip,
-                        // Need to convert to negative indexing from (1 to 24) to (-1 to -24)
-                        StopAtClipLayer = -ClipSkip,
-                    }
-                );
-
-                model.Clip = clipSetLastLayer.Output;
-            }
-        }
-
-        // Load extra networks if enabled
-        if (IsExtraNetworksEnabled)
-        {
-            ExtraNetworksStackCardViewModel.ApplyStep(e);
+            var zimageVae = ClientManager.VaeModels.FirstOrDefault(v => 
+                v.RelativePath.Contains("z_ae", StringComparison.OrdinalIgnoreCase) ||
+                v.RelativePath.Contains("ae.safetensors", StringComparison.OrdinalIgnoreCase));
+            
+            if (zimageVae != null)
+                SelectedVae = zimageVae;
         }
     }
 
+    if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
+    {
+        SetupDefaultModelLoader(e);
+    }
+    else // UNET/GGUF UNET workflow
+    {
+        SetupStandaloneModelLoader(e);
+    }
+
+    // ... rest of the method stays the same
+            // Clip skip all models if enabled
+            if (IsClipSkipEnabled)
+            {
+                foreach (var (modelName, model) in e.Builder.Connections.Models)
+                {
+                    if (model.Clip is not { } modelClip)
+                        continue;
+
+                    var clipSetLastLayer = e.Nodes.AddTypedNode(
+                        new ComfyNodeBuilder.CLIPSetLastLayer
+                        {
+                            Name = $"CLIP_Skip_{modelName}",
+                            Clip = modelClip,
+                            // Need to convert to negative indexing from (1 to 24) to (-1 to -24)
+                            StopAtClipLayer = -ClipSkip,
+                        }
+                    );
+
+                    model.Clip = clipSetLastLayer.Output;
+                }
+            }
+
+            // Load extra networks if enabled
+            if (IsExtraNetworksEnabled)
+            {
+                ExtraNetworksStackCardViewModel.ApplyStep(e);
+            }
+        }
     /// <inheritdoc />
     public override JsonObject SaveStateToJsonObject()
     {
@@ -517,7 +560,7 @@ public partial class ModelCardViewModel(
         }
         else
         {
-            SetupClipLoaders(e);
+            SetupClipLoadersGGUF(e); //Z-image
         }
     }
 
@@ -659,7 +702,30 @@ public partial class ModelCardViewModel(
             e.Builder.Connections.Base.Clip = clipLoader.Output;
         }
     }
-
+    private void SetupClipLoadersGGUF(ModuleApplyStepEventArgs e)
+    {
+        var isGgufClip = SelectedClip1?.RelativePath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ?? false;
+        
+        if (SelectedClip1 is { IsNone: false })
+        {
+            if (isGgufClip)
+            {
+                var clipLoader = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.CLIPLoaderGGUF
+                    {
+                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoaderGGUF)),
+                        ClipName = SelectedClip1.RelativePath,
+                        Type = SelectedClipType ?? "sd3"
+                    }
+                );
+                e.Builder.Connections.Base.Clip = clipLoader.Output;
+            }
+            else
+            {
+                SetupClipLoaders(e);
+            }
+        }
+    }
     internal class ModelCardModel
     {
         public string? SelectedModelName { get; init; }
