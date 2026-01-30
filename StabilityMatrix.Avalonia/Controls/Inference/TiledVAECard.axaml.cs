@@ -1,9 +1,11 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Injectio.Attributes;
+using StabilityMatrix.Avalonia.Controls;
 
 namespace StabilityMatrix.Avalonia.Controls;
 
-[RegisterTransient<TiledVAECard>]
-public class TiledVAECard : TemplatedControlBase { }
+public partial class WanMemoryCleanupCard : UserControlBase
+{
+    public WanMemoryCleanupCard()
+    {
+        InitializeComponent();
+    }
+}
