@@ -5,6 +5,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="clr-namespace:StabilityMatrix.Avalonia.Controls"
+    xmlns:vmInference="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference"
+    d:DataContext="{d:DesignInstance vmInference:WanMemoryCleanupCardViewModel}"
     mc:Ignorable="d"
     d:DesignWidth="400"
     d:DesignHeight="100">
