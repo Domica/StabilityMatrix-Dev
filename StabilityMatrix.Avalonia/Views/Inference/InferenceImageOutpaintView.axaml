@@ -1,4 +1,3 @@
-<UserControl
     x:Class="StabilityMatrix.Avalonia.Views.Inference.InferenceImageOutpaintView"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -11,59 +10,68 @@
     d:DesignWidth="1000"
     mc:Ignorable="d">
 
+    <!-- 2 kolone: LIJEVO (600px), DESNO (fleksibilno) -->
     <Grid ColumnDefinitions="600,*" Margin="12">
 
-        <!-- LIJEVO: Gornji fiksni + donji scroll -->
-        <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="0,0,12,0">
-
-            <!-- GORNJI LIJEVI KUT: Load Image (fiksno 600x400) -->
-            <Border Width="600" Height="400"
-                    Background="#1E1E1E"
-                    CornerRadius="6"
-                    Padding="8"
-                    Margin="0,0,0,8">
-                <controls:LoadImageCard DataContext="{Binding LoadImageCardViewModel}" />
+        <!-- LIJEVO: 600x400 Load Image + scroll parametri -->
+        <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
+            
+            <!-- LOAD IMAGE AREA (gornji lijevi kut - fiksna veličina) -->
+            <Border 
+                Width="600" 
+                Height="400"
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <controls:SelectImageCard 
+                    DataContext="{Binding StackCardViewModel.GetCard<SelectImageCardViewModel>}"
+                    Height="400" 
+                    Width="600" />
             </Border>
-
-            <!-- DONJI DIO: Scrollable parametri + outpaint postavke -->
-            <ScrollViewer Grid.Row="1"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="12">
-                    <controls:StackCard DataContext="{Binding StackCardViewModel}" />
-                    <TextBlock Text="Outpaint postavke (placeholder)" FontWeight="Bold" Margin="0,12,0,0" />
-                    <!-- TODO: Dodati stvarne outpaint kontrole -->
-                </StackPanel>
+            
+            <!-- SCROLLABLE PARAMETRI (donji dio) -->
+            <ScrollViewer 
+                Grid.Row="1"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Margin="0,0,0,12">
+                <Grid>
+                    <!-- Izostavi prvi card (SelectImageCard) -->
+                    <ItemsControl 
+                        ItemsSource="{Binding StackCardViewModel.Cards}"
+                        ItemsPanel="{StaticResource VerticalStackPanelTemplate}"
+                        ItemTemplateSelector="{StaticResource CardTemplateSelector}">
+                        <ItemsControl.ItemContainerStyle>
+                            <Style Selector="ContentPresenter">
+                                <Setter Property="Margin" Value="0,0,0,8"/>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
+                </Grid>
             </ScrollViewer>
         </Grid>
 
-        <!-- DESNO: Preview gore, Generate dolje -->
-        <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
-
-            <!-- PREVIEW GORE DESNO -->
-            <Border Grid.Row="0"
-                    Width="400" Height="400"
-                    Background="#1E1E1E"
-                    CornerRadius="6"
-                    Padding="8"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Margin="0,0,0,12">
-                <Image Source="{Binding SelectedImage}"
-                       Stretch="Uniform"
-                       MaxWidth="384"
-                       MaxHeight="384" />
+        <!-- DESNO: Output i button -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,12">
+            
+            <!-- Output gallery (pun prostor gore) -->
+            <Border 
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <controls:ImageGalleryCard 
+                    DataContext="{Binding ImageGalleryCardViewModel}" />
             </Border>
-
-            <!-- PRAZAN SREDNJI DIO -->
-            <Grid Grid.Row="1" />
-
-            <!-- GENERATE GUMB DOLJE DESNO -->
-            <Button Grid.Row="2"
-                    HorizontalAlignment="Right"
-                    Width="160" Height="40"
-                    Content="Generate Image"
-                    Command="{Binding GenerateImageCommand}" />
+            
+            <!-- Generate button (ispod gallerya) -->
+            <Button 
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                Height="40"
+                Content="Generate Image"
+                Command="{Binding GenerateImageCommand}" />
         </Grid>
 
     </Grid>
