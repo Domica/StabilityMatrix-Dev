@@ -187,8 +187,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Images = vaeDecode.Output
             }
         );
+        args.Builder.Connections.AddOutputNode(preview.Name);
     }
-
+    
     protected override IEnumerable<ImageSource> GetInputImages()
     {
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
