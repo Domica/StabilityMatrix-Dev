@@ -50,8 +50,8 @@
                     Stretch="Uniform"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-+                   MaxWidth="384"
-+                   MaxHeight="384"
+                    MaxWidth="384"
+                    MaxHeight="384"
                     Source="{Binding SelectedImage}" />
             </Border>
 
