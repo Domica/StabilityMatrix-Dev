@@ -81,9 +81,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         }
     }
 
-    // ✔ Generate gumb uvijek aktivan (kao Upscaler)
-    protected override bool CanGenerateImage() => true;
-
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
         var nodes = args.Builder.Nodes;
