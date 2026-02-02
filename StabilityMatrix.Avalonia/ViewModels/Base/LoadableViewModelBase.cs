@@ -33,7 +33,6 @@ namespace StabilityMatrix.Avalonia.ViewModels.Base;
 [JsonDerivedType(typeof(HiresFixModule))]
 [JsonDerivedType(typeof(FluxHiresFixModule))]
 [JsonDerivedType(typeof(UpscalerModule))]
-[JsonDerivedType(typeof(OutpaintModule))]
 [JsonDerivedType(typeof(ControlNetModule))]
 [JsonDerivedType(typeof(SaveImageModule))]
 [JsonDerivedType(typeof(PromptExpansionModule))]
