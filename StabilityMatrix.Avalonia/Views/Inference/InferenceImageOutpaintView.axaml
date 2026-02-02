@@ -33,7 +33,7 @@
         </StackPanel>
 
         <!-- DESNA STRANA -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,0">
+        <Grid Grid.Column="1" RowDefinitions="*,Auto">
 
             <!-- [Output Image] (pun prostor) -->
             <Border Grid.Row="0"
@@ -41,7 +41,7 @@
                     CornerRadius="6"
                     Padding="8"
                     Margin="0,0,0,12">
-                <Image Source="{Binding SelectedImage}"
+                <Image Source="{Binding GeneratedImage}"
                        Stretch="Uniform"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center" />
