@@ -7,6 +7,8 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Core.Services;
+using CommunityToolkit.Mvvm.Input; // ⬅️ potrebno za RelayCommand / AsyncRelayCommand
+using System.Threading.Tasks;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -18,12 +20,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public const string ModuleKey = "ImageOutpaint";
 
     public StackCardViewModel StackCardViewModel { get; }
+
     public ImageSource? SelectedImage
     { 
-        get { var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
+        get 
+        { 
+            var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
             return selectImageCard?.ImageSource; 
-            } 
+        } 
     }
+
+    // ⬇️⬇️⬇️ DODANO — GenerateCommand
+    public IAsyncRelayCommand GenerateCommand { get; }
+    // ⬆️⬆️⬆️
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -49,7 +58,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<ModelCardViewModel>(),
             vmFactory.Get<SeedCardViewModel>()
         );
+
+        // ⬇️⬇️⬇️ DODANO — inicijalizacija GenerateCommand
+        GenerateCommand = new AsyncRelayCommand(GenerateAsync);
+        // ⬆️⬆️⬆️
     }
+
+    // ⬇️⬇️⬇️ DODANO — metoda koju poziva GenerateCommand
+    private async Task GenerateAsync()
+    {
+        // Pokreće standardni SM workflow za generiranje
+        await GenerateAsyncBase();
+    }
+    // ⬆️⬆️⬆️
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
