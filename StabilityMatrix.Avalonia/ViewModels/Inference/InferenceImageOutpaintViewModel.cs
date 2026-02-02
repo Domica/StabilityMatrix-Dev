@@ -14,7 +14,6 @@ using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
-using StabilityMatrix.Core.Validation;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -179,30 +178,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         if (selectImageCard?.ImageSource is { } imageSource)
             yield return imageSource;
-    }
-
-    // ⬇⬇⬇ OVO JE KRITIČNO — GenerateCommand SE GENERIRA IZ OVE METODE ⬇⬇⬇
-    [RelayCommand(IncludeCancelCommand = true, FlowExceptionsToTaskScheduler = true)]
-    private async Task GenerateImage(
-        GenerateFlags options = default,
-        CancellationToken cancellationToken = default
-    )
-    {
-        var overrides = GenerateOverrides.FromFlags(options);
-
-        try
-        {
-            await GenerateImageImpl(overrides, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            Logger.Debug("Image Generation Canceled");
-        }
-        catch (ValidationException e)
-        {
-            Logger.Debug("Image Generation Validation Error: {Message}", e.Message);
-            notificationService.Show("Validation Error", e.Message, NotificationType.Error);
-        }
     }
 
     protected override async Task GenerateImageImpl(
