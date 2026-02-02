@@ -5,55 +5,66 @@
     xmlns:controls="using:StabilityMatrix.Avalonia.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:inference="using:StabilityMatrix.Avalonia.ViewModels.Inference"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:DataType="inference:InferenceImageOutpaintViewModel"
     d:DesignHeight="700"
     d:DesignWidth="1000"
     mc:Ignorable="d">
 
+    <!-- 2 kolone: LIJEVO 600px, DESNO fleksibilno -->
     <Grid ColumnDefinitions="600,*" Margin="12">
 
-        <!-- LIJEVA STRANA: 600px širina -->
-        <StackPanel Grid.Column="0" Width="600" Spacing="12">
+        <!-- LIJEVO: Gornji dio = Load Image (600x400 fiksno), Donji dio = scroll parametri -->
+        <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
 
-            <!-- [LOAD IMAGE] (600x400 fiksno) -->
-            <Border Width="600" Height="400"
-                    Background="#1E1E1E"
-                    CornerRadius="6"
-                    Padding="8">
-                <Image Source="{Binding SelectedImage}"
-                       Stretch="Uniform"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       MaxWidth="584"
-                       MaxHeight="384" />
+            <!-- LOAD IMAGE (gornji lijevi kut - fiksno 600x400) -->
+            <Border 
+                Width="600" 
+                Height="400"
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <ContentControl Content="{Binding StackCardViewModel.Cards[0]}" />
             </Border>
 
-            <!-- [Outpaint params], [Prompt], [Sampler], [Model], [Seed] -->
-            <controls:StackCard DataContext="{Binding StackCardViewModel}" />
-        </StackPanel>
+            <!-- PARAMETRI (scrollable ispod Load Image-a) -->
+            <ScrollViewer 
+                Grid.Row="1"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Margin="0,8,0,0">
+                <StackPanel Spacing="8">
+                    <!-- Ručno prikaži karte od indeksa 1 nadalje (Outpaint, Prompt, Sampler, Model, Seed) -->
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[1]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[2]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[3]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[4]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[5]}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
 
-        <!-- DESNA STRANA -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto">
+        <!-- DESNO: Output gore, button dolje -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,12">
 
-            <!-- [Output Image] (pun prostor) -->
-            <Border Grid.Row="0"
-                    Background="#1E1E1E"
-                    CornerRadius="6"
-                    Padding="8"
-                    Margin="0,0,0,12">
-                <Image Source="{Binding GeneratedImage}"
-                       Stretch="Uniform"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center" />
+            <!-- Output gallery -->
+            <Border 
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <controls:ImageGalleryCard 
+                    DataContext="{Binding ImageGalleryCardViewModel}" />
             </Border>
 
-            <!-- [Generate Button] (fix ispod outputa) -->
-            <Button Grid.Row="1"
-                    HorizontalAlignment="Right"
-                    Width="160"
-                    Height="40"
-                    Content="Generate Image"
-                    Command="{Binding GenerateImageCommand}" />
+            <!-- Generate button -->
+            <Button 
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                Height="40"
+                Content="Generate Image"
+                Command="{Binding GenerateImageCommand}" />
         </Grid>
 
     </Grid>
