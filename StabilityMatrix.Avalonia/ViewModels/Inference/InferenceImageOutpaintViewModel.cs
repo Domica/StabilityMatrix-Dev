@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using StabilityMatrix.Avalonia.Models;  // DODAJ
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
@@ -11,7 +12,8 @@ using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
-[View(typeof(Views.InferenceImageOutpaintView))]
+// ISPRAVI View atribut - treba Views.Inference, ne samo Views
+[View(typeof(Views.Inference.InferenceImageOutpaintView))]  // ✅ ISPRAVI
 [ManagedService]
 [Transient]
 public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewModelBase
