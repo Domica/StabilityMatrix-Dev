@@ -110,6 +110,9 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
     public IObservableCollection<ComfyUpscaler> Upscalers { get; } =
         new ObservableCollectionExtended<ComfyUpscaler>();
 
+    public IObservableCollection<ComfyOutpainter> Outpainters { get; } =
+    new ObservableCollectionExtended<ComfyOutpainter>();
+
     private readonly SourceCache<ComfyScheduler, string> schedulersSource = new(p => p.Name);
 
     public IObservableCollection<ComfyScheduler> Schedulers { get; } =
