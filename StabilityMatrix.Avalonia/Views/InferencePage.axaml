@@ -57,6 +57,12 @@
                     Tag="{x:Static inference:InferenceProjectType.ImageToImage}"
                     ToolTip.Tip="Image to Image" />
                 <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
+                    IconSource="ImageEdit"
+                    Label="Outpaint"
+                    Tag="{x:Static inference:InferenceProjectType.Outpaint}"
+                    ToolTip.Tip="Image Outpaint" />
+                <ui:CommandBarButton
                     IconSource="ImageEdit"
                     IsEnabled="False"
                     IsVisible="False"
