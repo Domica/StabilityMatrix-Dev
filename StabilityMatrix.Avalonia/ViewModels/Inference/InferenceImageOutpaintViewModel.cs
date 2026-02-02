@@ -212,7 +212,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             {
                 ModelName = StackCardViewModel
                     .GetCard<ModelCardViewModel>()
-                    ?.SelectedModel?.DisplayName
+                    ?.SelectedModel?.RelativePath
             },
             Project = InferenceProjectDocument.FromLoadable(this)
         };
