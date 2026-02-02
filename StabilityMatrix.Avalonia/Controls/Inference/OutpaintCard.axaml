@@ -1,0 +1,188 @@
+<UserControl
+    x:Class="StabilityMatrix.Avalonia.Controls.Inference.OutpaintCard"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:modules="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference.Modules"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    d:DesignHeight="450"
+    d:DesignWidth="400"
+    x:DataType="modules:OutpaintModule"
+    mc:Ignorable="d">
+
+    <ui:SettingsExpander
+        Header="Outpaint Settings"
+        IconSource="ResizeImage"
+        IsExpanded="True">
+
+        <ui:SettingsExpander.Footer>
+            <Button
+                Classes="transparent-full"
+                Command="{Binding ResetCommand}"
+                Content="Reset"
+                ToolTip.Tip="Reset all expansion values" />
+        </ui:SettingsExpander.Footer>
+
+        <ui:SettingsExpander.Items>
+
+            <!-- Quick Direction Presets -->
+            <ui:SettingsExpanderItem Content="Quick Presets" Description="Common expansion directions">
+                <ui:SettingsExpanderItem.Footer>
+                    <WrapPanel Margin="0,4">
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="Left"
+                            Content="← Left"
+                            ToolTip.Tip="Expand 256px to the left" />
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="Right"
+                            Content="Right →"
+                            ToolTip.Tip="Expand 256px to the right" />
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="Top"
+                            Content="↑ Top"
+                            ToolTip.Tip="Expand 256px to the top" />
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="Bottom"
+                            Content="Bottom ↓"
+                            ToolTip.Tip="Expand 256px to the bottom" />
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="Horizontal"
+                            Content="↔ H"
+                            ToolTip.Tip="Expand 256px left and right" />
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="Vertical"
+                            Content="↕ V"
+                            ToolTip.Tip="Expand 256px top and bottom" />
+                        <Button
+                            Margin="2"
+                            Padding="6,4"
+                            Classes="transparent-full"
+                            Command="{Binding SetDirectionPresetCommand}"
+                            CommandParameter="All"
+                            Content="⊕ All"
+                            ToolTip.Tip="Expand 128px in all directions" />
+                    </WrapPanel>
+                </ui:SettingsExpanderItem.Footer>
+            </ui:SettingsExpanderItem>
+
+            <!-- Expand Left -->
+            <ui:SettingsExpanderItem Content="Expand Left" Description="Pixels to expand on the left side">
+                <ui:SettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            Width="200"
+                            IsSnapToTickEnabled="True"
+                            Maximum="512"
+                            Minimum="0"
+                            TickFrequency="64"
+                            Value="{Binding ExpandLeft}" />
+                        <TextBlock
+                            MinWidth="60"
+                            VerticalAlignment="Center"
+                            Text="{Binding ExpandLeft, StringFormat='{}{0} px'}" />
+                    </StackPanel>
+                </ui:SettingsExpanderItem.Footer>
+            </ui:SettingsExpanderItem>
+
+            <!-- Expand Right -->
+            <ui:SettingsExpanderItem Content="Expand Right" Description="Pixels to expand on the right side">
+                <ui:SettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            Width="200"
+                            IsSnapToTickEnabled="True"
+                            Maximum="512"
+                            Minimum="0"
+                            TickFrequency="64"
+                            Value="{Binding ExpandRight}" />
+                        <TextBlock
+                            MinWidth="60"
+                            VerticalAlignment="Center"
+                            Text="{Binding ExpandRight, StringFormat='{}{0} px'}" />
+                    </StackPanel>
+                </ui:SettingsExpanderItem.Footer>
+            </ui:SettingsExpanderItem>
+
+            <!-- Expand Top -->
+            <ui:SettingsExpanderItem Content="Expand Top" Description="Pixels to expand on the top">
+                <ui:SettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            Width="200"
+                            IsSnapToTickEnabled="True"
+                            Maximum="512"
+                            Minimum="0"
+                            TickFrequency="64"
+                            Value="{Binding ExpandTop}" />
+                        <TextBlock
+                            MinWidth="60"
+                            VerticalAlignment="Center"
+                            Text="{Binding ExpandTop, StringFormat='{}{0} px'}" />
+                    </StackPanel>
+                </ui:SettingsExpanderItem.Footer>
+            </ui:SettingsExpanderItem>
+
+            <!-- Expand Bottom -->
+            <ui:SettingsExpanderItem Content="Expand Bottom" Description="Pixels to expand on the bottom">
+                <ui:SettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            Width="200"
+                            IsSnapToTickEnabled="True"
+                            Maximum="512"
+                            Minimum="0"
+                            TickFrequency="64"
+                            Value="{Binding ExpandBottom}" />
+                        <TextBlock
+                            MinWidth="60"
+                            VerticalAlignment="Center"
+                            Text="{Binding ExpandBottom, StringFormat='{}{0} px'}" />
+                    </StackPanel>
+                </ui:SettingsExpanderItem.Footer>
+            </ui:SettingsExpanderItem>
+
+            <!-- Feathering -->
+            <ui:SettingsExpanderItem Content="Feathering" Description="Blend amount at expansion edges">
+                <ui:SettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            Width="200"
+                            Maximum="100"
+                            Minimum="0"
+                            Value="{Binding Feathering}" />
+                        <TextBlock
+                            MinWidth="60"
+                            VerticalAlignment="Center"
+                            Text="{Binding Feathering, StringFormat='{}{0} px'}" />
+                    </StackPanel>
+                </ui:SettingsExpanderItem.Footer>
+            </ui:SettingsExpanderItem>
+
+        </ui:SettingsExpander.Items>
+    </ui:SettingsExpander>
+</UserControl>
