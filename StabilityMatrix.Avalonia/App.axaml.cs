@@ -49,6 +49,7 @@ using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.ViewModels.Progress;
+using StabilityMatrix.Avalonia.ViewModels.Inference;
 using StabilityMatrix.Avalonia.Views;
 using StabilityMatrix.Core.Api;
 using StabilityMatrix.Core.Api.LykosAuthApi;
