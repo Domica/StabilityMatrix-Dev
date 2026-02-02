@@ -8,58 +8,61 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:DataType="inference:InferenceImageOutpaintViewModel"
     d:DesignHeight="700"
-    d:DesignWidth="1100"
+    d:DesignWidth="1000"
     mc:Ignorable="d">
 
-    <!-- 2 kolone: LIJEVO fiksno, DESNO fleksibilno -->
-    <Grid ColumnDefinitions="600,*">
+    <!-- 2 kolone: LIJEVO (600px), DESNO (fleksibilno) -->
+    <Grid ColumnDefinitions="600,*" Margin="12">
 
-        <!-- ================= LEFT SIDE ================= -->
-        <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="12">
-
-            <!-- INPUT IMAGE PREVIEW (FIKSNO 600x400) -->
-            <Border
-                Width="600"
+        <!-- LIJEVO: 600px širina, 400px visina za sliku + scroll parametri -->
+        <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
+            
+            <!-- Slika u 600x400 containeru (shrinka se) -->
+            <Border 
+                Width="600" 
                 Height="400"
-                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="8">
-
-                <Image
-                    Stretch="Uniform"
-                    Source="{Binding SelectedImage}" />
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image 
+                        Source="{Binding SelectedImage}" 
+                        Stretch="None" />
+                </Viewbox>
             </Border>
-
-            <!-- STACK CARDS ISPOD PREVIEWA -->
-            <ScrollViewer Grid.Row="1"
-                          Margin="0,12,0,0"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-
-                <controls:StackCard
+            
+            <!-- Parametri ispod slike (scrollable) -->
+            <ScrollViewer 
+                Grid.Row="1"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Margin="0,0,0,12">
+                <controls:StackCard 
                     DataContext="{Binding StackCardViewModel}" />
             </ScrollViewer>
-
         </Grid>
 
-        <!-- ================= RIGHT SIDE ================= -->
-        <Grid Grid.Column="1" Margin="12" RowDefinitions="*,Auto">
-
-            <!-- OUTPUT GALLERY -->
-            <controls:ImageGalleryCard
-                DataContext="{Binding ImageGalleryCardViewModel}" />
-
-            <!-- GENERATE BUTTON -->
-            <Button
+        <!-- DESNO: Output gore, button dolje -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,12">
+            
+            <!-- Output gallery (pun prostor gore) -->
+            <Border 
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <controls:ImageGalleryCard 
+                    DataContext="{Binding ImageGalleryCardViewModel}" />
+            </Border>
+            
+            <!-- Generate button (ispod gallerya) -->
+            <Button 
                 Grid.Row="1"
-                HorizontalAlignment="Right"
-                Width="160"
+                HorizontalAlignment="Stretch"
                 Height="40"
-                Margin="0,12,0,0"
                 Content="Generate Image"
                 Command="{Binding GenerateImageCommand}" />
-
         </Grid>
 
     </Grid>
