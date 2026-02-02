@@ -82,7 +82,6 @@
         <StyleInclude Source="Controls/Inference/ImageGalleryCard.axaml" />
         <StyleInclude Source="Controls/Inference/PromptCard.axaml" />
         <StyleInclude Source="Controls/Inference/UpscalerCard.axaml" />
-        <StyleInclude Source="Controls/Inference/OutpaintCard.axaml" />
         <StyleInclude Source="Controls/Inference/ModelCard.axaml" />
         <StyleInclude Source="Controls/Inference/FaceDetailerCard.axaml" />
         <StyleInclude Source="Controls/Inference/BatchSizeCard.axaml" />
