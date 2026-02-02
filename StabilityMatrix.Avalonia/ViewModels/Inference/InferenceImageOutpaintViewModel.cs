@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -56,19 +57,30 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             sampler.IsDenoiseStrengthEnabled = true;
         });
 
+        var selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
+        var outpaintCardVm = vmFactory.Get<OutpaintCardViewModel>();
+        var promptCardVm = vmFactory.Get<PromptCardViewModel>();
+        var modelCardVm = vmFactory.Get<ModelCardViewModel>();
+        var seedCardVm = vmFactory.Get<SeedCardViewModel>();
+
         StackCardViewModel.AddCards(
-            vmFactory.Get<SelectImageCardViewModel>(),
-            vmFactory.Get<OutpaintCardViewModel>(),
-            vmFactory.Get<PromptCardViewModel>(),
+            selectImageCardVm,
+            outpaintCardVm,
+            promptCardVm,
             samplerCard,
-            vmFactory.Get<ModelCardViewModel>(),
-            vmFactory.Get<SeedCardViewModel>()
+            modelCardVm,
+            seedCardVm
         );
 
-        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-        if (selectImageCard is not null)
+        Console.WriteLine("=== StackCardViewModel.Cards (ImageOutpaint) ===");
+        foreach (var card in StackCardViewModel.Cards)
         {
-            selectImageCard.PropertyChanged += OnSelectImageCardPropertyChanged;
+            Console.WriteLine($"CARD: {card.GetType().Name}");
+        }
+
+        if (selectImageCardVm is not null)
+        {
+            selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
         }
     }
 
@@ -189,7 +201,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         );
         //args.Builder.Connections.AddOutputNode(preview.Name);
     }
-    
+
     protected override IEnumerable<ImageSource> GetInputImages()
     {
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
