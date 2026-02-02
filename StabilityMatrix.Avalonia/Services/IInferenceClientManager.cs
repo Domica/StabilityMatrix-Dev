@@ -46,7 +46,6 @@ public interface IInferenceClientManager : IDisposable, INotifyPropertyChanged, 
     IObservableCollection<ComfySampler> Samplers { get; }
     IObservableCollection<ComfyUpscaler> Upscalers { get; }
     IObservableCollection<ComfyScheduler> Schedulers { get; }
-    IObservableCollection<ComfyScheduler> Schedulers { get; }
     IObservableCollection<ComfyAuxPreprocessor> Preprocessors { get; }
     IObservableCollection<HybridModelFile> UltralyticsModels { get; }
     IObservableCollection<HybridModelFile> SamModels { get; }
