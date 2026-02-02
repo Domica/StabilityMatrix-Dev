@@ -16,7 +16,7 @@
 
         <!-- LIJEVO: Gornji dio = Load Image (600x400 fiksno), Donji dio = scroll parametri -->
         <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
-
+            
             <!-- LOAD IMAGE (gornji lijevi kut - fiksno 600x400) -->
             <Border 
                 Width="600" 
@@ -27,7 +27,7 @@
                 Margin="0,0,0,8">
                 <ContentControl Content="{Binding StackCardViewModel.Cards[0]}" />
             </Border>
-
+            
             <!-- PARAMETRI (scrollable ispod Load Image-a) -->
             <ScrollViewer 
                 Grid.Row="1"
@@ -47,7 +47,7 @@
 
         <!-- DESNO: Output gore, button dolje -->
         <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,12">
-
+            
             <!-- Output gallery -->
             <Border 
                 Background="#1E1E1E" 
@@ -57,7 +57,7 @@
                 <controls:ImageGalleryCard 
                     DataContext="{Binding ImageGalleryCardViewModel}" />
             </Border>
-
+            
             <!-- Generate button -->
             <Button 
                 Grid.Row="1"
