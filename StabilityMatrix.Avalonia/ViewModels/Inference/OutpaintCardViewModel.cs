@@ -33,6 +33,7 @@ public partial class OutpaintCardViewModel : LoadableViewModelBase
 
     public OutpaintCardViewModel()
     {
+        Console.WriteLine("OutpaintCardViewModel CREATED");
     }
 
     [RelayCommand]
