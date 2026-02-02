@@ -30,6 +30,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     public StackCardViewModel StackCardViewModel { get; }
 
+    public IRelayCommand OutpaintGenerateCommand { get; }
+
     public ImageSource? SelectedImage
     {
         get
@@ -72,11 +74,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             seedCardVm
         );
 
-        Console.WriteLine("=== StackCardViewModel.Cards (ImageOutpaint) ===");
-        foreach (var card in StackCardViewModel.Cards)
-        {
-            Console.WriteLine($"CARD: {card.GetType().Name}");
-        }
+        OutpaintGenerateCommand = new AsyncRelayCommand(
+            async () => await GenerateImageImpl(new GenerateOverrides(), CancellationToken.None)
+        );
 
         if (selectImageCardVm is not null)
         {
@@ -89,7 +89,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
             OnPropertyChanged(nameof(SelectedImage));
-            GenerateImageCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -199,7 +198,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Images = vaeDecode.Output
             }
         );
-        //args.Builder.Connections.AddOutputNode(preview.Name);
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
@@ -214,12 +212,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         CancellationToken cancellationToken
     )
     {
-        if (!ClientManager.IsConnected)
-        {
-            notificationService.Show("Client not connected", "Please connect first");
-            return;
-        }
-
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         if (selectImageCard?.ImageSource?.LocalFile?.FullPath is not { } path)
         {
@@ -248,10 +240,5 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         };
 
         await RunGeneration(generationArgs, cancellationToken);
-    }
-
-    protected override bool CanGenerateImage()
-    {
-        return true;
     }
 }
