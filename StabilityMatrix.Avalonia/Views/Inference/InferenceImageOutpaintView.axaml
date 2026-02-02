@@ -8,62 +8,60 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:DataType="inference:InferenceImageOutpaintViewModel"
     d:DesignHeight="700"
-    d:DesignWidth="1200"
+    d:DesignWidth="1000"
     mc:Ignorable="d">
 
-    <!-- 2 kolone: lijevo kartice, desno preview+gallery+gumb -->
-    <Grid ColumnDefinitions="Auto,*">
+    <!-- 2 kolone, 3 reda -->
+    <Grid ColumnDefinitions="2*,3*" RowDefinitions="Auto,*,Auto">
 
-        <!-- LEFT: StackCard fiksni container -->
-        <ScrollViewer
-            Grid.Column="0"
-            Margin="12"
+        <!-- LEFT: StackCard (SelectImage → Outpaint → Prompt → Sampler → Model → Seed) -->
+        <ScrollViewer 
+            Grid.Column="0" 
+            Grid.RowSpan="3"
             VerticalScrollBarVisibility="Auto"
-            HorizontalScrollBarVisibility="Disabled"
-            VerticalAlignment="Stretch"
-            HorizontalAlignment="Left"
-            MaxWidth="520">
-            <controls:StackCard
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+
+            <controls:StackCard 
+                Margin="12" 
                 DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!-- RIGHT: unutarnji grid s 3 reda -->
-        <Grid Grid.Column="1" Margin="12" RowDefinitions="Auto,*,Auto">
+        <!-- RIGHT TOP: Preview (fiksan, gore desno) -->
+        <Grid Grid.Column="1" Grid.Row="0" Margin="12">
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Border
+                    Width="400"
+                    Height="400"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8">
 
-            <!-- TOP RIGHT: Preview -->
-            <Border
-                Grid.Row="0"
-                Width="400"
-                Height="400"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="8">
-                <Image
-                    Stretch="Uniform"
-                    MaxWidth="384"
-                    MaxHeight="384"
-                    Source="{Binding SelectedImage}" />
-            </Border>
-
-            <!-- MIDDLE: Gallery -->
-            <Grid Grid.Row="1" Margin="0,12,0,12">
-                <controls:ImageGalleryCard
-                    DataContext="{Binding ImageGalleryCardViewModel}" />
-            </Grid>
-
-            <!-- BOTTOM RIGHT: Generate -->
-            <Border Grid.Row="2" Padding="0,0,12,12">
-                <Button
-                    HorizontalAlignment="Right"
-                    Width="160"
-                    Height="40"
-                    Content="Generate Image"
-                    Command="{Binding GenerateImageCommand}" />
-            </Border>
-
+                    <Image
+                        Stretch="Uniform"
+                        MaxWidth="384"
+                        MaxHeight="384"
+                        Source="{Binding SelectedImage}" />
+                </Border>
+            </StackPanel>
         </Grid>
+
+        <!-- RIGHT MIDDLE: Gallery -->
+        <Grid Grid.Column="1" Grid.Row="1" Margin="12,0,12,0">
+            <controls:ImageGalleryCard
+                DataContext="{Binding ImageGalleryCardViewModel}" />
+        </Grid>
+
+        <!-- RIGHT BOTTOM: Generate button -->
+        <Border Grid.Column="1" Grid.Row="2" Padding="0,0,12,12">
+            <Button
+                HorizontalAlignment="Right"
+                Width="160"
+                Height="40"
+                Content="Generate Image"
+                Command="{Binding GenerateImageCommand}" />
+        </Border>
+
     </Grid>
 </UserControl>
