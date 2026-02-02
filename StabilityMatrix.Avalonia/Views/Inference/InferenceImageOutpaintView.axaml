@@ -1,0 +1,31 @@
+<UserControl
+    x:Class="StabilityMatrix.Avalonia.Views.Inference.InferenceImageOutpaintView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:StabilityMatrix.Avalonia.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:inference="using:StabilityMatrix.Avalonia.ViewModels.Inference"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="700"
+    d:DesignWidth="1000"
+    x:DataType="inference:InferenceImageOutpaintViewModel"
+    mc:Ignorable="d">
+
+    <Grid ColumnDefinitions="*,Auto">
+
+        <!--  Left Panel - Controls  -->
+        <ScrollViewer Grid.Column="0">
+            <controls:StackCard Margin="8" DataContext="{Binding StackCardViewModel}" />
+        </ScrollViewer>
+
+        <!--  Right Panel - Image Viewer  -->
+        <Border
+            Grid.Column="1"
+            Width="400"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1,0,0,0">
+            <controls:InferenceImageViewer Margin="8" />
+        </Border>
+
+    </Grid>
+</UserControl>
