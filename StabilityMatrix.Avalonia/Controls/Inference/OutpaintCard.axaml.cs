@@ -5,6 +5,6 @@ using StabilityMatrix.Core.Attributes;
 namespace StabilityMatrix.Avalonia.Controls.Inference;
 
 [RegisterTransient<OutpaintCard>]
-public partial class OutpaintCard : TemplatedControlBase
+public partial class OutpaintCard : UserControlBase
 {
 }
