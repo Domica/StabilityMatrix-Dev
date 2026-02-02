@@ -1,3 +1,4 @@
+<UserControl
     x:Class="StabilityMatrix.Avalonia.Views.Inference.InferenceImageOutpaintView"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -10,13 +11,13 @@
     d:DesignWidth="1000"
     mc:Ignorable="d">
 
-    <!-- 2 kolone: LIJEVO (600px), DESNO (fleksibilno) -->
+    <!-- 2 kolone: LIJEVO 600px, DESNO fleksibilno -->
     <Grid ColumnDefinitions="600,*" Margin="12">
 
-        <!-- LIJEVO: 600x400 Load Image + scroll parametri -->
+        <!-- LIJEVO: Gornji dio = Load Image (600x400 fiksno), Donji dio = scroll parametri -->
         <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
             
-            <!-- LOAD IMAGE AREA (gornji lijevi kut - fiksna veličina) -->
+            <!-- LOAD IMAGE (gornji lijevi kut - fiksno 600x400) -->
             <Border 
                 Width="600" 
                 Height="400"
@@ -24,38 +25,43 @@
                 CornerRadius="6" 
                 Padding="8"
                 Margin="0,0,0,8">
-                <controls:SelectImageCard 
-                    DataContext="{Binding StackCardViewModel.GetCard<SelectImageCardViewModel>}"
-                    Height="400" 
-                    Width="600" />
+                <ContentControl 
+                    Content="{Binding StackCardViewModel.Cards[0]}" 
+                    HorizontalAlignment="Stretch" 
+                    VerticalAlignment="Stretch" />
             </Border>
             
-            <!-- SCROLLABLE PARAMETRI (donji dio) -->
+            <!-- PARAMETRI (scrollable ispod Load Image-a) -->
             <ScrollViewer 
                 Grid.Row="1"
                 VerticalScrollBarVisibility="Auto"
-                HorizontalScrollBarVisibility="Disabled"
-                Margin="0,0,0,12">
-                <Grid>
-                    <!-- Izostavi prvi card (SelectImageCard) -->
-                    <ItemsControl 
-                        ItemsSource="{Binding StackCardViewModel.Cards}"
-                        ItemsPanel="{StaticResource VerticalStackPanelTemplate}"
-                        ItemTemplateSelector="{StaticResource CardTemplateSelector}">
-                        <ItemsControl.ItemContainerStyle>
-                            <Style Selector="ContentPresenter">
-                                <Setter Property="Margin" Value="0,0,0,8"/>
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
-                    </ItemsControl>
-                </Grid>
+                HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl 
+                    ItemsSource="{Binding StackCardViewModel.Cards}" 
+                    Margin="0,8,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style Selector="ContentPresenter">
+                            <Setter Property="IsVisible" Value="{Binding #Index, Converter={x:Static inference:SkipFirstCardConverter.Instance}}" />
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                </ItemsControl>
             </ScrollViewer>
         </Grid>
 
-        <!-- DESNO: Output i button -->
+        <!-- DESNO: Output gore, button dolje -->
         <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,12">
             
-            <!-- Output gallery (pun prostor gore) -->
+            <!-- Output gallery -->
             <Border 
                 Background="#1E1E1E" 
                 CornerRadius="6" 
@@ -65,7 +71,7 @@
                     DataContext="{Binding ImageGalleryCardViewModel}" />
             </Border>
             
-            <!-- Generate button (ispod gallerya) -->
+            <!-- Generate button -->
             <Button 
                 Grid.Row="1"
                 HorizontalAlignment="Stretch"
