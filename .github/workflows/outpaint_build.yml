@@ -1,4 +1,4 @@
-name: Build Stability Matrix (Windows)
+name: Build SM AI - Outpaint
 
 on:
   push:
