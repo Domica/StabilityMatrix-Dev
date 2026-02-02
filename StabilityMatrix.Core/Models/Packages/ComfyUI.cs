@@ -129,6 +129,11 @@ public class ComfyUI(
                     TargetRelativePaths = ["models/upscale_models"],
                     ConfigDocumentPaths = ["upscale_models"],
                 },
+                new SharedFolderLayoutRule
+                {
+                        SourceTypes = [SharedFolderType.Outpainting],
+                        TargetRelativePaths = ["models/outpainting"]
+                },
                 new SharedFolderLayoutRule // Hypernetworks
                 {
                     SourceTypes = [SharedFolderType.Hypernetwork],
