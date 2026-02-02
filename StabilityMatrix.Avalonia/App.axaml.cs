@@ -438,6 +438,7 @@ public sealed class App : Application
         // Register services by attributes
         services.AddServicesByAttributes();
         services.AddSingleton<InferenceImageOutpaintViewModel>();
+        services.AddTransient<InferenceImageOutpaintView>();
         services.AddTransient<OutpaintCardViewModel>();
         
         ConfigurePageViewModels(services);
