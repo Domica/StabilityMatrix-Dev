@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -63,6 +64,21 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<ModelCardViewModel>(),
             vmFactory.Get<SeedCardViewModel>()
         );
+
+        // ⬇⬇⬇ bitno: propagiraj promjenu ImageSource -> SelectedImage ⬇⬇⬇
+        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
+        if (selectImageCard is not null)
+        {
+            selectImageCard.PropertyChanged += OnSelectImageCardPropertyChanged;
+        }
+    }
+
+    private void OnSelectImageCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
+        {
+            OnPropertyChanged(nameof(SelectedImage));
+        }
     }
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
