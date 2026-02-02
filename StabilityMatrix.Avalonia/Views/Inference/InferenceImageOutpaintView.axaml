@@ -11,10 +11,8 @@
     x:DataType="inference:InferenceImageOutpaintViewModel"
     mc:Ignorable="d">
 
-    <!-- IDENTIČAN GRID kao Upscaler -->
     <Grid ColumnDefinitions="2*,3*" RowDefinitions="*,Auto">
 
-        <!-- LEFT: StackCard (scrollable) -->
         <ScrollViewer 
             Grid.Column="0" 
             Grid.Row="0"
@@ -26,7 +24,6 @@
                 DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!-- LEFT: Generate button (identičan Upscaler gumbu) -->
         <Border 
             Grid.Column="0" 
             Grid.Row="1" 
@@ -36,10 +33,9 @@
                 Width="160"
                 Height="40"
                 Content="Generate Image"
-                Command="{Binding OutpaintGenerateCommand}"
+                Command="{Binding GenerateImageCommand}" />
         </Border>
 
-        <!-- RIGHT: Image preview (identičan Upscaler preview panelu) -->
         <Border
             Grid.Column="1"
             Grid.RowSpan="2"
