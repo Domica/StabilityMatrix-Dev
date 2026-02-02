@@ -64,7 +64,7 @@
                 HorizontalAlignment="Stretch"
                 Height="40"
                 Content="Generate Image"
-                Command="{Binding GenerateImageCommand}" />
+                Command="{Binding OutpaintGenerateCommand}" />
         </Grid>
 
     </Grid>
