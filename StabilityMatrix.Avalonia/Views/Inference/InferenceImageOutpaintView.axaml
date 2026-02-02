@@ -8,49 +8,62 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:DataType="inference:InferenceImageOutpaintViewModel"
     d:DesignHeight="700"
-    d:DesignWidth="1000"
+    d:DesignWidth="1200"
     mc:Ignorable="d">
 
-    <Grid ColumnDefinitions="2*,3*" RowDefinitions="Auto,*,Auto">
+    <!-- 2 kolone: lijevo kartice, desno preview+gallery+gumb -->
+    <Grid ColumnDefinitions="Auto,*">
 
-        <!-- LEFT: StackCard -->
-        <ScrollViewer 
-            Grid.Column="0" 
-            Grid.RowSpan="3"
-            VerticalAlignment="Top"
+        <!-- LEFT: StackCard fiksni container -->
+        <ScrollViewer
+            Grid.Column="0"
+            Margin="12"
+            VerticalScrollBarVisibility="Auto"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalAlignment="Stretch"
             HorizontalAlignment="Left"
-            MaxWidth="600"
-            Margin="12">
-            <controls:StackCard 
+            MaxWidth="520">
+            <controls:StackCard
                 DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!-- RIGHT TOP: Preview -->
-        <DockPanel Grid.Column="1" Grid.Row="0" LastChildFill="True" Margin="12">
-            <Border Width="400" Height="400" DockPanel.Dock="Top"
-                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="6" Padding="8">
-                <Image Stretch="Uniform"
-                       MaxWidth="384" MaxHeight="384"
-                       Source="{Binding SelectedImage}" />
-            </Border>
-        </DockPanel>
+        <!-- RIGHT: unutarnji grid s 3 reda -->
+        <Grid Grid.Column="1" Margin="12" RowDefinitions="Auto,*,Auto">
 
-        <!-- RIGHT MIDDLE: Gallery -->
-        <Grid Grid.Column="1" Grid.Row="1" Margin="12,0,12,0">
-            <controls:ImageGalleryCard
-                DataContext="{Binding ImageGalleryCardViewModel}" />
-        </Grid>
-
-        <!-- RIGHT BOTTOM: Generate -->
-        <Border Grid.Column="1" Grid.Row="2" Padding="0,0,12,12">
-            <Button
+            <!-- TOP RIGHT: Preview -->
+            <Border
+                Grid.Row="0"
+                Width="400"
+                Height="400"
                 HorizontalAlignment="Right"
-                Width="160"
-                Height="40"
-                Content="Generate Image"
-                Command="{Binding GenerateImageCommand}" />
-        </Border>
+                VerticalAlignment="Top"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="8">
+                <Image
+                    Stretch="Uniform"
+                    MaxWidth="384"
+                    MaxHeight="384"
+                    Source="{Binding SelectedImage}" />
+            </Border>
 
+            <!-- MIDDLE: Gallery -->
+            <Grid Grid.Row="1" Margin="0,12,0,12">
+                <controls:ImageGalleryCard
+                    DataContext="{Binding ImageGalleryCardViewModel}" />
+            </Grid>
+
+            <!-- BOTTOM RIGHT: Generate -->
+            <Border Grid.Row="2" Padding="0,0,12,12">
+                <Button
+                    HorizontalAlignment="Right"
+                    Width="160"
+                    Height="40"
+                    Content="Generate Image"
+                    Command="{Binding GenerateImageCommand}" />
+            </Border>
+
+        </Grid>
     </Grid>
 </UserControl>
