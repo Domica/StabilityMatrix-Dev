@@ -123,7 +123,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             {
                 Name = "KSampler",
                 Model = checkpoint.Output1,
-                Seed = seedCard?.Seed ?? 0,
+                Seed = (ulong)(seedCard?.Seed ?? 0),
                 Steps = samplerCard?.Steps ?? 20,
                 Cfg = samplerCard?.CfgScale ?? 7.0,
                 SamplerName = samplerCard?.SelectedSampler?.Name ?? "euler",
