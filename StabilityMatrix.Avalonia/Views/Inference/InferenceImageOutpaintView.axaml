@@ -11,15 +11,26 @@
     x:DataType="inference:InferenceImageOutpaintViewModel"
     mc:Ignorable="d">
 
+    <!-- IDENTIČAN GRID kao Upscaler -->
     <Grid ColumnDefinitions="2*,3*" RowDefinitions="*,Auto">
 
-        <!-- Left Panel - StackCard -->
-        <ScrollViewer Grid.Column="0" Grid.Row="0">
-            <controls:StackCard Margin="12" DataContext="{Binding StackCardViewModel}" />
+        <!-- LEFT: StackCard (scrollable) -->
+        <ScrollViewer 
+            Grid.Column="0" 
+            Grid.Row="0"
+            VerticalScrollBarVisibility="Auto"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+            <controls:StackCard 
+                Margin="12" 
+                DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!-- Left Panel - Generate Button -->
-        <Border Grid.Column="0" Grid.Row="1" Padding="12,0,12,12">
+        <!-- LEFT: Generate button (identičan Upscaler gumbu) -->
+        <Border 
+            Grid.Column="0" 
+            Grid.Row="1" 
+            Padding="12,0,12,12">
             <Button
                 HorizontalAlignment="Left"
                 Width="160"
@@ -28,15 +39,17 @@
                 Command="{Binding GenerateCommand}" />
         </Border>
 
-        <!-- Right Panel - Image Preview -->
+        <!-- RIGHT: Image preview (identičan Upscaler preview panelu) -->
         <Border
             Grid.Column="1"
             Grid.RowSpan="2"
             Margin="12"
+            MinWidth="400"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
             BorderThickness="1,0,0,0"
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
+
             <Image
                 Width="384"
                 Height="384"
