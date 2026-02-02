@@ -436,7 +436,7 @@ public sealed class App : Application
 
         // Register services by attributes
         services.AddServicesByAttributes();
-
+        services.AddSingleton<InferenceImageOutpaintViewModel>();
         ConfigurePageViewModels(services);
 
         services.AddServiceManagerWithCurrentCollectionServices<ViewModelBase>(s =>
