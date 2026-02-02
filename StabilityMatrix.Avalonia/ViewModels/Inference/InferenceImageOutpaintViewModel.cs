@@ -249,4 +249,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         await RunGeneration(generationArgs, cancellationToken);
     }
+
+    protected override bool CanGenerateImage()
+    {
+        return true;
+    }
 }
