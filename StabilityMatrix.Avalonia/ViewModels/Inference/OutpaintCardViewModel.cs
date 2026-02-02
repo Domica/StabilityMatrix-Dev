@@ -1,10 +1,8 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -33,9 +31,8 @@ public partial class OutpaintCardViewModel : LoadableViewModelBase
     [ObservableProperty]
     private OutpaintDirection selectedDirection = OutpaintDirection.Custom;
 
-    public OutpaintCardViewModel(IInferenceClientManager clientManager)
+    public OutpaintCardViewModel()
     {
-        Title = "Outpaint";
     }
 
     [RelayCommand]
@@ -91,29 +88,6 @@ public partial class OutpaintCardViewModel : LoadableViewModelBase
         ExpandBottom = 0;
         Feathering = 40;
         SelectedDirection = OutpaintDirection.Custom;
-    }
-
-    public void LoadStateFromParameters(GenerationParameters parameters)
-    {
-        if (parameters.ExpandLeft.HasValue)
-            ExpandLeft = parameters.ExpandLeft.Value;
-        if (parameters.ExpandRight.HasValue)
-            ExpandRight = parameters.ExpandRight.Value;
-        if (parameters.ExpandTop.HasValue)
-            ExpandTop = parameters.ExpandTop.Value;
-        if (parameters.ExpandBottom.HasValue)
-            ExpandBottom = parameters.ExpandBottom.Value;
-    }
-
-    public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
-    {
-        return parameters with
-        {
-            ExpandLeft = ExpandLeft,
-            ExpandRight = ExpandRight,
-            ExpandTop = ExpandTop,
-            ExpandBottom = ExpandBottom
-        };
     }
 }
 
