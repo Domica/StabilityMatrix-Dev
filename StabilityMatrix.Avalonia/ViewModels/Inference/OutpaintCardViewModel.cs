@@ -8,7 +8,7 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
 [View(typeof(Avalonia.Controls.Inference.OutpaintCard))]
 [ManagedService]
-[TransientService]
+[Transient]
 public partial class OutpaintCardViewModel : LoadableViewModelBase
 {
     public const string ModuleKey = "Outpaint";
