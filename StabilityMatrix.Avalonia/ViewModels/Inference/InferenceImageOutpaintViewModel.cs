@@ -78,6 +78,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
             OnPropertyChanged(nameof(SelectedImage));
+            GenerateImageCommand.NotifyCanExecuteChanged();
         }
     }
 
