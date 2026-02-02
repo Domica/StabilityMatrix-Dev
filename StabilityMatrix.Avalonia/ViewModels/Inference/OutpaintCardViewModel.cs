@@ -4,11 +4,12 @@ using CommunityToolkit.Mvvm.Input;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
-using StabilityMatrix.Core.Models;  // DODAJ za GenerationParameters
+using StabilityMatrix.Core.Models;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
-[View(typeof(Controls.Inference.OutpaintCard))]  // ✅ ISPRAVI
+// ISPRAVI View atribut - NEMA ViewModels.Controls!
+[View(typeof(Controls.Inference.OutpaintCard))]  // ✅ ISPRAVNO
 [ManagedService]
 [Transient]
 public partial class OutpaintCardViewModel : LoadableViewModelBase
@@ -95,10 +96,14 @@ public partial class OutpaintCardViewModel : LoadableViewModelBase
 
     public void LoadStateFromParameters(GenerationParameters parameters)
     {
-        ExpandLeft = parameters.ExpandLeft;
-        ExpandRight = parameters.ExpandRight;
-        ExpandTop = parameters.ExpandTop;
-        ExpandBottom = parameters.ExpandBottom;
+        if (parameters.ExpandLeft.HasValue)
+            ExpandLeft = parameters.ExpandLeft.Value;
+        if (parameters.ExpandRight.HasValue)
+            ExpandRight = parameters.ExpandRight.Value;
+        if (parameters.ExpandTop.HasValue)
+            ExpandTop = parameters.ExpandTop.Value;
+        if (parameters.ExpandBottom.HasValue)
+            ExpandBottom = parameters.ExpandBottom.Value;
     }
 
     public GenerationParameters SaveStateToParameters(GenerationParameters parameters)
