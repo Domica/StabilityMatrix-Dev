@@ -27,12 +27,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public StackCardViewModel StackCardViewModel { get; }
 
     public ImageSource? SelectedImage
-    { 
+    {
         get
-        { 
+        {
             var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-            return selectImageCard?.ImageSource; 
-        } 
+            return selectImageCard?.ImageSource;
+        }
     }
 
     public InferenceImageOutpaintViewModel(
