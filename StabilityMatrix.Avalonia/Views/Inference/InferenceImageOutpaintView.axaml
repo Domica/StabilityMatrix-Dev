@@ -25,36 +25,23 @@
                 CornerRadius="6" 
                 Padding="8"
                 Margin="0,0,0,8">
-                <ContentControl 
-                    Content="{Binding StackCardViewModel.Cards[0]}" 
-                    HorizontalAlignment="Stretch" 
-                    VerticalAlignment="Stretch" />
+                <ContentControl Content="{Binding StackCardViewModel.Cards[0]}" />
             </Border>
             
             <!-- PARAMETRI (scrollable ispod Load Image-a) -->
             <ScrollViewer 
                 Grid.Row="1"
                 VerticalScrollBarVisibility="Auto"
-                HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl 
-                    ItemsSource="{Binding StackCardViewModel.Cards}" 
-                    Margin="0,8,0,0">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Spacing="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <ContentControl Content="{Binding}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style Selector="ContentPresenter">
-                            <Setter Property="IsVisible" Value="{Binding #Index, Converter={x:Static inference:SkipFirstCardConverter.Instance}}" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
-                </ItemsControl>
+                HorizontalScrollBarVisibility="Disabled"
+                Margin="0,8,0,0">
+                <StackPanel Spacing="8">
+                    <!-- Ručno prikaži karte od indeksa 1 nadalje (Outpaint, Prompt, Sampler, Model, Seed) -->
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[1]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[2]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[3]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[4]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[5]}" />
+                </StackPanel>
             </ScrollViewer>
         </Grid>
 
