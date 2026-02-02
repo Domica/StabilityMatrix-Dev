@@ -1,13 +1,14 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Models;  // DODAJ za GenerationParameters
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
-[View(typeof(Controls.Inference.OutpaintCard))]
+[View(typeof(Controls.Inference.OutpaintCard))]  // ✅ ISPRAVI
 [ManagedService]
 [Transient]
 public partial class OutpaintCardViewModel : LoadableViewModelBase
