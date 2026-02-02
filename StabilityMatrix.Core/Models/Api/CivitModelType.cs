@@ -43,8 +43,6 @@ public enum CivitModelType
 
     [ConvertTo<SharedFolderType>(SharedFolderType.ESRGAN)]
     Upscaler,
-    [ConvertToSharedFolderType(SharedFolderType.Outpainting)]
-    Outpainting,
 
     Wildcards,
     Workflows,
