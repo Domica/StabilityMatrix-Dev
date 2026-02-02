@@ -4,11 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:modules="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference.Modules"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:inference="using:StabilityMatrix.Avalonia.ViewModels.Inference"
     d:DesignHeight="450"
     d:DesignWidth="400"
-    x:DataType="modules:OutpaintModule"
+    x:DataType="inference:OutpaintCardViewModel"
     mc:Ignorable="d">
 
     <ui:SettingsExpander
@@ -36,61 +36,53 @@
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="Left"
-                            Content="← Left"
-                            ToolTip.Tip="Expand 256px to the left" />
+                            Content="← Left" />
                         <Button
                             Margin="2"
                             Padding="6,4"
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="Right"
-                            Content="Right →"
-                            ToolTip.Tip="Expand 256px to the right" />
+                            Content="Right →" />
                         <Button
                             Margin="2"
                             Padding="6,4"
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="Top"
-                            Content="↑ Top"
-                            ToolTip.Tip="Expand 256px to the top" />
+                            Content="↑ Top" />
                         <Button
                             Margin="2"
                             Padding="6,4"
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="Bottom"
-                            Content="Bottom ↓"
-                            ToolTip.Tip="Expand 256px to the bottom" />
+                            Content="Bottom ↓" />
                         <Button
                             Margin="2"
                             Padding="6,4"
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="Horizontal"
-                            Content="↔ H"
-                            ToolTip.Tip="Expand 256px left and right" />
+                            Content="↔ H" />
                         <Button
                             Margin="2"
                             Padding="6,4"
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="Vertical"
-                            Content="↕ V"
-                            ToolTip.Tip="Expand 256px top and bottom" />
+                            Content="↕ V" />
                         <Button
                             Margin="2"
                             Padding="6,4"
                             Classes="transparent-full"
                             Command="{Binding SetDirectionPresetCommand}"
                             CommandParameter="All"
-                            Content="⊕ All"
-                            ToolTip.Tip="Expand 128px in all directions" />
+                            Content="⊕ All" />
                     </WrapPanel>
                 </ui:SettingsExpanderItem.Footer>
             </ui:SettingsExpanderItem>
 
-            <!-- Expand Left -->
             <ui:SettingsExpanderItem Content="Expand Left" Description="Pixels to expand on the left side">
                 <ui:SettingsExpanderItem.Footer>
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -109,7 +101,6 @@
                 </ui:SettingsExpanderItem.Footer>
             </ui:SettingsExpanderItem>
 
-            <!-- Expand Right -->
             <ui:SettingsExpanderItem Content="Expand Right" Description="Pixels to expand on the right side">
                 <ui:SettingsExpanderItem.Footer>
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -128,7 +119,6 @@
                 </ui:SettingsExpanderItem.Footer>
             </ui:SettingsExpanderItem>
 
-            <!-- Expand Top -->
             <ui:SettingsExpanderItem Content="Expand Top" Description="Pixels to expand on the top">
                 <ui:SettingsExpanderItem.Footer>
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -147,7 +137,6 @@
                 </ui:SettingsExpanderItem.Footer>
             </ui:SettingsExpanderItem>
 
-            <!-- Expand Bottom -->
             <ui:SettingsExpanderItem Content="Expand Bottom" Description="Pixels to expand on the bottom">
                 <ui:SettingsExpanderItem.Footer>
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -166,7 +155,6 @@
                 </ui:SettingsExpanderItem.Footer>
             </ui:SettingsExpanderItem>
 
-            <!-- Feathering -->
             <ui:SettingsExpanderItem Content="Feathering" Description="Blend amount at expansion edges">
                 <ui:SettingsExpanderItem.Footer>
                     <StackPanel Orientation="Horizontal" Spacing="8">
