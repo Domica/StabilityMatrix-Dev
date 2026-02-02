@@ -36,7 +36,7 @@
                 Width="160"
                 Height="40"
                 Content="Generate Image"
-                Command="{Binding GenerateCommand}" />
+                Command="{Binding OutpaintGenerateCommand}"
         </Border>
 
         <!-- RIGHT: Image preview (identičan Upscaler preview panelu) -->
