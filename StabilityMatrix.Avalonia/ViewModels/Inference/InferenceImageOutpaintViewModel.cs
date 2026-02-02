@@ -73,7 +73,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "ImagePadForOutpaint",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["image"] = loadImage.Output.Data,
+                    ["image"] = loadImage.Output1.Data,
                     ["left"] = outpaintCard?.ExpandLeft ?? 0,
                     ["right"] = outpaintCard?.ExpandRight ?? 0,
                     ["top"] = outpaintCard?.ExpandTop ?? 0,
