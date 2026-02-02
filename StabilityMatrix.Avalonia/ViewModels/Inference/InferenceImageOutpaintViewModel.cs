@@ -151,10 +151,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     /// <inheritdoc />
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        return
-        [
-            GetInputImageFromModule<SelectImageCardViewModel>(),
-            GetInputImageFromModule<BatchSizeCardViewModel>()
-        ];
+        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
+    if (selectImageCard?.ImageSource?.LocalFile is { } localFile)
+    {
+        yield return new ImageSource(localFile);
+    }
     }
 }
