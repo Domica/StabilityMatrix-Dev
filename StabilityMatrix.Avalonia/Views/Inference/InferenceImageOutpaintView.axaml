@@ -18,14 +18,16 @@
             <controls:StackCard Margin="8" DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!--  Right Panel - Image Viewer  -->
+        <!-- Right Panel - Image Viewer -->
         <Border
             Grid.Column="1"
             Width="400"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
             BorderThickness="1,0,0,0">
-            <controls:InferenceImageViewer Margin="8" />
+            <Image Stretch="Uniform" Margin="8"
+                   Source="{Binding SelectedImage}" />
         </Border>
+
 
     </Grid>
 </UserControl>
