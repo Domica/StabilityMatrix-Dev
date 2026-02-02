@@ -65,7 +65,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        // ⬇⬇⬇ bitno: propagiraj promjenu ImageSource -> SelectedImage ⬇⬇⬇
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         if (selectImageCard is not null)
         {
@@ -81,6 +80,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             GenerateImageCommand.NotifyCanExecuteChanged();
         }
     }
+
+    // ✔ Generate gumb uvijek aktivan (kao Upscaler)
+    protected override bool CanGenerate() => true;
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
