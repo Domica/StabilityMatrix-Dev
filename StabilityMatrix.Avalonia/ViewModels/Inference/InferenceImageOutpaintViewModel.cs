@@ -1,14 +1,17 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using StabilityMatrix.Avalonia.Models;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Models;
+using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Core.Services;
-using CommunityToolkit.Mvvm.Input; // ⬅️ potrebno za RelayCommand / AsyncRelayCommand
-using System.Threading.Tasks;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -19,20 +22,18 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 {
     public const string ModuleKey = "ImageOutpaint";
 
+    private readonly INotificationService notificationService;
+
     public StackCardViewModel StackCardViewModel { get; }
 
     public ImageSource? SelectedImage
     { 
-        get 
+        get
         { 
             var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
             return selectImageCard?.ImageSource; 
         } 
     }
-
-    // ⬇️⬇️⬇️ DODANO — GenerateCommand
-    public IAsyncRelayCommand GenerateCommand { get; }
-    // ⬆️⬆️⬆️
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -43,6 +44,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     )
         : base(vmFactory, clientManager, notificationService, settingsManager, runningPackageService)
     {
+        this.notificationService = notificationService;
+
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
 
         var samplerCard = vmFactory.Get<SamplerCardViewModel>(sampler =>
@@ -58,19 +61,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<ModelCardViewModel>(),
             vmFactory.Get<SeedCardViewModel>()
         );
-
-        // ⬇️⬇️⬇️ DODANO — inicijalizacija GenerateCommand
-        GenerateCommand = new AsyncRelayCommand(GenerateAsync);
-        // ⬆️⬆️⬆️
     }
-
-    // ⬇️⬇️⬇️ DODANO — metoda koju poziva GenerateCommand
-    private async Task GenerateAsync()
-    {
-        // Pokreće standardni SM workflow za generiranje
-        await base.GenerateAsync();
-    }
-    // ⬆️⬆️⬆️
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
@@ -185,5 +176,48 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         if (selectImageCard?.ImageSource is { } imageSource)
             yield return imageSource;
+    }
+
+    protected override async Task GenerateImageImpl(
+        GenerateOverrides overrides,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!ClientManager.IsConnected)
+        {
+            notificationService.Show("Client not connected", "Please connect first");
+            return;
+        }
+
+        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
+        if (selectImageCard?.ImageSource?.LocalFile?.FullPath is not { } path)
+        {
+            notificationService.Show("No image selected", "Please select an image first");
+            return;
+        }
+
+        foreach (var image in GetInputImages())
+        {
+            await ClientManager.UploadInputImageAsync(image, cancellationToken);
+        }
+
+        var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides };
+        BuildPrompt(buildPromptArgs);
+
+        var generationArgs = new ImageGenerationEventArgs
+        {
+            Client = ClientManager.Client,
+            Nodes = buildPromptArgs.Builder.ToNodeDictionary(),
+            OutputNodeNames = buildPromptArgs.Builder.Connections.OutputNodeNames.ToArray(),
+            Parameters = new GenerationParameters
+            {
+                ModelName = StackCardViewModel
+                    .GetCard<ModelCardViewModel>()
+                    ?.SelectedModel?.Name,
+            },
+            Project = InferenceProjectDocument.FromLoadable(this)
+        };
+
+        await RunGeneration(generationArgs, cancellationToken);
     }
 }
