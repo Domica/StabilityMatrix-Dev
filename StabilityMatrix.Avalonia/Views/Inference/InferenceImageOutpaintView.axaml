@@ -17,7 +17,7 @@
         <!-- LEFT: StackCard -->
         <ScrollViewer 
             Grid.Column="0" 
-            Grid.Row="0"
+            Grid.RowSpan="3"
             VerticalScrollBarVisibility="Auto"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
