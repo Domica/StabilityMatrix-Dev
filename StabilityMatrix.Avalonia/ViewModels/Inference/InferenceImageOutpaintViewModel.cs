@@ -178,7 +178,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             yield return imageSource;
     }
 
-    protected override async Task GenerateImageImpl(CancellationToken cancellationToken)
+    protected override async Task GenerateImageImpl(
+        GenerateOverrides overrides,
+        CancellationToken cancellationToken
+    )
     {
         if (!ClientManager.IsConnected)
         {
@@ -196,7 +199,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         foreach (var image in GetInputImages())
             await ClientManager.UploadInputImageAsync(image, cancellationToken);
 
-        var buildPromptArgs = new BuildPromptEventArgs();
+        var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides };
         BuildPrompt(buildPromptArgs);
 
         var generationArgs = new ImageGenerationEventArgs
