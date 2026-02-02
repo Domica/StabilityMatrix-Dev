@@ -187,7 +187,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Images = vaeDecode.Output
             }
         );
-        args.Builder.Connections.AddOutputNode(preview.Name);
+        //args.Builder.Connections.AddOutputNode(preview.Name);
     }
     
     protected override IEnumerable<ImageSource> GetInputImages()
