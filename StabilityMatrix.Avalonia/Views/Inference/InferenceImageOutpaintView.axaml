@@ -11,40 +11,30 @@
     d:DesignWidth="1000"
     mc:Ignorable="d">
 
-    <!-- 2 kolone, 3 reda -->
     <Grid ColumnDefinitions="2*,3*" RowDefinitions="Auto,*,Auto">
 
-        <!-- LEFT: StackCard (SelectImage → Outpaint → Prompt → Sampler → Model → Seed) -->
+        <!-- LEFT: StackCard -->
         <ScrollViewer 
             Grid.Column="0" 
             Grid.RowSpan="3"
-            VerticalScrollBarVisibility="Auto"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch">
+            VerticalAlignment="Top"
+            HorizontalAlignment="Left"
+            MaxWidth="600"
+            Margin="12">
             <controls:StackCard 
-                Margin="12" 
                 DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!-- RIGHT TOP: Preview (fiksan, gore desno) -->
-        <Grid Grid.Column="1" Grid.Row="0" Margin="12">
-            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">
-                <Border
-                    Width="400"
-                    Height="400"
+        <!-- RIGHT TOP: Preview -->
+        <DockPanel Grid.Column="1" Grid.Row="0" LastChildFill="True" Margin="12">
+            <Border Width="400" Height="400" DockPanel.Dock="Top"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="8">
-
-                    <Image
-                        Stretch="Uniform"
-                        MaxWidth="384"
-                        MaxHeight="384"
-                        Source="{Binding SelectedImage}" />
-                </Border>
-            </StackPanel>
-        </Grid>
+                    BorderThickness="1" CornerRadius="6" Padding="8">
+                <Image Stretch="Uniform"
+                       MaxWidth="384" MaxHeight="384"
+                       Source="{Binding SelectedImage}" />
+            </Border>
+        </DockPanel>
 
         <!-- RIGHT MIDDLE: Gallery -->
         <Grid Grid.Column="1" Grid.Row="1" Margin="12,0,12,0">
@@ -52,7 +42,7 @@
                 DataContext="{Binding ImageGalleryCardViewModel}" />
         </Grid>
 
-        <!-- RIGHT BOTTOM: Generate button -->
+        <!-- RIGHT BOTTOM: Generate -->
         <Border Grid.Column="1" Grid.Row="2" Padding="0,0,12,12">
             <Button
                 HorizontalAlignment="Right"
