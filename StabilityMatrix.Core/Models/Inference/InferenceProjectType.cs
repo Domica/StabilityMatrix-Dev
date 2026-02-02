@@ -11,4 +11,5 @@ public enum InferenceProjectType
     FluxTextToImage,
     WanTextToVideo,
     WanImageToVideo,
+    Outpaint,
 }
