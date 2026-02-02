@@ -18,6 +18,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public const string ModuleKey = "ImageOutpaint";
 
     public StackCardViewModel StackCardViewModel { get; }
+    public ImageSource? SelectedImage
+    { 
+        get { var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
+            return selectImageCard?.ImageSource; 
+            } 
+    }
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
