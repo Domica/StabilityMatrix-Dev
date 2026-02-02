@@ -46,4 +46,7 @@ public enum SharedFolderType : ulong
 
     [Extensions.Description("Diffusion Models (UNet-only)")]
     DiffusionModels = 1ul << 31,
+
+    [Extensions.Description("Outpainting Models")]
+    Outpainting = 1ul << 32,
 }
