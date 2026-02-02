@@ -68,7 +68,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     private async Task GenerateAsync()
     {
         // Pokreće standardni SM workflow za generiranje
-        await GenerateAsyncBase();
+        await base.GenerateAsync();
     }
     // ⬆️⬆️⬆️
 
