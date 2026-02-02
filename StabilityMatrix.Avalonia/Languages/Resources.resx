@@ -714,6 +714,9 @@
   <data name="Label_ImageToImage" xml:space="preserve">
     <value>Image to Image</value>
   </data>
+  <data name="Label_Outpaint" xml:space="preserve">
+    <value>Outpaint</value>
+  </data>
   <data name="Label_Inpainting" xml:space="preserve">
     <value>Inpainting</value>
   </data>
