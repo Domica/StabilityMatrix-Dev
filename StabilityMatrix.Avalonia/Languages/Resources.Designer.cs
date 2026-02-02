@@ -2593,7 +2593,60 @@ namespace StabilityMatrix.Avalonia.Languages {
                 return ResourceManager.GetString("Label_OutputsPageTitle", resourceCulture);
             }
         }
-        
+        /// <summary>
+        ///   Looks up a localized string similar to Outpaint.
+        /// </summary>
+        public static string Label_Outpaint {
+            get {
+                return ResourceManager.GetString("Label_Outpaint", resourceCulture);
+            }
+        }
+    
+        /// <summary>
+        ///   Looks up a localized string similar to Outpaint Left.
+        /// </summary>
+        public static string Label_OutpaintLeft {
+            get {
+                return ResourceManager.GetString("Label_OutpaintLeft", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Outpaint Right.
+        /// </summary>
+        public static string Label_OutpaintRight {
+            get {
+                return ResourceManager.GetString("Label_OutpaintRight", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Outpaint Top.
+        /// </summary>
+        public static string Label_OutpaintTop {
+            get {
+                return ResourceManager.GetString("Label_OutpaintTop", resourceCulture);
+            }
+        }
+    
+        /// <summary>
+        ///   Looks up a localized string similar to Outpaint Bottom.
+        /// </summary>
+        public static string Label_OutpaintBottom {
+            get {
+                return ResourceManager.GetString("Label_OutpaintBottom", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Outpaint Strength.
+        /// </summary>
+        public static string Label_OutpaintStrength {
+            get {
+                return ResourceManager.GetString("Label_OutpaintStrength", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Output Type.
         /// </summary>
