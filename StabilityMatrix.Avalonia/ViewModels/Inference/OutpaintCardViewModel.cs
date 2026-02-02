@@ -8,8 +8,7 @@ using StabilityMatrix.Core.Models;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
-// ISPRAVI View atribut - NEMA ViewModels.Controls!
-[View(typeof(Controls.Inference.OutpaintCard))]  // ✅ ISPRAVNO
+[View(typeof(Avalonia.Controls.Inference.OutpaintCard))]
 [ManagedService]
 [Transient]
 public partial class OutpaintCardViewModel : LoadableViewModelBase
