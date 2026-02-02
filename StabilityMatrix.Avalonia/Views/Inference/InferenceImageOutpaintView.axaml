@@ -11,23 +11,38 @@
     x:DataType="inference:InferenceImageOutpaintViewModel"
     mc:Ignorable="d">
 
-    <Grid ColumnDefinitions="*,Auto">
+    <Grid ColumnDefinitions="2*,3*" RowDefinitions="*,Auto">
 
-        <!--  Left Panel - Controls  -->
-        <ScrollViewer Grid.Column="0">
-            <controls:StackCard Margin="8" DataContext="{Binding StackCardViewModel}" />
+        <!-- Left Panel - StackCard -->
+        <ScrollViewer Grid.Column="0" Grid.Row="0">
+            <controls:StackCard Margin="12" DataContext="{Binding StackCardViewModel}" />
         </ScrollViewer>
 
-        <!-- Right Panel - Image Viewer -->
-        <Border
-            Grid.Column="1"
-            Width="400"
-            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1,0,0,0">
-            <Image Stretch="Uniform" Margin="8"
-                   Source="{Binding SelectedImage}" />
+        <!-- Left Panel - Generate Button -->
+        <Border Grid.Column="0" Grid.Row="1" Padding="12,0,12,12">
+            <Button
+                HorizontalAlignment="Left"
+                Width="160"
+                Height="40"
+                Content="Generate Image"
+                Command="{Binding GenerateCommand}" />
         </Border>
 
+        <!-- Right Panel - Image Preview -->
+        <Border
+            Grid.Column="1"
+            Grid.RowSpan="2"
+            Margin="12"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <Image
+                Width="384"
+                Height="384"
+                Stretch="Uniform"
+                Source="{Binding SelectedImage}" />
+        </Border>
 
     </Grid>
 </UserControl>
