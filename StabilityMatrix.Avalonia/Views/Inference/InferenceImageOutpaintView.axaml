@@ -11,57 +11,55 @@
     d:DesignWidth="1000"
     mc:Ignorable="d">
 
-    <!-- 2 kolone, 3 reda -->
-    <Grid ColumnDefinitions="2*,3*" RowDefinitions="Auto,*,Auto">
+    <!-- 2 kolone: LIJEVO fiksno, DESNO fleksibilno -->
+    <Grid ColumnDefinitions="600,*">
 
-        <!-- LEFT: StackCard (SelectImage → Outpaint → Prompt → Sampler → Model → Seed) -->
-        <ScrollViewer 
-            Grid.Column="0" 
-            Grid.RowSpan="3"
-            VerticalScrollBarVisibility="Auto"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch">
+        <!-- LEFT: StackCard (fix širina, scroll ako treba) -->
+        <Border Grid.Column="0" Margin="12">
+            <ScrollViewer
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled">
 
-            <controls:StackCard 
-                Margin="12" 
-                DataContext="{Binding StackCardViewModel}" />
-        </ScrollViewer>
+                <controls:StackCard
+                    DataContext="{Binding StackCardViewModel}" />
+            </ScrollViewer>
+        </Border>
 
-        <!-- RIGHT TOP: Preview (fiksan, gore desno) -->
-        <Grid Grid.Column="1" Grid.Row="0" Margin="12">
-            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">
-                <Border
-                    Width="400"
-                    Height="400"
-                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="8">
+        <!-- RIGHT SIDE -->
+        <Grid Grid.Column="1" Margin="12" RowDefinitions="Auto,*,Auto">
 
-                    <Image
-                        Stretch="Uniform"
-                        MaxWidth="384"
-                        MaxHeight="384"
-                        Source="{Binding SelectedImage}" />
-                </Border>
-            </StackPanel>
-        </Grid>
+            <!-- PREVIEW (fiksan, gore desno) -->
+            <Border
+                Width="400"
+                Height="400"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="8">
 
-        <!-- RIGHT MIDDLE: Gallery -->
-        <Grid Grid.Column="1" Grid.Row="1" Margin="12,0,12,0">
+                <Image
+                    Stretch="Uniform"
+                    Source="{Binding SelectedImage}" />
+            </Border>
+
+            <!-- GALLERY (sredina, puni prostor) -->
             <controls:ImageGalleryCard
+                Grid.Row="1"
+                Margin="0,12,0,12"
                 DataContext="{Binding ImageGalleryCardViewModel}" />
-        </Grid>
 
-        <!-- RIGHT BOTTOM: Generate button -->
-        <Border Grid.Column="1" Grid.Row="2" Padding="0,0,12,12">
+            <!-- GENERATE BUTTON (dolje desno) -->
             <Button
+                Grid.Row="2"
                 HorizontalAlignment="Right"
                 Width="160"
                 Height="40"
                 Content="Generate Image"
                 Command="{Binding GenerateImageCommand}" />
-        </Border>
+
+        </Grid>
 
     </Grid>
 </UserControl>
