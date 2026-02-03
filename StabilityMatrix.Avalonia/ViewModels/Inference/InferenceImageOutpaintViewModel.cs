@@ -110,7 +110,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.LoadImage
             {
                 Name = "LoadImage",
-                Image = imageFile.NameWithPrefix
+                Image = selectImageCard.ImageSource.UploadedName
             }
         );
 
