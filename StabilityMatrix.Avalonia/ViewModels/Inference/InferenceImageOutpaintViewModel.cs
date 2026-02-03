@@ -49,7 +49,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         );
     }
 
-    // Override metode CanGenerate iz bazne klase - vratimo uvijek true
+    // Override metode CanGenerate iz bazne klase - vratimo uvijek true da gumb bude enabled
     public override bool CanGenerate(object? parameter = null) => true;
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
@@ -64,7 +64,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Pad image for outpainting - koristimo NamedComfyNode<ImageNodeConnection>
+        // Pad image for outpainting
         var padImageNode = new NamedComfyNode<ImageNodeConnection>("OutpaintPadNode")
         {
             ClassType = "ImagePadForOutpainting",
@@ -97,7 +97,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
             Name = "VAEEncodeNode",
-            Pixels = padImage.Output, // Koristimo output iz NamedComfyNode
+            Pixels = padImage.Output,
             Vae = checkpoint.Output3
         });
 
@@ -135,7 +135,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
     {
-        // Provjera da li je ComfyUI pokrenut
+        // Provjera da li je ComfyUI pokrenut - isto kao i na upscaler ekranu
         if (!ClientManager.IsConnected)
         {
             _notificationService.Show("Not Connected", "Please start ComfyUI.");
@@ -185,4 +185,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        var img = StackCardViewModel.GetCard<SelectImageCardViewModel>()?.
+        var img = StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
+        if (img != null) yield return img;
+    }
+}
