@@ -82,11 +82,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         }
     }
 
-    // ✅ KLJUČNA IS PRAVKA: Override za provjeru da li se može generirati
+    // ✅ ISPRAVNO: Samo provjera slike (BEZ provjere modela - standardno SM ponašanje)
     protected override bool CanGenerateImage() => 
         base.CanGenerateImage() && 
-        selectImageCardVm?.ImageSource != null &&
-        StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel != null;
+        selectImageCardVm?.ImageSource != null;
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
@@ -115,7 +114,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
-                ClassType = "ImagePadForOutpaint",
+                ClassType = "ImagePadForOutpaint", // ✅ TOČNO IME (bez "ing")
                 Inputs = new Dictionary<string, object?>
                 {
                     ["image"] = primaryImage,
@@ -268,7 +267,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             return;
         }
 
-        // Provjeri da li je model odabran PRIJE nego što pošalješ request
+        // Provjeri model PRIJE generacije (standardno SM ponašanje)
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         if (modelCard?.SelectedModel == null)
         {
