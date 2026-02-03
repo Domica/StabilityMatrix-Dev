@@ -102,10 +102,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 1) PadImageForOutpaint (IMAGE + MASK) - KORISTI SAMO OVAJ PYTHON NODE
-        // Izlaz: Output1 = padded IMAGE, Output2 = MASK (feathered)
+        // Izlaz: .Output = padded IMAGE, .Output2 = MASK (feathered)
         //
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection>("PadImage")
+            new NamedComfyNode("PadImage") // ✅ NON-GENERIC (bez <T>)
             {
                 ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
                 Inputs = new Dictionary<string, object?>
@@ -168,7 +168,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = padImage.Output1, // ✅ PADDED SLIKA (s praznim rubovima)
+                Pixels = padImage.Output, // ✅ PADDED SLIKA (prvi output)
                 Vae = checkpoint.Output3
             }
         );
@@ -199,14 +199,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         // Spaja originalnu sliku (centar) + generirani sadržaj (rubovi) pomoću maske
         //
         var composite = nodes.AddNamedNode(
-            new NamedComfyNode<LatentNodeConnection>("LatentComposite")
+            new NamedComfyNode("LatentComposite") // ✅ NON-GENERIC
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["original"] = originalVaeEncode.Output, // ✅ ORIGINAL U CENTRU
                     ["generated"] = sampler.Output,          // ✅ NOVI SADRŽAJ NA RUBOVIMA
-                    ["mask"] = padImage.Output2              // ✅ MASKA IZ PADIMAGE-A (feathered)
+                    ["mask"] = padImage.Output2              // ✅ MASKA IZ DRUGOG OUTPUTA
                 }
             }
         );
