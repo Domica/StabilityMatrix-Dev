@@ -128,6 +128,22 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 }
             }
         );
+        var mask = nodes.AddNamedNode(
+            new NamedComfyNode<ImageNodeConnection>("OutpaintMask")
+            {
+                ClassType = "MaskFromExpand",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["width"] = padImage.Output.Width,
+                    ["height"] = padImage.Output.Height,
+                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
+                    ["right"] = outpaintCard?.ExpandRight ?? 0,
+                    ["top"] = outpaintCard?.ExpandTop ?? 0,
+                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0
+                }
+            }
+        );
+
 
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
@@ -177,7 +193,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Positive = positivePrompt.Output,
                 Negative = negativePrompt.Output,
                 LatentImage = vaeEncode.Output,
-                Denoise = samplerCard?.DenoiseStrength ?? 1.0
+                Mask = mask.Output, 
+                Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35)
             }
         );
 
