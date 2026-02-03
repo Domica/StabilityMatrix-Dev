@@ -191,13 +191,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        nodes.AddTypedNode(
+        var previewImage = nodes.AddTypedNode(
             new ComfyNodeBuilder.PreviewImage
             {
-                Name = "PreviewImage",
+                Name = nodes.GetUniqueName("PreviewImage"),  // ⭐ GetUniqueName
                 Images = vaeDecode.Output
             }
         );
+
+        args.Builder.Connections.OutputNodeNames.Add(previewImage.Name);
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
