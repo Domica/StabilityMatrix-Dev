@@ -31,16 +31,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     public StackCardViewModel StackCardViewModel { get; }
 
-    private ImageSource? selectedImage;
-    public ImageSource? SelectedImage
-    {
-        get => selectedImage;
-        private set
-        {
-            SetProperty(ref selectedImage, value);
-            GenerateImageCommand.NotifyCanExecuteChanged();
-        }
-    }
+    public ImageSource? SelectedImage => selectImageCardVm?.ImageSource;
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -52,7 +43,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         : base(vmFactory, clientManager, notificationService, settingsManager, runningPackageService)
     {
         this.notificationService = notificationService;
-
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
 
         var samplerCard = vmFactory.Get<SamplerCardViewModel>(sampler =>
@@ -71,33 +61,41 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        SelectedImage = selectImageCardVm.ImageSource;
-
-        selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
+        // 1. PRAĆENJE KONEKCIJE: Reagiraj čim log javi "Connected"
         ClientManager.PropertyChanged += OnClientManagerPropertyChanged;
+
+        // 2. PRAĆENJE SLIKE: Reagiraj čim korisnik odabere sliku
+        if (selectImageCardVm is not null)
+        {
+            selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
+        }
+
+        // Inicijalno osvježi stanje gumba pri otvaranju taba
+        GenerateImageCommand.NotifyCanExecuteChanged();
     }
 
     private void OnClientManagerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(IInferenceClientManager.IsConnected))
+        if (e.PropertyName == nameof(IInferenceClientManager.IsConnected) || 
+            e.PropertyName == nameof(IInferenceClientManager.Client))
+        {
             GenerateImageCommand.NotifyCanExecuteChanged();
+        }
     }
 
     private void OnSelectImageCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
-            SelectedImage = selectImageCardVm.ImageSource;
+        {
+            OnPropertyChanged(nameof(SelectedImage));
+            GenerateImageCommand.NotifyCanExecuteChanged();
+        }
     }
 
-    private bool CanGenerateImage()
+    protected override bool CanGenerateImage()
     {
-        if (!ClientManager.IsConnected)
-            return false;
-
-        if (SelectedImage == null)
-            return false;
-
-        return true;
+        // Provjerava: spojen klijent + odabran model (iz baze) + odabrana slika (naš uvjet)
+        return base.CanGenerateImage() && selectImageCardVm?.ImageSource != null;
     }
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
@@ -113,12 +111,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
-        if (SelectedImage == null)
-            return;
+        if (selectImageCardVm?.ImageSource == null) return;
 
         selectImageCardVm.ApplyStep(args);
         var primaryImage = builder.GetPrimaryAsImage();
 
+        // 1. Pad Image (Kreira prazan prostor oko slike)
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
@@ -132,100 +130,68 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                     ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
                     ["feathering"] = outpaintCard?.Feathering ?? 40
                 }
-            });
+            }
+        );
 
-        var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
-        {
-            Name = "CheckpointLoader",
-            CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
-        });
+        // 2. Load Checkpoint
+        var checkpoint = nodes.AddTypedNode(
+            new ComfyNodeBuilder.CheckpointLoaderSimple
+            {
+                Name = "CheckpointLoader",
+                CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
+            }
+        );
 
-        var positivePrompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
-        {
-            Name = "PositivePrompt",
-            Clip = checkpoint.Output2,
-            Text = promptCard?.PromptDocument.Text ?? ""
-        });
+        // 3. Prompts
+        var positivePrompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { Clip = checkpoint.Output2, Text = promptCard?.PromptDocument.Text ?? "" });
+        var negativePrompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { Clip = checkpoint.Output2, Text = promptCard?.NegativePromptDocument.Text ?? "" });
 
-        var negativePrompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
-        {
-            Name = "NegativePrompt",
-            Clip = checkpoint.Output2,
-            Text = promptCard?.NegativePromptDocument.Text ?? ""
-        });
+        // 4. VAE Encode (Original i Padded)
+        var originalVae = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode { Pixels = primaryImage, Vae = checkpoint.Output3 });
+        var paddedVae = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode { Pixels = padImage.Output1, Vae = checkpoint.Output3 });
 
-        var originalVaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
-        {
-            Name = "OriginalVAEEncode",
-            Pixels = primaryImage,
-            Vae = checkpoint.Output3
-        });
+        // 5. KSampler
+        var sampler = nodes.AddTypedNode(
+            new ComfyNodeBuilder.KSampler
+            {
+                Model = checkpoint.Output1,
+                Seed = (ulong)(seedCard?.Seed ?? 0),
+                Steps = samplerCard?.Steps ?? 20,
+                Cfg = samplerCard?.CfgScale ?? 7.0,
+                SamplerName = samplerCard?.SelectedSampler?.Name ?? "euler",
+                Scheduler = samplerCard?.SelectedScheduler?.Name ?? "normal",
+                Positive = positivePrompt.Output,
+                Negative = negativePrompt.Output,
+                LatentImage = paddedVae.Output,
+                Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.40)
+            }
+        );
 
-        var paddedVaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
-        {
-            Name = "PaddedVAEEncode",
-            Pixels = padImage.Output1,
-            Vae = checkpoint.Output3
-        });
-
-        var sampler = nodes.AddTypedNode(new ComfyNodeBuilder.KSampler
-        {
-            Name = "KSampler",
-            Model = checkpoint.Output1,
-            Seed = (ulong)(seedCard?.Seed ?? 0),
-            Steps = samplerCard?.Steps ?? 20,
-            Cfg = samplerCard?.CfgScale ?? 7.0,
-            SamplerName = samplerCard?.SelectedSampler?.Name ?? "euler",
-            Scheduler = samplerCard?.SelectedScheduler?.Name ?? "normal",
-            Positive = positivePrompt.Output,
-            Negative = negativePrompt.Output,
-            LatentImage = paddedVaeEncode.Output,
-            Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35)
-        });
-
+        // 6. Latent Composite (Spaja staru sliku i novu generaciju preko maske)
         var composite = nodes.AddNamedNode(
             new NamedComfyNode<LatentNodeConnection>("LatentComposite")
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = originalVaeEncode.Output?.Data,
+                    ["original"] = originalVae.Output?.Data,
                     ["generated"] = sampler.Output?.Data,
                     ["mask"] = padImage.Output2.Data
                 }
-            });
+            }
+        );
 
-        var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
-        {
-            Name = "VAEDecode",
-            Samples = composite.Output,
-            Vae = checkpoint.Output3
-        });
-
+        // 7. Decode i Preview
+        var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode { Samples = composite.Output, Vae = checkpoint.Output3 });
         builder.Connections.Primary = vaeDecode.Output;
 
-        var previewImage = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
-        {
-            Name = nodes.GetUniqueName("PreviewImage"),
-            Images = vaeDecode.Output
-        });
-
+        var previewImage = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage { Name = "Preview", Images = vaeDecode.Output });
         builder.Connections.OutputNodes.Add(previewImage);
-    }
-
-    protected override IEnumerable<ImageSource> GetInputImages()
-    {
-        if (SelectedImage is { } imageSource)
-            yield return imageSource;
     }
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
     {
-        if (!CanGenerateImage())
-        {
-            notificationService.Show("Missing input", "Image or connection missing");
-            return;
-        }
+        if (!ClientManager.IsConnected) return;
 
         foreach (var image in GetInputImages())
             await ClientManager.UploadInputImageAsync(image, cancellationToken);
@@ -234,30 +200,30 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         BuildPrompt(buildPromptArgs);
 
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
-
         var generationArgs = new ImageGenerationEventArgs
         {
             Client = ClientManager.Client,
             Nodes = buildPromptArgs.Builder.ToNodeDictionary(),
             OutputNodeNames = buildPromptArgs.Builder.Connections.OutputNodeNames.ToArray(),
-            Parameters = new GenerationParameters
-            {
-                ModelName = modelCard!.SelectedModel!.RelativePath
-            },
+            Parameters = new GenerationParameters { ModelName = modelCard?.SelectedModel?.RelativePath ?? "" },
             Project = InferenceProjectDocument.FromLoadable(this)
         };
 
         await RunGeneration(generationArgs, cancellationToken);
     }
 
+    protected override IEnumerable<ImageSource> GetInputImages()
+    {
+        if (selectImageCardVm?.ImageSource is { } imageSource) yield return imageSource;
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
             ClientManager.PropertyChanged -= OnClientManagerPropertyChanged;
+            if (selectImageCardVm != null) selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
         }
-
         base.Dispose(disposing);
     }
 }
