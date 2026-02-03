@@ -12,6 +12,7 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes; // ⚠️ KLJUČNI USING ZA Connection tipove
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
@@ -102,11 +103,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 1) PadImageForOutpaint (IMAGE + MASK)
-        // Python: pad_image_for_outpainting.py
-        // RETURN_TYPES = ("IMAGE", "MASK") → output[0] = IMAGE, output[1] = MASK
+        // Python: pad_image_for_outpainting.py → RETURN_TYPES = ("IMAGE", "MASK")
+        // Koristi 2-output generic tip: NamedComfyNode<ImageConnection, MaskConnection>
         //
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode("PadImage")
+            new NamedComfyNode<ImageConnection, MaskConnection>("PadImage")
             {
                 ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
                 Inputs = new Dictionary<string, object?>
@@ -164,19 +165,20 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 4) Padded latent (za generiranje novog sadržaja)
-        // KORISTI output[0] iz PadImage node-a → padded IMAGE
+        // Koristi prvi output (IMAGE) iz PadImage node-a
         //
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = new object[] { padImage.Name, 0 }, // ✅ ComfyUI format: [nodeName, outputIndex]
+                Pixels = padImage.Output1.Data, // ✅ Prvi output = padded IMAGE
                 Vae = checkpoint.Output3
             }
         );
 
         //
         // 5) KSampler (generira SAMO novi sadržaj na praznim rubovima)
+        // ⚠️ NEMA mask inputa - KSampler ne podržava masku!
         //
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
@@ -197,19 +199,18 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 6) LatentComposite
-        // Python: latent_composite.py
-        // Spaja originalnu sliku (centar) + generirani sadržaj (rubovi) pomoću maske
-        // KORISTI output[1] iz PadImage node-a → MASK
+        // Python: latent_composite.py → RETURN_TYPES = ("LATENT",)
+        // Koristi 1-output generic tip: NamedComfyNode<LatentConnection>
         //
         var composite = nodes.AddNamedNode(
-            new NamedComfyNode("LatentComposite")
+            new NamedComfyNode<LatentConnection>("LatentComposite")
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["original"] = originalVaeEncode.Output?.Data,
                     ["generated"] = sampler.Output?.Data,
-                    ["mask"] = new object[] { padImage.Name, 1 } // ✅ ComfyUI format: [nodeName, outputIndex=1 za MASK]
+                    ["mask"] = padImage.Output2.Data // ✅ Drugi output = MASK
                 }
             }
         );
@@ -221,7 +222,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = new object[] { composite.Name, 0 }, // ✅ Prvi output LatentComposite-a
+                Samples = composite.Output.Data, // ✅ Jedini output LatentComposite-a
                 Vae = checkpoint.Output3
             }
         );
