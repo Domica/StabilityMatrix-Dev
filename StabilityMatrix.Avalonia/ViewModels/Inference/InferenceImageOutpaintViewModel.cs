@@ -49,11 +49,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()                  
         );
 
-        // Uvijek omogućen gumb, baš kao na Upscale ekranu
+        // Gumb koji uvijek radi, zove bazu tek na klik
         RunOutpaintCommand = new RelayCommand(() => GenerateImageCommand.Execute(null));
     }
 
-    // --- TVOJE POMOĆNE FUNKCIJE ---
     private string GetRandomPrefix() => Guid.NewGuid().ToString().Substring(0, 8);
 
     private string GetUniqueName(string baseName, HashSet<string> existingNames)
@@ -65,13 +64,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         return name;
     }
 
-    // --- TVOJI CUSTOM ČVOROVI (Sve što sam bio obrisao) ---
+    // --- SVI TVOJI ORIGINALNI ČVOROVI (CS9035 popravljeni) ---
+
     public record ImageUpscaleWithModel : ComfyTypedNodeBase<ImageNodeConnection>
     {
         public override string ClassType => "ImageUpscaleWithModel";
         public required ImageNodeConnection Image { get; init; }
         public required UpscaleModelNodeConnection UpscaleModel { get; init; }
-        public required string Name { get; init; } // Popravak za CS9035
+        public required string Name { get; init; }
     }
 
     public record LoraLoader : ComfyTypedNodeBase<ModelNodeConnection, CLIPNodeConnection>
@@ -107,7 +107,41 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         public required string Name { get; init; }
     }
 
-    // ... (Tu idu i SVD, Hunyuan i ostali rekordi koje si imao, dodaj 'Name' svakome)
+    public record SVDSampler : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        public override string ClassType => "VideoLinearSampler";
+        public required ModelNodeConnection Model { get; init; }
+        public required LatentNodeConnection LatentImage { get; init; }
+        public required ConditioningNodeConnection Positive { get; init; }
+        public required ConditioningNodeConnection Negative { get; init; }
+        public required string Name { get; init; }
+    }
+
+    public record HunyuanVideoSampler : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        public override string ClassType => "HunyuanVideoSampler";
+        public required ModelNodeConnection Model { get; init; }
+        public required string Name { get; init; }
+    }
+
+    public record WanImageToVideo : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        public override string ClassType => "WanImageToVideo";
+        public required ModelNodeConnection Model { get; init; }
+        public required ImageNodeConnection Image { get; init; }
+        public required string Name { get; init; }
+    }
+
+    public record FreeU : ComfyTypedNodeBase<ModelNodeConnection>
+    {
+        public override string ClassType => "FreeU";
+        public required ModelNodeConnection Model { get; init; }
+        public double B1 { get; init; } = 1.1;
+        public double B2 { get; init; } = 1.2;
+        public double S1 { get; init; } = 0.9;
+        public double S2 { get; init; } = 0.2;
+        public required string Name { get; init; }
+    }
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
@@ -126,7 +160,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Outpaint logika koristeći tvoj GetUniqueName
         var padNode = new NamedComfyNode<ImageNodeConnection>(GetUniqueName("OutpaintPad", names))
         {
             Name = GetUniqueName("OutpaintPad", names),
@@ -206,12 +239,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     {
         if (ClientManager.Client == null)
         {
-            _notificationService.Show("Not Connected", "ComfyUI is not running or connected.");
+            _notificationService.Show("Not Connected", "ComfyUI is not running.");
             return;
         }
 
         await UploadInputImages(ClientManager.Client);
-
         var buildArgs = new BuildPromptEventArgs { Overrides = overrides };
         BuildPrompt(buildArgs);
 
