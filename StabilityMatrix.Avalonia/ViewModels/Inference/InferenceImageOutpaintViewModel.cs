@@ -164,7 +164,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 4) Padded latent (za generiranje novog sadržaja)
-        // ✅ KORISTI OUTPUT OBJEKT DIREKTNO (BEZ .Data)
+        // ✅ KORISTI CIJELI OBJEKT (BEZ .Data)
         //
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
@@ -197,7 +197,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 6) LatentComposite
-        // ✅ KORISTI OUTPUT OBJEKTE DIREKTNO (BEZ .Data)
+        // ✅ ZA Inputs dictionary KORISTI .Data (object[])
         //
         var composite = nodes.AddNamedNode(
             new NamedComfyNode<LatentNodeConnection>("LatentComposite")
@@ -205,16 +205,16 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = originalVaeEncode.Output, // ✅ LatentNodeConnection
-                    ["generated"] = sampler.Output,          // ✅ LatentNodeConnection
-                    ["mask"] = padImage.Output2              // ✅ ImageMaskConnection (ne object[])
+                    ["original"] = originalVaeEncode.Output?.Data, // ✅ object[] za Inputs
+                    ["generated"] = sampler.Output?.Data,          // ✅ object[] za Inputs
+                    ["mask"] = padImage.Output2.Data               // ✅ object[] za Inputs (ImageMaskConnection → object[])
                 }
             }
         );
 
         //
         // 7) Decode finalne slike
-        // ✅ KORISTI OUTPUT OBJEKT DIREKTNO (BEZ .Data)
+        // ✅ KORISTI CIJELI OBJEKT (BEZ .Data)
         //
         var vaeDecode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
