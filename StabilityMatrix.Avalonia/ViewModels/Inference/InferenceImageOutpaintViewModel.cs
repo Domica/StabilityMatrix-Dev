@@ -31,9 +31,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     public StackCardViewModel StackCardViewModel { get; }
 
+    // ✅ LOCAL TRACKED IMAGE (Option A)
+    private ImageSource? selectedImage;
     public ImageSource? SelectedImage
     {
-        get => selectImageCardVm?.ImageSource;
+        get => selectedImage;
+        private set => SetProperty(ref selectedImage, value);
     }
 
     public InferenceImageOutpaintViewModel(
@@ -54,6 +57,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             sampler.IsDenoiseStrengthEnabled = true;
         });
 
+        // Reference to Select Image card
         selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
 
         StackCardViewModel.AddCards(
@@ -65,41 +69,26 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        // 1. PRAĆENJE KONEKCIJE KLIJENTA
-        // Ovo osigurava da gumb postane aktivan čim se klijent "zakači" na ComfyUI server
-        ClientManager.PropertyChanged += OnClientManagerPropertyChanged;
+        // Sync initial state (important if image already loaded)
+        SelectedImage = selectImageCardVm.ImageSource;
 
-        if (selectImageCardVm is not null)
-        {
-            selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
-        }
-
-        // 2. INICIJALNO OSVJEŽAVANJE
-        // Prisili provjeru stanja odmah pri učitavanju (u slučaju da je sve već spremno)
-        GenerateImageCommand.NotifyCanExecuteChanged();
+        // Listen for image changes
+        selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
     }
 
-    private void OnClientManagerPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(IInferenceClientManager.IsConnected))
-        {
-            // Osvježi gumb kada se status veze promijeni (npr. sa sive na zelenu točku)
-            GenerateImageCommand.NotifyCanExecuteChanged();
-        }
-    }
-
+    // 🔄 React when user loads/removes image
     private void OnSelectImageCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
-            OnPropertyChanged(nameof(SelectedImage));
+            SelectedImage = selectImageCardVm.ImageSource;
             GenerateImageCommand.NotifyCanExecuteChanged();
         }
     }
 
-    protected override bool CanGenerateImage() => 
-        base.CanGenerateImage() && 
-        selectImageCardVm?.ImageSource != null;
+    // ✅ Button enabled only when image exists (plus base conditions)
+    protected override bool CanGenerateImage() =>
+        base.CanGenerateImage() && SelectedImage != null;
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
@@ -114,7 +103,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
-        if (selectImageCardVm?.ImageSource == null)
+        if (SelectedImage == null)
             return;
 
         selectImageCardVm.ApplyStep(args);
@@ -234,14 +223,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        if (selectImageCardVm?.ImageSource is { } imageSource)
+        if (SelectedImage is { } imageSource)
             yield return imageSource;
     }
 
     protected override async Task GenerateImageImpl(
         GenerateOverrides overrides,
-        CancellationToken cancellationToken
-    )
+        CancellationToken cancellationToken)
     {
         if (!ClientManager.IsConnected)
         {
@@ -249,7 +237,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             return;
         }
 
-        if (selectImageCardVm?.ImageSource?.LocalFile?.FullPath is not { })
+        if (SelectedImage?.LocalFile?.FullPath is not { })
         {
             notificationService.Show("No image selected", "Please select an image first");
             return;
@@ -286,14 +274,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     protected override void Dispose(bool disposing)
     {
         if (disposing)
-        {
-            // CLEANUP: Odjavi se s eventova
-            ClientManager.PropertyChanged -= OnClientManagerPropertyChanged;
-            if (selectImageCardVm is not null)
-            {
-                selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
-            }
-        }
+            selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
+
         base.Dispose(disposing);
     }
 }
