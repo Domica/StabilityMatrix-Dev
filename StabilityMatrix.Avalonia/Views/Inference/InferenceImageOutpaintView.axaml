@@ -12,7 +12,6 @@
     mc:Ignorable="d">
 
     <Grid ColumnDefinitions="600,*" Margin="12">
-
         <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
             
             <Border 
@@ -54,16 +53,10 @@
             <Button 
                 Grid.Row="1"
                 HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Height="45"
-                FontSize="16"
-                FontWeight="SemiBold"
+                Height="40"
                 Content="Generate Image"
-                Command="{Binding RunOutpaintCommand}"
-                IsEnabled="True"
+                Command="{Binding GenerateImageCommand}" 
                 x:CompileBindings="False"/>
         </Grid>
-
     </Grid>
 </UserControl>
