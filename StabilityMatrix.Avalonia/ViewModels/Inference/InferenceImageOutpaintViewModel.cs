@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,10 +11,10 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -29,6 +28,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     public StackCardViewModel StackCardViewModel { get; }
 
+    public ImageSource? SelectedImage => StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
+
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager clientManager,
@@ -40,19 +41,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         _notificationService = notificationService;
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
 
-        // Redoslijed kartica mora odgovarati indeksima u tvom XAML-u (Cards[0], Cards[1]...)
         StackCardViewModel.AddCards(
-            vmFactory.Get<SelectImageCardViewModel>(),           // Cards[0]
-            vmFactory.Get<OutpaintCardViewModel>(),             // Cards[1]
-            vmFactory.Get<PromptCardViewModel>(),               // Cards[2]
-            vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true), // Cards[3]
-            vmFactory.Get<ModelCardViewModel>(),                // Cards[4]
-            vmFactory.Get<SeedCardViewModel>()                  // Cards[5]
+            vmFactory.Get<SelectImageCardViewModel>(),
+            vmFactory.Get<OutpaintCardViewModel>(),
+            vmFactory.Get<PromptCardViewModel>(),
+            vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true),
+            vmFactory.Get<ModelCardViewModel>(),
+            vmFactory.Get<SeedCardViewModel>()
         );
     }
-
-    // SILOVANJE GENERATE BUTTONA: Pregazimo internu logiku baze da gumb uvijek bude klikabilan
-    protected override bool CanGenerate(object? obj) => true;
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
@@ -62,13 +59,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
-        var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
 
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Čvor za proširivanje slike
-        var padImage = nodes.AddNamedNode(new NamedComfyNode<ImageNodeConnection>("PadImageForOutpainting")
+        // Pad image for outpainting - koristimo dinamički čvor jer ImagePadForOutpainting nema tipiziranu klasu
+        var padImageNode = new ComfyNode
         {
             Name = "OutpaintPadNode",
             ClassType = "ImagePadForOutpainting",
@@ -81,12 +77,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
                 ["feathering"] = outpaintCard?.Feathering ?? 40
             }
-        });
+        };
+        
+        var padImage = nodes.AddNode(padImageNode);
 
         var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
             Name = "CkptLoader",
-            CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
+            CkptName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath ?? ""
         });
 
         var prompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
@@ -99,7 +97,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
             Name = "VAEEncodeNode",
-            Pixels = padImage.Output, 
+            Pixels = new ImageNodeConnection(padImage, 0),
             Vae = checkpoint.Output3
         });
 
@@ -135,47 +133,62 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         builder.Connections.OutputNodes.Add(preview);
     }
 
-    protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
+    [RelayCommand]
+    private async Task GenerateImageAsync()
     {
-        // Provjere koje radimo tek nakon što korisnik KLIKNE na gumb
+        // Provjera da li je ComfyUI pokrenut
         if (!ClientManager.IsConnected)
         {
-            _notificationService.Show("Greška", "ComfyUI klijent nije spojen. Provjerite karticu Packages.");
+            _notificationService.Show("Not Connected", "Please start ComfyUI.");
             return;
         }
 
-        var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
-        if (modelCard?.SelectedModel == null)
+        // Provjera da li je odabrana slika
+        if (SelectedImage == null)
         {
-            _notificationService.Show("Nedostaje Model", "Molimo odaberite Checkpoint model prije generiranja.");
+            _notificationService.Show("No Image", "Please select an image first.");
             return;
         }
 
-        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-        if (selectImageCard?.ImageSource == null)
+        // Provjera da li je odabran model
+        if (StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel == null)
         {
-            _notificationService.Show("Nema slike", "Morate učitati sliku da biste je mogli proširiti.");
+            _notificationService.Show("No Model", "Please select a model first.");
             return;
         }
 
-        await UploadInputImages(ClientManager.Client!);
-
-        var buildArgs = new BuildPromptEventArgs { Overrides = overrides };
-        BuildPrompt(buildArgs);
-
-        var genArgs = new ImageGenerationEventArgs
+        try
         {
-            Client = ClientManager.Client!,
-            Nodes = buildArgs.Builder.ToNodeDictionary(),
-            OutputNodeNames = buildArgs.Builder.Connections.OutputNodeNames.ToArray(),
-            Parameters = new GenerationParameters 
-            { 
-                ModelName = modelCard.SelectedModel.RelativePath 
-            },
-            Project = InferenceProjectDocument.FromLoadable(this)
-        };
+            await UploadInputImages(ClientManager.Client!);
 
-        await RunGeneration(genArgs, cancellationToken);
+            var buildArgs = new BuildPromptEventArgs();
+            BuildPrompt(buildArgs);
+
+            var genArgs = new ImageGenerationEventArgs
+            {
+                Client = ClientManager.Client!,
+                Nodes = buildArgs.Builder.ToNodeDictionary(),
+                OutputNodeNames = buildArgs.Builder.Connections.OutputNodeNames.ToArray(),
+                Parameters = new GenerationParameters 
+                { 
+                    ModelName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath 
+                },
+                Project = InferenceProjectDocument.FromLoadable(this)
+            };
+
+            await RunGeneration(genArgs, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _notificationService.Show("Error", $"Failed to generate image: {ex.Message}");
+        }
+    }
+
+    // Override the base GenerateImageImpl to use our async command
+    protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
+    {
+        // This will be called by the base class if needed, but we're using our own command
+        await GenerateImageAsync();
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
