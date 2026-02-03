@@ -59,11 +59,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        ClientManager.PropertyChanged += ClientManagerOnPropertyChanged;
-        _selectImageCardVm.PropertyChanged += SelectImageOnPropertyChanged;
+        ClientManager.PropertyChanged += OnClientManagerPropertyChanged;
+        _selectImageCardVm.PropertyChanged += OnSelectImagePropertyChanged;
+
+        // inicijalni refresh gumba
+        GenerateImageCommand.NotifyCanExecuteChanged();
     }
 
-    private void ClientManagerOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnClientManagerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(IInferenceClientManager.IsConnected)
             or nameof(IInferenceClientManager.Client))
@@ -73,7 +76,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         }
     }
 
-    private void SelectImageOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnSelectImagePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
@@ -101,7 +104,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         _selectImageCardVm.ApplyStep(args);
         var primaryImage = builder.GetPrimaryAsImage();
 
-        // Pad image
+        // 1️⃣ Pad image for outpaint
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
@@ -117,11 +120,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 }
             });
 
+        // 2️⃣ Model
         var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
             CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
         });
 
+        // 3️⃣ Prompts
         var pos = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
         {
             Clip = checkpoint.Output2,
@@ -134,12 +139,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Text = promptCard?.NegativePromptDocument.Text ?? ""
         });
 
+        // 4️⃣ Encode latent
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
             Pixels = padImage.Output1,
             Vae = checkpoint.Output3
         });
 
+        // 5️⃣ Sample
         var sampler = nodes.AddTypedNode(new ComfyNodeBuilder.KSampler
         {
             Model = checkpoint.Output1,
@@ -154,6 +161,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Denoise = samplerCard?.DenoiseStrength ?? 0.75
         });
 
+        // 6️⃣ Decode
         var decode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
         {
             Samples = sampler.Output,
@@ -172,9 +180,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
     {
-        if (!CanGenerateImage)
-            return;
-
         foreach (var image in GetInputImages())
             await ClientManager.UploadInputImageAsync(image, cancellationToken);
 
@@ -208,9 +213,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     {
         if (disposing)
         {
-            ClientManager.PropertyChanged -= ClientManagerOnPropertyChanged;
-            if (_selectImageCardVm != null)
-                _selectImageCardVm.PropertyChanged -= SelectImageOnPropertyChanged;
+            ClientManager.PropertyChanged -= OnClientManagerPropertyChanged;
+            _selectImageCardVm.PropertyChanged -= OnSelectImagePropertyChanged;
         }
 
         base.Dispose(disposing);
