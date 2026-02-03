@@ -14,7 +14,6 @@ using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -24,13 +23,12 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewModelBase
 {
     public const string ModuleKey = "ImageOutpaint";
-
     private readonly SelectImageCardViewModel _selectImageCardVm;
 
     public StackCardViewModel StackCardViewModel { get; }
 
-    // Ovako Upscaler rješava stanje gumba: 
-    // Definira svojstvo koje RelayCommand u bazi automatski prepoznaje.
+    // Ovako Upscale modul rješava gumb:
+    // RelayCommand "GenerateImage" u bazi automatski gleda ovaj property.
     public bool CanGenerateImage => ClientManager.IsConnected && _selectImageCardVm?.ImageSource != null;
 
     public InferenceImageOutpaintViewModel(
@@ -43,13 +41,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         : base(vmFactory, clientManager, notificationService, settingsManager, runningPackageService)
     {
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
-
-        var samplerCard = vmFactory.Get<SamplerCardViewModel>(sampler =>
-        {
-            sampler.IsDenoiseStrengthEnabled = true;
-        });
-
         _selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
+
+        var samplerCard = vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true);
 
         StackCardViewModel.AddCards(
             _selectImageCardVm,
@@ -60,9 +54,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        // Pretplata na promjene kako bi se CanGenerateImage ponovno izračunao
-        ClientManager.PropertyChanged += (_, e) => 
-        {
+        // Kada se promijeni konekcija ili slika, javi komandi da ponovno provjeri CanGenerateImage
+        ClientManager.PropertyChanged += (s, e) => {
             if (e.PropertyName == nameof(IInferenceClientManager.IsConnected))
             {
                 OnPropertyChanged(nameof(CanGenerateImage));
@@ -70,23 +63,20 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         };
 
-        if (_selectImageCardVm != null)
-        {
-            _selectImageCardVm.PropertyChanged += (_, e) => 
+        _selectImageCardVm.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
             {
-                if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
-                {
-                    OnPropertyChanged(nameof(CanGenerateImage));
-                    GenerateImageCommand.NotifyCanExecuteChanged();
-                }
-            };
-        }
+                OnPropertyChanged(nameof(CanGenerateImage));
+                GenerateImageCommand.NotifyCanExecuteChanged();
+            }
+        };
     }
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
+        if (_selectImageCardVm?.ImageSource == null) return;
+
         base.BuildPrompt(args);
-        
         var builder = args.Builder;
         var nodes = builder.Nodes;
 
@@ -96,12 +86,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
-        if (_selectImageCardVm?.ImageSource == null) return;
-
         _selectImageCardVm.ApplyStep(args);
         var primaryImage = builder.GetPrimaryAsImage();
 
-        // --- ComfyUI Graph ---
+        // Čvor za Outpaint širenje slike
         var padImage = nodes.AddNamedNode(new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
         {
             ClassType = "ImagePadForOutpaint",
