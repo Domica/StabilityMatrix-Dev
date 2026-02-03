@@ -12,7 +12,7 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes; // ⚠️ KLJUČNI USING ZA Connection tipove
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes; // ⚠️ KLJUČNI USING
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
@@ -104,10 +104,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         //
         // 1) PadImageForOutpaint (IMAGE + MASK)
         // Python: pad_image_for_outpainting.py → RETURN_TYPES = ("IMAGE", "MASK")
-        // Koristi 2-output generic tip: NamedComfyNode<ImageConnection, MaskConnection>
+        // StabilityMatrix tipovi: ImageNodeConnection (IMAGE), ImageMaskConnection (MASK)
         //
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode<ImageConnection, MaskConnection>("PadImage")
+            new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
                 ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
                 Inputs = new Dictionary<string, object?>
@@ -200,17 +200,17 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         //
         // 6) LatentComposite
         // Python: latent_composite.py → RETURN_TYPES = ("LATENT",)
-        // Koristi 1-output generic tip: NamedComfyNode<LatentConnection>
+        // StabilityMatrix tip: LatentNodeConnection
         //
         var composite = nodes.AddNamedNode(
-            new NamedComfyNode<LatentConnection>("LatentComposite")
+            new NamedComfyNode<LatentNodeConnection>("LatentComposite")
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["original"] = originalVaeEncode.Output?.Data,
                     ["generated"] = sampler.Output?.Data,
-                    ["mask"] = padImage.Output2.Data // ✅ Drugi output = MASK
+                    ["mask"] = padImage.Output2.Data // ✅ Drugi output = MASK (ImageMaskConnection)
                 }
             }
         );
