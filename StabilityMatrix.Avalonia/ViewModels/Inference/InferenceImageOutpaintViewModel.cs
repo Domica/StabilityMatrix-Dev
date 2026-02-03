@@ -94,7 +94,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
-        var nodes = args.Builder.Nodes;
+        base.BuildPrompt(args);
+
+        var builder = args.Builder;
+        var nodes = builder.Nodes;
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
@@ -103,11 +106,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
-        if (selectImageCard?.ImageSource?.LocalFile is not { } imageFile)
+        if (selectImageCard?.ImageSource?.LocalFile is not { })
             return;
 
+        // ⭐ IDENTIČNO UPSCALERU
         selectImageCard.ApplyStep(args);
-        var loadImage = selectImageCard.GetImageNode(args.Builder);
+
+        // ⭐ IDENTIČNO UPSCALERU — DOHVAT SLIKE
+        var primaryImage = builder.GetPrimaryAsImage();
 
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection>("PadImage")
@@ -115,7 +121,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "ImagePadForOutpaint",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["image"] = loadImage.Output1.Data,
+                    ["image"] = primaryImage,
                     ["left"] = outpaintCard?.ExpandLeft ?? 0,
                     ["right"] = outpaintCard?.ExpandRight ?? 0,
                     ["top"] = outpaintCard?.ExpandTop ?? 0,
@@ -124,6 +130,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 }
             }
         );
+
+        builder.Connections.Primary = padImage.Output;
 
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
@@ -189,12 +197,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var previewImage = nodes.AddTypedNode(
             new ComfyNodeBuilder.PreviewImage
             {
-                Name = nodes.GetUniqueName("PreviewImage"),  // ⭐ GetUniqueName
+                Name = nodes.GetUniqueName("PreviewImage"),
                 Images = vaeDecode.Output
             }
         );
 
-        args.Builder.Connections.OutputNodes.Add(previewImage);
+        builder.Connections.OutputNodes.Add(previewImage);
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
@@ -210,7 +218,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     )
     {
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-        if (selectImageCard?.ImageSource?.LocalFile?.FullPath is not { } path)
+        if (selectImageCard?.ImageSource?.LocalFile?.FullPath is not { })
         {
             notificationService.Show("No image selected", "Please select an image first");
             return;
