@@ -15,6 +15,7 @@ using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -116,8 +117,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Pad image for outpainting
-        var padImage = nodes.AddNamedNode(new NamedComfyNode<object>("PadImageForOutpainting")
+        // Pad image for outpainting - koristimo dinamički čvor jer ImagePadForOutpainting nema tipiziranu klasu
+        var padImageNode = new ComfyNode
         {
             Name = "OutpaintPadNode",
             ClassType = "ImagePadForOutpainting",
@@ -130,7 +131,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
                 ["feathering"] = outpaintCard?.Feathering ?? 40
             }
-        });
+        };
+        
+        var padImage = nodes.AddNode(padImageNode);
 
         var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
@@ -148,7 +151,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
             Name = "VAEEncodeNode",
-            Pixels = padImage.Output,
+            Pixels = new ImageNodeConnection(padImage, 0), // Konvertujemo u ImageNodeConnection
             Vae = checkpoint.Output3
         });
 
