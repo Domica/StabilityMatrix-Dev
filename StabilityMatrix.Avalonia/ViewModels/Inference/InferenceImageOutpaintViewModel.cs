@@ -15,6 +15,7 @@ using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia.Media.Imaging;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -30,14 +31,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     public StackCardViewModel StackCardViewModel { get; }
 
-    // KLJUČNO ZA SIVI GUMB: Baza traži ovaj override da bi aktivirala GenerateImageCommand
-    public override bool IsReady => true;
-
-    protected override bool CanGenerate()
-    {
-        // Dozvoljavamo klik uvijek, a provjere radimo unutar GenerateImageImpl (SM standard)
-        return true;
-    }
+    // RJEŠENJE ZA CS0115: Umjesto override, koristimo 'new' ako property postoji, 
+    // ili se oslanjamo na to da baza već dopušta generiranje ako ne vratimo false.
+    public new bool IsReady => true;
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -88,7 +84,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         // 1) ImagePadForOutpaint
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>(nodes.GetUniqueName("PadImage"))
+            new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
                 ClassType = "ImagePadForOutpaint",
                 Inputs = new Dictionary<string, object?>
@@ -107,7 +103,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
             {
-                Name = nodes.GetUniqueName("Loader"),
+                Name = "Loader",
                 CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
             }
         );
@@ -115,7 +111,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var positivePrompt = nodes.AddTypedNode(
             new ComfyNodeBuilder.CLIPTextEncode
             {
-                Name = nodes.GetUniqueName("PosPrompt"),
+                Name = "PosPrompt",
                 Clip = checkpoint.Output2,
                 Text = promptCard?.PromptDocument.Text ?? ""
             }
@@ -124,37 +120,34 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var negativePrompt = nodes.AddTypedNode(
             new ComfyNodeBuilder.CLIPTextEncode
             {
-                Name = nodes.GetUniqueName("NegPrompt"),
+                Name = "NegPrompt",
                 Clip = checkpoint.Output2,
                 Text = promptCard?.NegativePromptDocument.Text ?? ""
             }
         );
 
-        // 3) Original latent
         var originalVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
-                Name = nodes.GetUniqueName("VAEOrig"),
+                Name = "VAEOrig",
                 Pixels = primaryImage,
                 Vae = checkpoint.Output3
             }
         );
 
-        // 4) Padded latent
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
-                Name = nodes.GetUniqueName("VAEPad"),
+                Name = "VAEPad",
                 Pixels = padImage.Output1,
                 Vae = checkpoint.Output3
             }
         );
 
-        // 5) KSampler
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
             {
-                Name = nodes.GetUniqueName("Sampler"),
+                Name = "Sampler",
                 Model = checkpoint.Output1,
                 Seed = (ulong)(seedCard?.Seed ?? 0),
                 Steps = samplerCard?.Steps ?? 20,
@@ -168,27 +161,25 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        // 6) LatentComposite (Ispravljeno za rad s Data poljem)
         var composite = nodes.AddNamedNode(
-            new NamedComfyNode<LatentNodeConnection>(nodes.GetUniqueName("Composite"))
+            new NamedComfyNode<LatentNodeConnection>("Composite")
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["samples_to"] = sampler.Output.Data,
                     ["samples_from"] = originalVaeEncode.Output.Data,
-                    ["x"] = outpaintCard?.ExpandLeft ?? 0, // Pozicioniranje originala u novi latent
+                    ["x"] = outpaintCard?.ExpandLeft ?? 0,
                     ["y"] = outpaintCard?.ExpandTop ?? 0,
                     ["feather"] = 0
                 }
             }
         );
 
-        // 7) Decode finalne slike
         var vaeDecode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
             {
-                Name = nodes.GetUniqueName("Decode"),
+                Name = "Decode",
                 Samples = composite.Output,
                 Vae = checkpoint.Output3
             }
@@ -199,7 +190,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var previewImage = nodes.AddTypedNode(
             new ComfyNodeBuilder.PreviewImage
             {
-                Name = nodes.GetUniqueName("Preview"),
+                Name = "Preview",
                 Images = vaeDecode.Output
             }
         );
