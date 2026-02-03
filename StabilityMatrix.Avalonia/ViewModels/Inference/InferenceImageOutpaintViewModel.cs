@@ -8,13 +8,12 @@ using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
-using CommunityToolkit.Mvvm.Input;
-using Avalonia.Media.Imaging;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes; // DODAJ OVO
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -27,9 +26,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     private readonly INotificationService _notificationService;
 
     public StackCardViewModel StackCardViewModel { get; }
-    
-    // Ova komanda će nam služiti da gumb u XAML-u uvijek bude aktivan
-    public IRelayCommand RunOutpaintCommand { get; }
+
+    public ImageSource? SelectedImage => StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -43,190 +41,91 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
 
         StackCardViewModel.AddCards(
-            vmFactory.Get<SelectImageCardViewModel>(),           
-            vmFactory.Get<OutpaintCardViewModel>(),             
-            vmFactory.Get<PromptCardViewModel>(),               
-            vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true), 
-            vmFactory.Get<ModelCardViewModel>(),                
-            vmFactory.Get<SeedCardViewModel>()                  
+            vmFactory.Get<SelectImageCardViewModel>(),
+            vmFactory.Get<OutpaintCardViewModel>(),
+            vmFactory.Get<PromptCardViewModel>(),
+            vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true),
+            vmFactory.Get<ModelCardViewModel>(),
+            vmFactory.Get<SeedCardViewModel>()
         );
-
-        // Ponašanje kao Upscale: gumb uvijek radi, provjera ide tek na klik
-        RunOutpaintCommand = new RelayCommand(() => GenerateImageCommand.Execute(null));
     }
-
-    // --- POMOĆNE FUNKCIJE ---
-    private string GetRandomPrefix() => Guid.NewGuid().ToString().Substring(0, 8);
-
-    private string GetUniqueName(string baseName, HashSet<string> existingNames)
-    {
-        int suffix = 1;
-        string name = baseName;
-        while (existingNames.Contains(name)) { name = $"{baseName}_{suffix++}"; }
-        existingNames.Add(name);
-        return name;
-    }
-
-    // --- KOMPLETNA BIBLIOTEKA ČVOROVA (ISPRAVLJENA) ---
-
-    public record ImageUpscaleWithModel : ComfyTypedNodeBase<ImageNodeConnection>
-    {
-        protected override string ClassType => "ImageUpscaleWithModel";
-        public required ImageNodeConnection Image { get; init; }
-        public required UpscaleModelNodeConnection UpscaleModel { get; init; }
-    }
-
-    public record LoraLoader : ComfyTypedNodeBase<ModelNodeConnection, ClipNodeConnection>
-    {
-        protected override string ClassType => "LoraLoader";
-        public required ModelNodeConnection Model { get; init; }
-        public required ClipNodeConnection Clip { get; init; }
-        public required string LoraName { get; init; }
-        public double StrengthModel { get; init; } = 1.0;
-        public double StrengthClip { get; init; } = 1.0;
-    }
-
-    public record ControlNetApplyAdvanced : ComfyTypedNodeBase<ConditioningNodeConnection>
-    {
-        protected override string ClassType => "ControlNetApplyAdvanced";
-        public required ConditioningNodeConnection Positive { get; init; }
-        public required ConditioningNodeConnection Negative { get; init; }
-        public required ControlNetNodeConnection ControlNet { get; init; }
-        public required ImageNodeConnection Image { get; init; }
-        public double Strength { get; init; } = 1.0;
-        public double StartPercent { get; init; } = 0.0;
-        public double EndPercent { get; init; } = 1.0;
-    }
-
-    public record TiledVAEDecode : ComfyTypedNodeBase<ImageNodeConnection>
-    {
-        protected override string ClassType => "TiledVAEDecode";
-        public required LatentNodeConnection Samples { get; init; }
-        public required VAENodeConnection Vae { get; init; }
-        public int TileSize { get; init; } = 512;
-    }
-
-    public record SVDSampler : ComfyTypedNodeBase<LatentNodeConnection>
-    {
-        protected override string ClassType => "VideoLinearSampler";
-        public required ModelNodeConnection Model { get; init; }
-        public required LatentNodeConnection LatentImage { get; init; }
-        public required ConditioningNodeConnection Positive { get; init; }
-        public required ConditioningNodeConnection Negative { get; init; }
-    }
-
-    public record HunyuanVideoSampler : ComfyTypedNodeBase<LatentNodeConnection>
-    {
-        protected override string ClassType => "HunyuanVideoSampler";
-        public required ModelNodeConnection Model { get; init; }
-    }
-
-    public record WanImageToVideo : ComfyTypedNodeBase<LatentNodeConnection>
-    {
-        protected override string ClassType => "WanImageToVideo";
-        public required ModelNodeConnection Model { get; init; }
-        public required ImageNodeConnection Image { get; init; }
-    }
-
-    public record FreeU : ComfyTypedNodeBase<ModelNodeConnection>
-    {
-        protected override string ClassType => "FreeU";
-        public required ModelNodeConnection Model { get; init; }
-        public double B1 { get; init; } = 1.1;
-        public double B2 { get; init; } = 1.2;
-        public double S1 { get; init; } = 0.9;
-        public double S2 { get; init; } = 0.2;
-    }
-
-    // --- BUILD LOGIKA ---
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
         base.BuildPrompt(args);
         var builder = args.Builder;
         var nodes = builder.Nodes;
-        var names = new HashSet<string>();
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
-        var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
-        var samplerCard = StackCardViewModel.GetCard<SamplerCardViewModel>();
-        var promptCard = StackCardViewModel.GetCard<PromptCardViewModel>();
-        var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Pad čvor s unikatnim imenom
-        var padImage = nodes.AddNamedNode(new NamedComfyNode<ImageNodeConnection>(GetUniqueName("OutpaintPad", names))
+        // Pad image for outpainting
+        var padImageNode = new NamedComfyNode<ImageNodeConnection>("OutpaintPadNode")
         {
-            Name = GetUniqueName("OutpaintPad", names),
             ClassType = "ImagePadForOutpainting",
             Inputs = new Dictionary<string, object?>
             {
-                ["image"] = builder.GetPrimaryAsImage().Data,
+                ["image"] = builder.GetPrimaryAsImage(),
                 ["left"] = outpaintCard?.ExpandLeft ?? 0,
                 ["right"] = outpaintCard?.ExpandRight ?? 0,
                 ["top"] = outpaintCard?.ExpandTop ?? 0,
                 ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
                 ["feathering"] = outpaintCard?.Feathering ?? 40
             }
-        });
+        };
+        
+        var padImage = nodes.AddNamedNode(padImageNode);
 
         var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
-            Name = GetUniqueName("Loader", names),
-            CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
+            Name = "CkptLoader",
+            CkptName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath ?? ""
         });
 
-        var positive = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
+        var prompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
         {
-            Name = GetUniqueName("PosPrompt", names),
+            Name = "PositivePrompt",
             Clip = checkpoint.Output2,
-            Text = promptCard?.PromptDocument.Text ?? ""
-        });
-
-        var negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
-        {
-            Name = GetUniqueName("NegPrompt", names),
-            Clip = checkpoint.Output2,
-            Text = ""
+            Text = StackCardViewModel.GetCard<PromptCardViewModel>()?.PromptDocument.Text ?? ""
         });
 
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
-            Name = GetUniqueName("VaeEncode", names),
+            Name = "VAEEncodeNode",
             Pixels = padImage.Output,
             Vae = checkpoint.Output3
         });
 
         var sampler = nodes.AddTypedNode(new ComfyNodeBuilder.KSampler
         {
-            Name = GetUniqueName("Sampler", names),
+            Name = "MainSampler",
             Model = checkpoint.Output1,
-            Seed = (ulong)(seedCard?.Seed ?? 0),
-            Steps = samplerCard?.Steps ?? 20,
+            Seed = (ulong)(StackCardViewModel.GetCard<SeedCardViewModel>()?.Seed ?? 0),
+            Steps = StackCardViewModel.GetCard<SamplerCardViewModel>()?.Steps ?? 20,
             Cfg = 7.0,
             SamplerName = "euler",
             Scheduler = "normal",
-            Positive = positive.Output,
-            Negative = negative.Output,
+            Positive = prompt.Output,
+            Negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { Name = "EmptyNeg", Clip = checkpoint.Output2, Text = "" }).Output,
             LatentImage = vaeEncode.Output,
-            Denoise = samplerCard?.DenoiseStrength ?? 1.0
+            Denoise = StackCardViewModel.GetCard<SamplerCardViewModel>()?.DenoiseStrength ?? 1.0
         });
 
         var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
         {
-            Name = GetUniqueName("VaeDecode", names),
+            Name = "VAEDecodeNode",
             Samples = sampler.Output,
             Vae = checkpoint.Output3
         });
 
         builder.Connections.Primary = vaeDecode.Output;
-
+        
         var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
         {
-            Name = GetUniqueName("Preview", names),
+            Name = "PreviewNode",
             Images = vaeDecode.Output
         });
         builder.Connections.OutputNodes.Add(preview);
@@ -234,25 +133,52 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
     {
-        if (ClientManager.Client == null)
+        // Provjera da li je ComfyUI pokrenut - isto kao i na upscaler ekranu
+        if (!ClientManager.IsConnected)
         {
-            _notificationService.Show("Not Connected", "ComfyUI is not running or connected.");
+            _notificationService.Show("Not Connected", "Please start ComfyUI.");
             return;
         }
 
-        await UploadInputImages(ClientManager.Client);
-        var buildArgs = new BuildPromptEventArgs { Overrides = overrides };
-        BuildPrompt(buildArgs);
-
-        var genArgs = new ImageGenerationEventArgs
+        // Provjera da li je odabrana slika
+        if (SelectedImage == null)
         {
-            Client = ClientManager.Client!,
-            Nodes = buildArgs.Builder.ToNodeDictionary(),
-            OutputNodeNames = buildArgs.Builder.Connections.OutputNodeNames.ToArray(),
-            Project = InferenceProjectDocument.FromLoadable(this)
-        };
+            _notificationService.Show("No Image", "Please select an image first.");
+            return;
+        }
 
-        await RunGeneration(genArgs, cancellationToken);
+        // Provjera da li je odabran model
+        if (StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel == null)
+        {
+            _notificationService.Show("No Model", "Please select a model first.");
+            return;
+        }
+
+        try
+        {
+            await UploadInputImages(ClientManager.Client!);
+
+            var buildArgs = new BuildPromptEventArgs();
+            BuildPrompt(buildArgs);
+
+            var genArgs = new ImageGenerationEventArgs
+            {
+                Client = ClientManager.Client!,
+                Nodes = buildArgs.Builder.ToNodeDictionary(),
+                OutputNodeNames = buildArgs.Builder.Connections.OutputNodeNames.ToArray(),
+                Parameters = new GenerationParameters 
+                { 
+                    ModelName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath 
+                },
+                Project = InferenceProjectDocument.FromLoadable(this)
+            };
+
+            await RunGeneration(genArgs, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _notificationService.Show("Error", $"Failed to generate image: {ex.Message}");
+        }
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
