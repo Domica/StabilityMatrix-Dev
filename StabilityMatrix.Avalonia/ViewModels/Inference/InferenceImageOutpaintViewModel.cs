@@ -12,7 +12,7 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-// IZBAČEN problematični using koji je uzrokovao CS0234
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes; // DODANO: Ovdje žive konekcije prema tvom build erroru
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
@@ -29,8 +29,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     public StackCardViewModel StackCardViewModel { get; }
 
-    public ImageSource? SelectedImage => StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
-
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager clientManager,
@@ -42,27 +40,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         _notificationService = notificationService;
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
 
-        var selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
-
+        // Dodajemo kartice točno onim redoslijedom koji tvoj XAML očekuje (Cards[0], [1]...)
         StackCardViewModel.AddCards(
-            selectImageCardVm,
-            vmFactory.Get<OutpaintCardViewModel>(),
-            vmFactory.Get<PromptCardViewModel>(),
-            vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true),
-            vmFactory.Get<ModelCardViewModel>(),
-            vmFactory.Get<SeedCardViewModel>()
+            vmFactory.Get<SelectImageCardViewModel>(),           // Cards[0]
+            vmFactory.Get<OutpaintCardViewModel>(),             // Cards[1]
+            vmFactory.Get<PromptCardViewModel>(),               // Cards[2]
+            vmFactory.Get<SamplerCardViewModel>(s => s.IsDenoiseStrengthEnabled = true), // Cards[3]
+            vmFactory.Get<ModelCardViewModel>(),                // Cards[4]
+            vmFactory.Get<SeedCardViewModel>()                  // Cards[5]
         );
-
-        if (selectImageCardVm != null)
-        {
-            selectImageCardVm.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
-                {
-                    OnPropertyChanged(nameof(SelectedImage));
-                }
-            };
-        }
     }
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
@@ -77,8 +63,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Korištenje općenitog tipa čvora kako bismo izbjegli probleme s namespaceom konekcija
-        var padImage = nodes.AddNamedNode(new NamedComfyNode<object>("PadImageForOutpainting")
+        // Popravak CS0311 i CS0266: Koristimo ImageNodeConnection iz NodeTypes namespace-a
+        var padImage = nodes.AddNamedNode(new NamedComfyNode<ImageNodeConnection>("PadImageForOutpainting")
         {
             Name = "OutpaintPadNode",
             ClassType = "ImagePadForOutpainting",
@@ -106,10 +92,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Text = StackCardViewModel.GetCard<PromptCardViewModel>()?.PromptDocument.Text ?? ""
         });
 
+        // Ovdje je kompajler javljao CS0266 - sada je tip usklađen
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
             Name = "VAEEncodeNode",
-            Pixels = padImage.Output, // Kompajler će ovdje sam mapirati output
+            Pixels = padImage.Output, 
             Vae = checkpoint.Output3
         });
 
@@ -163,10 +150,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Client = ClientManager.Client!,
             Nodes = buildArgs.Builder.ToNodeDictionary(),
             OutputNodeNames = buildArgs.Builder.Connections.OutputNodeNames.ToArray(),
-            Parameters = new GenerationParameters 
-            { 
-                ModelName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath 
-            },
+            Parameters = new GenerationParameters { ModelName = "Outpaint" },
             Project = InferenceProjectDocument.FromLoadable(this)
         };
 
