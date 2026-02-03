@@ -107,7 +107,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             return;
 
         selectImageCard.ApplyStep(args);
-        var loadImage = args.Builder.Connections.Primary;
+        var loadImage = args.Builder.Connections.Primary.Node;
 
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection>("PadImage")
