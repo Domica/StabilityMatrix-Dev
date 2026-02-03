@@ -128,22 +128,27 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 }
             }
         );
-        var mask = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection>("OutpaintMask")
+
+        // 1) ImageInfo — width/height
+        var imageInfo = nodes.AddTypedNode(
+            new ImageInfo
             {
-                ClassType = "MaskFromExpand",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["width"] = padImage.Output.Width,
-                    ["height"] = padImage.Output.Height,
-                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
-                    ["right"] = outpaintCard?.ExpandRight ?? 0,
-                    ["top"] = outpaintCard?.ExpandTop ?? 0,
-                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0
-                }
+                Image = padImage.Output
             }
         );
-
+        
+        // 2) MaskFromExpand — maska rubova
+        var mask = nodes.AddTypedNode(
+            new MaskFromExpand
+            {
+                Width = imageInfo.Width,
+                Height = imageInfo.Height,
+                Left = outpaintCard?.ExpandLeft ?? 0,
+                Right = outpaintCard?.ExpandRight ?? 0,
+                Top = outpaintCard?.ExpandTop ?? 0,
+                Bottom = outpaintCard?.ExpandBottom ?? 0
+            }
+        );
 
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
@@ -193,8 +198,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Positive = positivePrompt.Output,
                 Negative = negativePrompt.Output,
                 LatentImage = vaeEncode.Output,
-                Mask = mask.Output, 
                 Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35)
+            }
+        );
+        var composite = nodes.AddTypedNode(
+            new LatentComposite
+            {
+                Original = vaeEncode.Output,
+                Generated = sampler.Output,
+                Mask = mask.Output
             }
         );
 
@@ -202,7 +214,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = sampler.Output,
+                Samples = composite.Output,
                 Vae = checkpoint.Output3
             }
         );
