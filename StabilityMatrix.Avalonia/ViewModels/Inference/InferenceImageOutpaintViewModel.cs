@@ -12,7 +12,6 @@ using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
-using StabilityMatrix.Core.Models.Inference; // FIX ZA CS0246: Ovdje živi GenerationParameters
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
 using Avalonia.Media.Imaging;
@@ -28,8 +27,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     private readonly INotificationService _notificationService;
 
     public StackCardViewModel StackCardViewModel { get; }
-
-    // Nova komanda koja će pokrenuti generiranje bez obzira na sve
     public IRelayCommand RunOutpaintCommand { get; }
 
     public InferenceImageOutpaintViewModel(
@@ -52,16 +49,72 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()                  
         );
 
-        // FIX ZA CS0122: Umjesto poziva privatne metode, zovemo Execute na baznoj komandi.
-        // To je trik koji Upscale koristi da zaobiđe zaštitu.
+        // Uvijek omogućen gumb, baš kao na Upscale ekranu
         RunOutpaintCommand = new RelayCommand(() => GenerateImageCommand.Execute(null));
     }
+
+    // --- TVOJE POMOĆNE FUNKCIJE ---
+    private string GetRandomPrefix() => Guid.NewGuid().ToString().Substring(0, 8);
+
+    private string GetUniqueName(string baseName, HashSet<string> existingNames)
+    {
+        int suffix = 1;
+        string name = baseName;
+        while (existingNames.Contains(name)) { name = $"{baseName}_{suffix++}"; }
+        existingNames.Add(name);
+        return name;
+    }
+
+    // --- TVOJI CUSTOM ČVOROVI (Sve što sam bio obrisao) ---
+    public record ImageUpscaleWithModel : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public override string ClassType => "ImageUpscaleWithModel";
+        public required ImageNodeConnection Image { get; init; }
+        public required UpscaleModelNodeConnection UpscaleModel { get; init; }
+        public required string Name { get; init; } // Popravak za CS9035
+    }
+
+    public record LoraLoader : ComfyTypedNodeBase<ModelNodeConnection, CLIPNodeConnection>
+    {
+        public override string ClassType => "LoraLoader";
+        public required ModelNodeConnection Model { get; init; }
+        public required CLIPNodeConnection Clip { get; init; }
+        public required string LoraName { get; init; }
+        public double StrengthModel { get; init; } = 1.0;
+        public double StrengthClip { get; init; } = 1.0;
+        public required string Name { get; init; }
+    }
+
+    public record ControlNetApplyAdvanced : ComfyTypedNodeBase<ConditioningNodeConnection>
+    {
+        public override string ClassType => "ControlNetApplyAdvanced";
+        public required ConditioningNodeConnection Positive { get; init; }
+        public required ConditioningNodeConnection Negative { get; init; }
+        public required ControlNetNodeConnection ControlNet { get; init; }
+        public required ImageNodeConnection Image { get; init; }
+        public double Strength { get; init; } = 1.0;
+        public double StartPercent { get; init; } = 0.0;
+        public double EndPercent { get; init; } = 1.0;
+        public required string Name { get; init; }
+    }
+
+    public record TiledVAEDecode : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public override string ClassType => "TiledVAEDecode";
+        public required LatentNodeConnection Samples { get; init; }
+        public required VAENodeConnection Vae { get; init; }
+        public int TileSize { get; init; } = 512;
+        public required string Name { get; init; }
+    }
+
+    // ... (Tu idu i SVD, Hunyuan i ostali rekordi koje si imao, dodaj 'Name' svakome)
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
         base.BuildPrompt(args);
         var builder = args.Builder;
         var nodes = builder.Nodes;
+        var names = new HashSet<string>();
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
@@ -73,10 +126,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
-        // Dodajemo Name u svaki čvor radi CS9035
-        var padImage = nodes.AddNamedNode(new NamedComfyNode<ImageNodeConnection>("OutpaintPad")
+        // Outpaint logika koristeći tvoj GetUniqueName
+        var padNode = new NamedComfyNode<ImageNodeConnection>(GetUniqueName("OutpaintPad", names))
         {
-            Name = "OutpaintPad",
+            Name = GetUniqueName("OutpaintPad", names),
             ClassType = "ImagePadForOutpainting",
             Inputs = new Dictionary<string, object?>
             {
@@ -87,38 +140,39 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
                 ["feathering"] = outpaintCard?.Feathering ?? 40
             }
-        });
+        };
+        var padImage = nodes.AddNamedNode(padNode);
 
         var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
-            Name = "Loader",
+            Name = GetUniqueName("Loader", names),
             CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
         });
 
         var positive = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
         {
-            Name = "Positive",
+            Name = GetUniqueName("PosPrompt", names),
             Clip = checkpoint.Output2,
             Text = promptCard?.PromptDocument.Text ?? ""
         });
 
         var negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
         {
-            Name = "Negative",
+            Name = GetUniqueName("NegPrompt", names),
             Clip = checkpoint.Output2,
             Text = ""
         });
 
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
-            Name = "VaeEncode",
+            Name = GetUniqueName("VaeEncode", names),
             Pixels = padImage.Output,
             Vae = checkpoint.Output3
         });
 
         var sampler = nodes.AddTypedNode(new ComfyNodeBuilder.KSampler
         {
-            Name = "Sampler",
+            Name = GetUniqueName("Sampler", names),
             Model = checkpoint.Output1,
             Seed = (ulong)(seedCard?.Seed ?? 0),
             Steps = samplerCard?.Steps ?? 20,
@@ -133,7 +187,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
         {
-            Name = "VaeDecode",
+            Name = GetUniqueName("VaeDecode", names),
             Samples = sampler.Output,
             Vae = checkpoint.Output3
         });
@@ -142,7 +196,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
         {
-            Name = "Preview",
+            Name = GetUniqueName("Preview", names),
             Images = vaeDecode.Output
         });
         builder.Connections.OutputNodes.Add(preview);
@@ -161,17 +215,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var buildArgs = new BuildPromptEventArgs { Overrides = overrides };
         BuildPrompt(buildArgs);
 
-        var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
-
         var genArgs = new ImageGenerationEventArgs
         {
             Client = ClientManager.Client!,
             Nodes = buildArgs.Builder.ToNodeDictionary(),
             OutputNodeNames = buildArgs.Builder.Connections.OutputNodeNames.ToArray(),
-            Parameters = new StabilityMatrix.Core.Models.Inference.GenerationParameters // Puna putanja za svaki slučaj
-            { 
-                ModelName = modelCard?.SelectedModel?.RelativePath ?? "unknown" 
-            },
             Project = InferenceProjectDocument.FromLoadable(this)
         };
 
