@@ -199,7 +199,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        args.Builder.Connections.OutputNodeNames.Add(previewImage.Name);
+        args.Builder.Connections.OutputNodeNames = new[] { previewImage.Name };
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
