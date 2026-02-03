@@ -35,7 +35,6 @@
                 HorizontalScrollBarVisibility="Disabled"
                 Margin="0,8,0,0">
                 <StackPanel Spacing="8">
-                    <!-- Ručno prikaži karte od indeksa 1 nadalje (Outpaint, Prompt, Sampler, Model, Seed) -->
                     <ContentControl Content="{Binding StackCardViewModel.Cards[1]}" />
                     <ContentControl Content="{Binding StackCardViewModel.Cards[2]}" />
                     <ContentControl Content="{Binding StackCardViewModel.Cards[3]}" />
@@ -64,7 +63,7 @@
                 HorizontalAlignment="Stretch"
                 Height="40"
                 Content="Generate Image"
-                Command="{Binding GenerateImageCommand}"
+                Command="{Binding GenerateImageCommand}" />
         </Grid>
 
     </Grid>
