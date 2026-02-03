@@ -12,7 +12,6 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
@@ -113,10 +112,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         var primaryImage = builder.GetPrimaryAsImage();
 
+        // Pad original image for outpainting (Python: ImagePadForOutpaint)
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection>("PadImageForOutpainting")
+            new NamedComfyNode<ImageNodeConnection>("PadImage")
             {
-                ClassType = "ImagePadForOutpainting",
+                ClassType = "ImagePadForOutpaint",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["image"] = primaryImage,
@@ -129,24 +129,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        // 1) ImageInfo — width/height
-        var imageInfo = nodes.AddTypedNode(
-            new ImageInfo
+        // Mask from expand (Python: MaskFromExpand)
+        var mask = nodes.AddNamedNode(
+            new NamedComfyNode<ImageNodeConnection>("OutpaintMask")
             {
-                Image = padImage.Output
-            }
-        );
-        
-        // 2) MaskFromExpand — maska rubova
-        var mask = nodes.AddTypedNode(
-            new MaskFromExpand
-            {
-                Width = imageInfo.Width,
-                Height = imageInfo.Height,
-                Left = outpaintCard?.ExpandLeft ?? 0,
-                Right = outpaintCard?.ExpandRight ?? 0,
-                Top = outpaintCard?.ExpandTop ?? 0,
-                Bottom = outpaintCard?.ExpandBottom ?? 0
+                ClassType = "MaskFromExpand",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["image"] = padImage.Output,
+                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
+                    ["right"] = outpaintCard?.ExpandRight ?? 0,
+                    ["top"] = outpaintCard?.ExpandTop ?? 0,
+                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0
+                }
             }
         );
 
@@ -198,15 +193,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Positive = positivePrompt.Output,
                 Negative = negativePrompt.Output,
                 LatentImage = vaeEncode.Output,
+                Mask = mask.Output,
                 Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35)
-            }
-        );
-        var composite = nodes.AddTypedNode(
-            new LatentComposite
-            {
-                Original = vaeEncode.Output,
-                Generated = sampler.Output,
-                Mask = mask.Output
             }
         );
 
@@ -214,7 +202,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = composite.Output,
+                Samples = sampler.Output,
                 Vae = checkpoint.Output3
             }
         );
