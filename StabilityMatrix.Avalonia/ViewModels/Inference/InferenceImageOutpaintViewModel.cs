@@ -106,7 +106,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
-        if (selectImageCard?.ImageSource is null)
+        if (selectImageCard?.ImageSource == null)
             return;
 
         selectImageCard.ApplyStep(args);
