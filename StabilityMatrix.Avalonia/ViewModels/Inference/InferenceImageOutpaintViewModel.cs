@@ -12,7 +12,7 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes; // ⚠️ KLJUČNI USING
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using CommunityToolkit.Mvvm.Input;
@@ -104,7 +104,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         //
         // 1) PadImageForOutpaint (IMAGE + MASK)
         // Python: pad_image_for_outpainting.py → RETURN_TYPES = ("IMAGE", "MASK")
-        // StabilityMatrix tipovi: ImageNodeConnection (IMAGE), ImageMaskConnection (MASK)
         //
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
@@ -165,20 +164,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 4) Padded latent (za generiranje novog sadržaja)
-        // Koristi prvi output (IMAGE) iz PadImage node-a
+        // ✅ KORISTI OUTPUT OBJEKT DIREKTNO (BEZ .Data)
         //
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = padImage.Output1.Data, // ✅ Prvi output = padded IMAGE
+                Pixels = padImage.Output1, // ✅ ImageNodeConnection (ne object[])
                 Vae = checkpoint.Output3
             }
         );
 
         //
         // 5) KSampler (generira SAMO novi sadržaj na praznim rubovima)
-        // ⚠️ NEMA mask inputa - KSampler ne podržava masku!
         //
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
@@ -199,8 +197,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 6) LatentComposite
-        // Python: latent_composite.py → RETURN_TYPES = ("LATENT",)
-        // StabilityMatrix tip: LatentNodeConnection
+        // ✅ KORISTI OUTPUT OBJEKTE DIREKTNO (BEZ .Data)
         //
         var composite = nodes.AddNamedNode(
             new NamedComfyNode<LatentNodeConnection>("LatentComposite")
@@ -208,21 +205,22 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = originalVaeEncode.Output?.Data,
-                    ["generated"] = sampler.Output?.Data,
-                    ["mask"] = padImage.Output2.Data // ✅ Drugi output = MASK (ImageMaskConnection)
+                    ["original"] = originalVaeEncode.Output, // ✅ LatentNodeConnection
+                    ["generated"] = sampler.Output,          // ✅ LatentNodeConnection
+                    ["mask"] = padImage.Output2              // ✅ ImageMaskConnection (ne object[])
                 }
             }
         );
 
         //
         // 7) Decode finalne slike
+        // ✅ KORISTI OUTPUT OBJEKT DIREKTNO (BEZ .Data)
         //
         var vaeDecode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = composite.Output.Data, // ✅ Jedini output LatentComposite-a
+                Samples = composite.Output, // ✅ LatentNodeConnection (ne object[])
                 Vae = checkpoint.Output3
             }
         );
