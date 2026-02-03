@@ -63,7 +63,8 @@
                 HorizontalAlignment="Stretch"
                 Height="40"
                 Content="Generate Image"
-                Command="{Binding GenerateImageCommand}" />
+                Command="{Binding GenerateImageCommand}" 
+                x:CompileBindings="False"/>
         </Grid>
 
     </Grid>
