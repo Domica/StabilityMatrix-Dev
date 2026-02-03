@@ -109,13 +109,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource?.LocalFile is not { })
             return;
 
-        // IDENTIČNO UPSCALERU – priprema ulaza
         selectImageCard.ApplyStep(args);
 
-        // Dohvat primarne slike
         var primaryImage = builder.GetPrimaryAsImage();
 
-        // Pad Image for Outpainting (core node iz ComfyUI)
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection>("PadImageForOutpainting")
             {
@@ -193,7 +190,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        // Za stop/cancel i tracking – primarni output je dekodirana slika
         builder.Connections.Primary = vaeDecode.Output;
 
         var previewImage = nodes.AddTypedNode(
