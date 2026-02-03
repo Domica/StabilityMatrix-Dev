@@ -106,13 +106,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource?.LocalFile is not { } imageFile)
             return;
 
-        var loadImage = nodes.AddTypedNode(
-            new ComfyNodeBuilder.LoadImage
-            {
-                Name = "LoadImage",
-                Image = selectImageCard.ImageSource.UploadedName
-            }
-        );
+        selectImageCard.ApplyStep(args);
+        var loadImage = args.Builder.Connections.Primary;
 
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection>("PadImage")
