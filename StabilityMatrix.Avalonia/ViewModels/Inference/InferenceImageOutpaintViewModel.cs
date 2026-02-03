@@ -193,7 +193,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Vae = checkpoint.Output3
             }
         );
-
+        // ADD STOP BUTTON
+        builder.Connections.Primary = vaeDecode.Output;
         var previewImage = nodes.AddTypedNode(
             new ComfyNodeBuilder.PreviewImage
             {
