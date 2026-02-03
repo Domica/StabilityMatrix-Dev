@@ -119,7 +119,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection>("PadImageForOutpainting")
             {
-                ClassType = "PadImageForOutpainting"
+                ClassType = "ImagePadForOutpainting",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["image"] = primaryImage,
