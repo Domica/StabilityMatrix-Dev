@@ -129,10 +129,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Denoise = StackCardViewModel.GetCard<SamplerCardViewModel>()?.DenoiseStrength ?? 1.0
         });
 
-        // Use LatentCompositeCustom to blend original latent and generated latent using mask
-        var latentCompositeNode = new NamedComfyNode<LatentNodeConnection>("LatentCompositeCustomNode")
+        // Use LatentComposite to blend original latent and generated latent using mask
+        // OVAJ DIO MORA BITI PROMIJENJEN ako ste promijenili ime čvora u Python datoteki
+        var latentCompositeNode = new NamedComfyNode<LatentNodeConnection>("LatentCompositeNode")
         {
-            ClassType = "LatentCompositeCustom",  // Promijenjeno ime čvora!
+            ClassType = "LatentComposite", // OVO MORA ODRŽAVATI KONZISTENTNOST S PYTHON DATOTEKOM!
             Inputs = new Dictionary<string, object?>
             {
                 ["original"] = vaeEncode.Output,  // Original encoded latent (without generation)
