@@ -109,32 +109,31 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (selectImageCard?.ImageSource?.LocalFile is not { })
             return;
 
-        // ⭐ IDENTIČNO UPSCALERU
+        // IDENTIČNO UPSCALERU – priprema ulaza
         selectImageCard.ApplyStep(args);
 
-        // ⭐ IDENTIČNO UPSCALERU — DOHVAT SLIKE
+        // Dohvat primarne slike
         var primaryImage = builder.GetPrimaryAsImage();
 
-        var outpaintNode = nodes.AddNamedNode(
-        new NamedComfyNode<ImageNodeConnection>("Outpaint")
-        {
-            ClassType = "outpaint",
-            Inputs = new Dictionary<string, object?>
+        // Pad Image for Outpainting (core node iz ComfyUI)
+        var padImage = nodes.AddNamedNode(
+            new NamedComfyNode<ImageNodeConnection>("PadImageForOutpainting")
             {
-                ["image"] = primaryImage,
-                ["left"] = outpaintCard?.ExpandLeft ?? 64,
-                ["right"] = outpaintCard?.ExpandRight ?? 64,
-                ["top"] = outpaintCard?.ExpandTop ?? 64,
-                ["bottom"] = outpaintCard?.ExpandBottom ?? 64,
-                ["feathering"] = outpaintCard?.Feathering ?? 40,
-                ["mask_blur"] = 8,
-                ["noise"] = 0.2
+                ClassType = "ImagePadForOutpainting",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["image"] = primaryImage,
+                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
+                    ["right"] = outpaintCard?.ExpandRight ?? 0,
+                    ["top"] = outpaintCard?.ExpandTop ?? 0,
+                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
+                    ["feathering"] = outpaintCard?.Feathering ?? 40
+                }
             }
-        }
-    );
+        );
 
-
-        builder.Connections.Primary = outpaintNode.Output;
+        // Primarni output sada je proširena slika
+        builder.Connections.Primary = padImage.Output;
 
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
@@ -166,7 +165,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "VAEEncode",
-                Pixels = outpaintNode.Output,
+                Pixels = padImage.Output,
                 Vae = checkpoint.Output3
             }
         );
@@ -196,8 +195,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Vae = checkpoint.Output3
             }
         );
-        // ADD STOP BUTTON
+
+        // Za stop/cancel i tracking – primarni output je dekodirana slika
         builder.Connections.Primary = vaeDecode.Output;
+
         var previewImage = nodes.AddTypedNode(
             new ComfyNodeBuilder.PreviewImage
             {
@@ -216,7 +217,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             yield return imageSource;
     }
 
-        protected override async Task GenerateImageImpl(
+    protected override async Task GenerateImageImpl(
         GenerateOverrides overrides,
         CancellationToken cancellationToken
     )
@@ -256,5 +257,4 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         await RunGeneration(generationArgs, cancellationToken);
     }
-
 }
