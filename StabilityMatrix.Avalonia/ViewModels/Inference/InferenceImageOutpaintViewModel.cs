@@ -212,11 +212,17 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             yield return imageSource;
     }
 
-    protected override async Task GenerateImageImpl(
+        protected override async Task GenerateImageImpl(
         GenerateOverrides overrides,
         CancellationToken cancellationToken
     )
     {
+        if (!ClientManager.IsConnected)
+        {
+            notificationService.Show("Client not connected", "Please start ComfyUI first");
+            return;
+        }
+
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         if (selectImageCard?.ImageSource?.LocalFile?.FullPath is not { })
         {
@@ -246,4 +252,5 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         await RunGeneration(generationArgs, cancellationToken);
     }
+
 }
