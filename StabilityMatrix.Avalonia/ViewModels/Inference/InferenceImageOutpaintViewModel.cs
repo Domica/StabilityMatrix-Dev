@@ -12,9 +12,9 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
-using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -25,10 +25,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 {
     public const string ModuleKey = "ImageOutpaint";
 
-    private readonly INotificationService _notificationService;
     private readonly SelectImageCardViewModel _selectImageCardVm;
 
     public StackCardViewModel StackCardViewModel { get; }
+
+    // Ovako Upscaler rješava stanje gumba: 
+    // Definira svojstvo koje RelayCommand u bazi automatski prepoznaje.
+    public bool CanGenerateImage => ClientManager.IsConnected && _selectImageCardVm?.ImageSource != null;
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -39,7 +42,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     )
         : base(vmFactory, clientManager, notificationService, settingsManager, runningPackageService)
     {
-        _notificationService = notificationService;
         StackCardViewModel = vmFactory.Get<StackCardViewModel>();
 
         var samplerCard = vmFactory.Get<SamplerCardViewModel>(sampler =>
@@ -49,61 +51,42 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         _selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
 
-        var modelCard = vmFactory.Get<ModelCardViewModel>();
-
         StackCardViewModel.AddCards(
             _selectImageCardVm,
             vmFactory.Get<OutpaintCardViewModel>(),
             vmFactory.Get<PromptCardViewModel>(),
             samplerCard,
-            modelCard,
+            vmFactory.Get<ModelCardViewModel>(),
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        // 🔁 ISTO KAO UPSCALER — samo triggeri za refresh gumba
-        ClientManager.PropertyChanged += OnClientManagerPropertyChanged;
-        _selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
-        modelCard.PropertyChanged += OnModelCardPropertyChanged;
+        // Pretplata na promjene kako bi se CanGenerateImage ponovno izračunao
+        ClientManager.PropertyChanged += (_, e) => 
+        {
+            if (e.PropertyName == nameof(IInferenceClientManager.IsConnected))
+            {
+                OnPropertyChanged(nameof(CanGenerateImage));
+                GenerateImageCommand.NotifyCanExecuteChanged();
+            }
+        };
 
-        GenerateImageCommand.NotifyCanExecuteChanged();
+        if (_selectImageCardVm != null)
+        {
+            _selectImageCardVm.PropertyChanged += (_, e) => 
+            {
+                if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
+                {
+                    OnPropertyChanged(nameof(CanGenerateImage));
+                    GenerateImageCommand.NotifyCanExecuteChanged();
+                }
+            };
+        }
     }
-
-    // 🔹 Konekcija na Comfy
-    private void OnClientManagerPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(IInferenceClientManager.IsConnected) or nameof(IInferenceClientManager.Client))
-            GenerateImageCommand.NotifyCanExecuteChanged();
-    }
-
-    // 🔹 Odabir slike
-    private void OnSelectImageCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
-            GenerateImageCommand.NotifyCanExecuteChanged();
-    }
-
-    // 🔹 Odabir modela
-    private void OnModelCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(ModelCardViewModel.SelectedModel))
-            GenerateImageCommand.NotifyCanExecuteChanged();
-    }
-
-    // 🧠 IDENTIČNO UPSCALER LOGICI
-    protected override bool CanGenerate()
-    {
-        return base.CanGenerate() &&
-               _selectImageCardVm?.ImageSource != null;
-    }
-
-    // =========================================================
-    // ===================== COMFY WORKFLOW ====================
-    // =========================================================
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
         base.BuildPrompt(args);
-
+        
         var builder = args.Builder;
         var nodes = builder.Nodes;
 
@@ -118,82 +101,54 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         _selectImageCardVm.ApplyStep(args);
         var primaryImage = builder.GetPrimaryAsImage();
 
-        var padImage = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
+        // --- ComfyUI Graph ---
+        var padImage = nodes.AddNamedNode(new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
+        {
+            ClassType = "ImagePadForOutpaint",
+            Inputs = new Dictionary<string, object?>
             {
-                ClassType = "ImagePadForOutpaint",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["image"] = primaryImage,
-                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
-                    ["right"] = outpaintCard?.ExpandRight ?? 0,
-                    ["top"] = outpaintCard?.ExpandTop ?? 0,
-                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
-                    ["feathering"] = outpaintCard?.Feathering ?? 40
-                }
+                ["image"] = primaryImage,
+                ["left"] = outpaintCard?.ExpandLeft ?? 0,
+                ["right"] = outpaintCard?.ExpandRight ?? 0,
+                ["top"] = outpaintCard?.ExpandTop ?? 0,
+                ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
+                ["feathering"] = outpaintCard?.Feathering ?? 40
             }
-        );
-
-        var checkpoint = nodes.AddTypedNode(
-            new ComfyNodeBuilder.CheckpointLoaderSimple
-            {
-                CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
-            }
-        );
-
-        var pos = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
-        {
-            Clip = checkpoint.Output2,
-            Text = promptCard?.PromptDocument.Text ?? ""
         });
 
-        var neg = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
+        var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
-            Clip = checkpoint.Output2,
-            Text = promptCard?.NegativePromptDocument.Text ?? ""
+            CkptName = modelCard?.SelectedModel?.RelativePath ?? ""
         });
 
-        var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
+        var pos = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { Clip = checkpoint.Output2, Text = promptCard?.PromptDocument.Text ?? "" });
+        var neg = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { Clip = checkpoint.Output2, Text = promptCard?.NegativePromptDocument.Text ?? "" });
+        var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode { Pixels = padImage.Output1, Vae = checkpoint.Output3 });
+
+        var sampler = nodes.AddTypedNode(new ComfyNodeBuilder.KSampler
         {
-            Pixels = padImage.Output1,
-            Vae = checkpoint.Output3
+            Model = checkpoint.Output1,
+            Seed = (ulong)(seedCard?.Seed ?? 0),
+            Steps = samplerCard?.Steps ?? 20,
+            Cfg = samplerCard?.CfgScale ?? 7.0,
+            SamplerName = samplerCard?.SelectedSampler?.Name ?? "euler",
+            Scheduler = samplerCard?.SelectedScheduler?.Name ?? "normal",
+            Positive = pos.Output,
+            Negative = neg.Output,
+            LatentImage = vaeEncode.Output,
+            Denoise = samplerCard?.DenoiseStrength ?? 0.75
         });
 
-        var sampler = nodes.AddTypedNode(
-            new ComfyNodeBuilder.KSampler
-            {
-                Model = checkpoint.Output1,
-                Seed = (ulong)(seedCard?.Seed ?? 0),
-                Steps = samplerCard?.Steps ?? 20,
-                Cfg = samplerCard?.CfgScale ?? 7.0,
-                SamplerName = samplerCard?.SelectedSampler?.Name ?? "euler",
-                Scheduler = samplerCard?.SelectedScheduler?.Name ?? "normal",
-                Positive = pos.Output,
-                Negative = neg.Output,
-                LatentImage = vaeEncode.Output,
-                Denoise = samplerCard?.DenoiseStrength ?? 0.75
-            }
-        );
-
-        var decode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
-        {
-            Samples = sampler.Output,
-            Vae = checkpoint.Output3
-        });
-
+        var decode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode { Samples = sampler.Output, Vae = checkpoint.Output3 });
         builder.Connections.Primary = decode.Output;
 
-        var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
-        {
-            Images = decode.Output
-        });
-
+        var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage { Images = decode.Output });
         builder.Connections.OutputNodes.Add(preview);
     }
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
     {
-        if (!ClientManager.IsConnected) return;
+        if (!CanGenerateImage) return;
 
         foreach (var image in GetInputImages())
             await ClientManager.UploadInputImageAsync(image, cancellationToken);
@@ -202,16 +157,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         BuildPrompt(args);
 
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
-
         var genArgs = new ImageGenerationEventArgs
         {
-            Client = ClientManager.Client,
+            Client = ClientManager.Client!,
             Nodes = args.Builder.ToNodeDictionary(),
             OutputNodeNames = args.Builder.Connections.OutputNodeNames.ToArray(),
-            Parameters = new GenerationParameters
-            {
-                ModelName = modelCard?.SelectedModel?.RelativePath ?? ""
-            },
+            Parameters = new GenerationParameters { ModelName = modelCard?.SelectedModel?.RelativePath ?? "" },
             Project = InferenceProjectDocument.FromLoadable(this)
         };
 
@@ -220,18 +171,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        if (_selectImageCardVm?.ImageSource is { } src)
-            yield return src;
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            ClientManager.PropertyChanged -= OnClientManagerPropertyChanged;
-            _selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
-        }
-
-        base.Dispose(disposing);
+        if (_selectImageCardVm?.ImageSource is { } src) yield return src;
     }
 }
