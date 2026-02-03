@@ -115,21 +115,24 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         // ⭐ IDENTIČNO UPSCALERU — DOHVAT SLIKE
         var primaryImage = builder.GetPrimaryAsImage();
 
-        var padImage = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection>("PadImage")
+        var outpaintNode = nodes.AddNamedNode(
+        new NamedComfyNode<ImageNodeConnection>("Outpaint")
+        {
+            ClassType = "outpaint",
+            Inputs = new Dictionary<string, object?>
             {
-                ClassType = "ImagePadForOutpaint",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["image"] = primaryImage,
-                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
-                    ["right"] = outpaintCard?.ExpandRight ?? 0,
-                    ["top"] = outpaintCard?.ExpandTop ?? 0,
-                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
-                    ["feathering"] = outpaintCard?.Feathering ?? 40
-                }
+                ["image"] = primaryImage,
+                ["left"] = outpaintCard?.ExpandLeft ?? 64,
+                ["right"] = outpaintCard?.ExpandRight ?? 64,
+                ["top"] = outpaintCard?.ExpandTop ?? 64,
+                ["bottom"] = outpaintCard?.ExpandBottom ?? 64,
+                ["feathering"] = outpaintCard?.Feathering ?? 40,
+                ["mask_blur"] = 8,
+                ["noise"] = 0.2
             }
-        );
+        }
+    );
+
 
         builder.Connections.Primary = padImage.Output;
 
