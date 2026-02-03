@@ -54,7 +54,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             sampler.IsDenoiseStrengthEnabled = true;
         });
 
-        // Čuvaj referencu na SelectImageCard za event handler
         selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
 
         StackCardViewModel.AddCards(
@@ -66,10 +65,26 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<SeedCardViewModel>()
         );
 
-        // Poveži event handler za ažuriranje stanja gumba
+        // 1. PRAĆENJE KONEKCIJE KLIJENTA
+        // Ovo osigurava da gumb postane aktivan čim se klijent "zakači" na ComfyUI server
+        ClientManager.PropertyChanged += OnClientManagerPropertyChanged;
+
         if (selectImageCardVm is not null)
         {
             selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
+        }
+
+        // 2. INICIJALNO OSVJEŽAVANJE
+        // Prisili provjeru stanja odmah pri učitavanju (u slučaju da je sve već spremno)
+        GenerateImageCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnClientManagerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(IInferenceClientManager.IsConnected))
+        {
+            // Osvježi gumb kada se status veze promijeni (npr. sa sive na zelenu točku)
+            GenerateImageCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -78,11 +93,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
             OnPropertyChanged(nameof(SelectedImage));
-            GenerateImageCommand.NotifyCanExecuteChanged(); // 🔑 Ažuriraj stanje gumba kad se promijeni slika
+            GenerateImageCommand.NotifyCanExecuteChanged();
         }
     }
 
-    // ✅ ISPRAVNO: Samo provjera slike (BEZ provjere modela - standardno SM ponašanje)
     protected override bool CanGenerateImage() => 
         base.CanGenerateImage() && 
         selectImageCardVm?.ImageSource != null;
@@ -106,15 +120,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         selectImageCardVm.ApplyStep(args);
         var primaryImage = builder.GetPrimaryAsImage();
 
-        //
-        // 1) PadImageForOutpaint (IMAGE + MASK)
-        // Python: pad_image_for_outpainting.py → RETURN_TYPES = ("IMAGE", "MASK")
-        // ⚠️ IME NODE-A MORA BITI TOČNO: "ImagePadForOutpaint" (BEZ "ing" na kraju)
-        //
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
-                ClassType = "ImagePadForOutpaint", // ✅ TOČNO IME (bez "ing")
+                ClassType = "ImagePadForOutpaint",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["image"] = primaryImage,
@@ -127,9 +136,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        //
-        // 2) Checkpoint loader
-        //
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
             {
@@ -156,34 +162,24 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        //
-        // 3) Original latent (nepromijenjena originalna slika)
-        //
         var originalVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "OriginalVAEEncode",
-                Pixels = primaryImage, // ✅ ORIGINALNA SLIKA (bez paddinga)
+                Pixels = primaryImage,
                 Vae = checkpoint.Output3
             }
         );
 
-        //
-        // 4) Padded latent (za generiranje novog sadržaja)
-        // ✅ Pixels očekuje ImageNodeConnection (cijeli objekt, BEZ .Data)
-        //
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = padImage.Output1, // ✅ ImageNodeConnection
+                Pixels = padImage.Output1,
                 Vae = checkpoint.Output3
             }
         );
 
-        //
-        // 5) KSampler (generira SAMO novi sadržaj na praznim rubovima)
-        //
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
             {
@@ -197,36 +193,28 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Positive = positivePrompt.Output,
                 Negative = negativePrompt.Output,
                 LatentImage = paddedVaeEncode.Output,
-                Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35) // Niski denoise za outpainting
+                Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35)
             }
         );
 
-        //
-        // 6) LatentComposite
-        // ✅ Inputs dictionary očekuje object[] (.Data property)
-        //
         var composite = nodes.AddNamedNode(
             new NamedComfyNode<LatentNodeConnection>("LatentComposite")
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = originalVaeEncode.Output?.Data, // ✅ object[] za Inputs
-                    ["generated"] = sampler.Output?.Data,          // ✅ object[] za Inputs
-                    ["mask"] = padImage.Output2.Data               // ✅ object[] za Inputs (ImageMaskConnection → object[])
+                    ["original"] = originalVaeEncode.Output?.Data,
+                    ["generated"] = sampler.Output?.Data,
+                    ["mask"] = padImage.Output2.Data
                 }
             }
         );
 
-        //
-        // 7) Decode finalne slike
-        // ✅ Samples očekuje LatentNodeConnection (cijeli objekt, BEZ .Data)
-        //
         var vaeDecode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = composite.Output, // ✅ LatentNodeConnection
+                Samples = composite.Output,
                 Vae = checkpoint.Output3
             }
         );
@@ -267,7 +255,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             return;
         }
 
-        // Provjeri model PRIJE generacije (standardno SM ponašanje)
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         if (modelCard?.SelectedModel == null)
         {
@@ -296,12 +283,16 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         await RunGeneration(generationArgs, cancellationToken);
     }
 
-    // Cleanup event handler kad se ViewModel uništi
     protected override void Dispose(bool disposing)
     {
-        if (disposing && selectImageCardVm is not null)
+        if (disposing)
         {
-            selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
+            // CLEANUP: Odjavi se s eventova
+            ClientManager.PropertyChanged -= OnClientManagerPropertyChanged;
+            if (selectImageCardVm is not null)
+            {
+                selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
+            }
         }
         base.Dispose(disposing);
     }
