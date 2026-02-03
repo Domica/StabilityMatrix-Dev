@@ -134,7 +134,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     );
 
 
-        builder.Connections.Primary = padImage.Output;
+        builder.Connections.Primary = outpaintNode.Output;
 
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
@@ -166,7 +166,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "VAEEncode",
-                Pixels = padImage.Output,
+                Pixels = outpaintNode.Output,
                 Vae = checkpoint.Output3
             }
         );
