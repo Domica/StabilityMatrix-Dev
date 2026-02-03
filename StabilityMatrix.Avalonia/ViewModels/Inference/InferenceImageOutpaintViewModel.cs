@@ -78,9 +78,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
             OnPropertyChanged(nameof(SelectedImage));
-            GenerateImageCommand.NotifyCanExecuteChanged(); // 🔑 Omogući/Onemogući gumb
+            GenerateImageCommand.NotifyCanExecuteChanged(); // 🔑 Ažuriraj stanje gumba kad se promijeni slika
         }
     }
+
+    // ✅ KLJUČNA IS PRAVKA: Override za provjeru da li se može generirati
+    protected override bool CanGenerateImage() => 
+        base.CanGenerateImage() && 
+        selectImageCardVm?.ImageSource != null &&
+        StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel != null;
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
@@ -104,11 +110,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         //
         // 1) PadImageForOutpaint (IMAGE + MASK)
         // Python: pad_image_for_outpainting.py → RETURN_TYPES = ("IMAGE", "MASK")
+        // ⚠️ IME NODE-A MORA BITI TOČNO: "ImagePadForOutpaint" (BEZ "ing" na kraju)
         //
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("PadImage")
             {
-                ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
+                ClassType = "ImagePadForOutpaint",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["image"] = primaryImage,
@@ -164,13 +171,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 4) Padded latent (za generiranje novog sadržaja)
-        // ✅ KORISTI CIJELI OBJEKT (BEZ .Data)
+        // ✅ Pixels očekuje ImageNodeConnection (cijeli objekt, BEZ .Data)
         //
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = padImage.Output1, // ✅ ImageNodeConnection (ne object[])
+                Pixels = padImage.Output1, // ✅ ImageNodeConnection
                 Vae = checkpoint.Output3
             }
         );
@@ -197,7 +204,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 6) LatentComposite
-        // ✅ ZA Inputs dictionary KORISTI .Data (object[])
+        // ✅ Inputs dictionary očekuje object[] (.Data property)
         //
         var composite = nodes.AddNamedNode(
             new NamedComfyNode<LatentNodeConnection>("LatentComposite")
@@ -214,13 +221,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 7) Decode finalne slike
-        // ✅ KORISTI CIJELI OBJEKT (BEZ .Data)
+        // ✅ Samples očekuje LatentNodeConnection (cijeli objekt, BEZ .Data)
         //
         var vaeDecode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = composite.Output, // ✅ LatentNodeConnection (ne object[])
+                Samples = composite.Output, // ✅ LatentNodeConnection
                 Vae = checkpoint.Output3
             }
         );
@@ -261,6 +268,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             return;
         }
 
+        // Provjeri da li je model odabran PRIJE nego što pošalješ request
+        var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
+        if (modelCard?.SelectedModel == null)
+        {
+            notificationService.Show("No model selected", "Please select a model first");
+            return;
+        }
+
         foreach (var image in GetInputImages())
             await ClientManager.UploadInputImageAsync(image, cancellationToken);
 
@@ -274,9 +289,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             OutputNodeNames = buildPromptArgs.Builder.Connections.OutputNodeNames.ToArray(),
             Parameters = new GenerationParameters
             {
-                ModelName = StackCardViewModel
-                    .GetCard<ModelCardViewModel>()
-                    ?.SelectedModel?.RelativePath
+                ModelName = modelCard.SelectedModel.RelativePath
             },
             Project = InferenceProjectDocument.FromLoadable(this)
         };
