@@ -102,10 +102,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 1) PadImageForOutpaint (IMAGE + MASK) - KORISTI SAMO OVAJ PYTHON NODE
-        // Izlaz: .Output = padded IMAGE, .Output2 = MASK (feathered)
+        // Izlaz: Outputs["0"] = padded IMAGE, Outputs["1"] = MASK (feathered)
         //
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode("PadImage") // ✅ NON-GENERIC (bez <T>)
+            new NamedComfyNode("PadImage") // ✅ NON-GENERIC
             {
                 ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
                 Inputs = new Dictionary<string, object?>
@@ -168,7 +168,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = padImage.Output, // ✅ PADDED SLIKA (prvi output)
+                Pixels = padImage.Outputs["0"]?.Data, // ✅ Prvi output = padded IMAGE
                 Vae = checkpoint.Output3
             }
         );
@@ -204,9 +204,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = originalVaeEncode.Output, // ✅ ORIGINAL U CENTRU
-                    ["generated"] = sampler.Output,          // ✅ NOVI SADRŽAJ NA RUBOVIMA
-                    ["mask"] = padImage.Output2              // ✅ MASKA IZ DRUGOG OUTPUTA
+                    ["original"] = originalVaeEncode.Output?.Data, // ✅ ORIGINAL U CENTRU
+                    ["generated"] = sampler.Output?.Data,          // ✅ NOVI SADRŽAJ NA RUBOVIMA
+                    ["mask"] = padImage.Outputs["1"]?.Data         // ✅ Drugi output = MASKA
                 }
             }
         );
@@ -218,7 +218,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = composite.Output,
+                Samples = composite.Outputs["0"]?.Data, // ✅ Prvi output LatentComposite-a
                 Vae = checkpoint.Output3
             }
         );
