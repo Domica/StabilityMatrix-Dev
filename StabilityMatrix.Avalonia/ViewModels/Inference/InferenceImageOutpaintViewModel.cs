@@ -132,9 +132,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        // Primarni output sada je proširena slika
-        // builder.Connections.Primary = padImage.Output;
-
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
             {
