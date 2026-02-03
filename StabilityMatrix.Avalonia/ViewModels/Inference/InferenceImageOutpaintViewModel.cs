@@ -101,11 +101,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var primaryImage = builder.GetPrimaryAsImage();
 
         //
-        // 1) PadImageForOutpaint (IMAGE + MASK) - KORISTI SAMO OVAJ PYTHON NODE
-        // Izlaz: Outputs["0"] = padded IMAGE, Outputs["1"] = MASK (feathered)
+        // 1) PadImageForOutpaint (IMAGE + MASK)
+        // Python: pad_image_for_outpainting.py
+        // RETURN_TYPES = ("IMAGE", "MASK") → output[0] = IMAGE, output[1] = MASK
         //
         var padImage = nodes.AddNamedNode(
-            new NamedComfyNode("PadImage") // ✅ NON-GENERIC
+            new NamedComfyNode("PadImage")
             {
                 ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
                 Inputs = new Dictionary<string, object?>
@@ -115,7 +116,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                     ["right"] = outpaintCard?.ExpandRight ?? 0,
                     ["top"] = outpaintCard?.ExpandTop ?? 0,
                     ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
-                    ["feathering"] = outpaintCard?.Feathering ?? 40 // Feathering za meki prijelaz
+                    ["feathering"] = outpaintCard?.Feathering ?? 40
                 }
             }
         );
@@ -163,19 +164,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         //
         // 4) Padded latent (za generiranje novog sadržaja)
+        // KORISTI output[0] iz PadImage node-a → padded IMAGE
         //
         var paddedVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
                 Name = "PaddedVAEEncode",
-                Pixels = padImage.Outputs["0"]?.Data, // ✅ Prvi output = padded IMAGE
+                Pixels = new object[] { padImage.Name, 0 }, // ✅ ComfyUI format: [nodeName, outputIndex]
                 Vae = checkpoint.Output3
             }
         );
 
         //
         // 5) KSampler (generira SAMO novi sadržaj na praznim rubovima)
-        // ⚠️ NEMA mask inputa - KSampler ne podržava masku!
         //
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
@@ -195,18 +196,20 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         );
 
         //
-        // 6) LatentComposite - KORISTI SAMO OVAJ PYTHON NODE
+        // 6) LatentComposite
+        // Python: latent_composite.py
         // Spaja originalnu sliku (centar) + generirani sadržaj (rubovi) pomoću maske
+        // KORISTI output[1] iz PadImage node-a → MASK
         //
         var composite = nodes.AddNamedNode(
-            new NamedComfyNode("LatentComposite") // ✅ NON-GENERIC
+            new NamedComfyNode("LatentComposite")
             {
                 ClassType = "LatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = originalVaeEncode.Output?.Data, // ✅ ORIGINAL U CENTRU
-                    ["generated"] = sampler.Output?.Data,          // ✅ NOVI SADRŽAJ NA RUBOVIMA
-                    ["mask"] = padImage.Outputs["1"]?.Data         // ✅ Drugi output = MASKA
+                    ["original"] = originalVaeEncode.Output?.Data,
+                    ["generated"] = sampler.Output?.Data,
+                    ["mask"] = new object[] { padImage.Name, 1 } // ✅ ComfyUI format: [nodeName, outputIndex=1 za MASK]
                 }
             }
         );
@@ -218,7 +221,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = composite.Outputs["0"]?.Data, // ✅ Prvi output LatentComposite-a
+                Samples = new object[] { composite.Name, 0 }, // ✅ Prvi output LatentComposite-a
                 Vae = checkpoint.Output3
             }
         );
