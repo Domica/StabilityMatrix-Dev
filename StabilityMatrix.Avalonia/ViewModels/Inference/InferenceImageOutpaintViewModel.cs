@@ -26,18 +26,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public const string ModuleKey = "ImageOutpaint";
 
     private readonly INotificationService notificationService;
+    private readonly SelectImageCardViewModel selectImageCardVm;
 
     public StackCardViewModel StackCardViewModel { get; }
 
-    public IRelayCommand OutpaintGenerateCommand { get; }
-
     public ImageSource? SelectedImage
     {
-        get
-        {
-            var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-            return selectImageCard?.ImageSource;
-        }
+        get => selectImageCardVm?.ImageSource;
     }
 
     public InferenceImageOutpaintViewModel(
@@ -58,25 +53,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             sampler.IsDenoiseStrengthEnabled = true;
         });
 
-        var selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
-        var outpaintCardVm = vmFactory.Get<OutpaintCardViewModel>();
-        var promptCardVm = vmFactory.Get<PromptCardViewModel>();
-        var modelCardVm = vmFactory.Get<ModelCardViewModel>();
-        var seedCardVm = vmFactory.Get<SeedCardViewModel>();
+        // Čuvaj referencu na SelectImageCard za event handler
+        selectImageCardVm = vmFactory.Get<SelectImageCardViewModel>();
 
         StackCardViewModel.AddCards(
             selectImageCardVm,
-            outpaintCardVm,
-            promptCardVm,
+            vmFactory.Get<OutpaintCardViewModel>(),
+            vmFactory.Get<PromptCardViewModel>(),
             samplerCard,
-            modelCardVm,
-            seedCardVm
+            vmFactory.Get<ModelCardViewModel>(),
+            vmFactory.Get<SeedCardViewModel>()
         );
 
-        OutpaintGenerateCommand = new AsyncRelayCommand(
-            async () => await GenerateImageImpl(new GenerateOverrides(), CancellationToken.None)
-        );
-
+        // Poveži event handler za ažuriranje stanja gumba
         if (selectImageCardVm is not null)
         {
             selectImageCardVm.PropertyChanged += OnSelectImageCardPropertyChanged;
@@ -88,6 +77,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
         {
             OnPropertyChanged(nameof(SelectedImage));
+            GenerateImageCommand.NotifyCanExecuteChanged(); // 🔑 Omogući/Onemogući gumb
         }
     }
 
@@ -98,25 +88,26 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var builder = args.Builder;
         var nodes = builder.Nodes;
 
-        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
         var promptCard = StackCardViewModel.GetCard<PromptCardViewModel>();
         var samplerCard = StackCardViewModel.GetCard<SamplerCardViewModel>();
         var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
         var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
 
-        if (selectImageCard?.ImageSource == null)
+        if (selectImageCardVm?.ImageSource == null)
             return;
 
-        selectImageCard.ApplyStep(args);
-
+        selectImageCardVm.ApplyStep(args);
         var primaryImage = builder.GetPrimaryAsImage();
 
-        // Pad original image for outpainting (Python: ImagePadForOutpaint)
+        //
+        // 1) PadImageForOutpaint (IMAGE + MASK) - KORISTI SAMO OVAJ PYTHON NODE
+        // Izlaz: Output1 = padded IMAGE, Output2 = MASK (feathered)
+        //
         var padImage = nodes.AddNamedNode(
             new NamedComfyNode<ImageNodeConnection>("PadImage")
             {
-                ClassType = "ImagePadForOutpaint",
+                ClassType = "ImagePadForOutpaint", // ✅ Bez "ing" na kraju
                 Inputs = new Dictionary<string, object?>
                 {
                     ["image"] = primaryImage,
@@ -124,27 +115,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                     ["right"] = outpaintCard?.ExpandRight ?? 0,
                     ["top"] = outpaintCard?.ExpandTop ?? 0,
                     ["bottom"] = outpaintCard?.ExpandBottom ?? 0,
-                    ["feathering"] = outpaintCard?.Feathering ?? 40
+                    ["feathering"] = outpaintCard?.Feathering ?? 40 // Feathering za meki prijelaz
                 }
             }
         );
 
-        // Mask from expand (Python: MaskFromExpand)
-        var mask = nodes.AddNamedNode(
-            new NamedComfyNode<ImageNodeConnection>("OutpaintMask")
-            {
-                ClassType = "MaskFromExpand",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["image"] = padImage.Output,
-                    ["left"] = outpaintCard?.ExpandLeft ?? 0,
-                    ["right"] = outpaintCard?.ExpandRight ?? 0,
-                    ["top"] = outpaintCard?.ExpandTop ?? 0,
-                    ["bottom"] = outpaintCard?.ExpandBottom ?? 0
-                }
-            }
-        );
-
+        //
+        // 2) Checkpoint loader
+        //
         var checkpoint = nodes.AddTypedNode(
             new ComfyNodeBuilder.CheckpointLoaderSimple
             {
@@ -171,15 +149,34 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }
         );
 
-        var vaeEncode = nodes.AddTypedNode(
+        //
+        // 3) Original latent (nepromijenjena originalna slika)
+        //
+        var originalVaeEncode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEEncode
             {
-                Name = "VAEEncode",
-                Pixels = padImage.Output,
+                Name = "OriginalVAEEncode",
+                Pixels = primaryImage, // ✅ ORIGINALNA SLIKA (bez paddinga)
                 Vae = checkpoint.Output3
             }
         );
 
+        //
+        // 4) Padded latent (za generiranje novog sadržaja)
+        //
+        var paddedVaeEncode = nodes.AddTypedNode(
+            new ComfyNodeBuilder.VAEEncode
+            {
+                Name = "PaddedVAEEncode",
+                Pixels = padImage.Output1, // ✅ PADDED SLIKA (s praznim rubovima)
+                Vae = checkpoint.Output3
+            }
+        );
+
+        //
+        // 5) KSampler (generira SAMO novi sadržaj na praznim rubovima)
+        // ⚠️ NEMA mask inputa - KSampler ne podržava masku!
+        //
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
             {
@@ -192,17 +189,36 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Scheduler = samplerCard?.SelectedScheduler?.Name ?? "normal",
                 Positive = positivePrompt.Output,
                 Negative = negativePrompt.Output,
-                LatentImage = vaeEncode.Output,
-                Mask = mask.Output,
-                Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35)
+                LatentImage = paddedVaeEncode.Output,
+                Denoise = Math.Min(samplerCard?.DenoiseStrength ?? 1.0, 0.35) // Niski denoise za outpainting
             }
         );
 
+        //
+        // 6) LatentComposite - KORISTI SAMO OVAJ PYTHON NODE
+        // Spaja originalnu sliku (centar) + generirani sadržaj (rubovi) pomoću maske
+        //
+        var composite = nodes.AddNamedNode(
+            new NamedComfyNode<LatentNodeConnection>("LatentComposite")
+            {
+                ClassType = "LatentComposite",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["original"] = originalVaeEncode.Output, // ✅ ORIGINAL U CENTRU
+                    ["generated"] = sampler.Output,          // ✅ NOVI SADRŽAJ NA RUBOVIMA
+                    ["mask"] = padImage.Output2              // ✅ MASKA IZ PADIMAGE-A (feathered)
+                }
+            }
+        );
+
+        //
+        // 7) Decode finalne slike
+        //
         var vaeDecode = nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = "VAEDecode",
-                Samples = sampler.Output,
+                Samples = composite.Output,
                 Vae = checkpoint.Output3
             }
         );
@@ -222,8 +238,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-        if (selectImageCard?.ImageSource is { } imageSource)
+        if (selectImageCardVm?.ImageSource is { } imageSource)
             yield return imageSource;
     }
 
@@ -238,8 +253,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             return;
         }
 
-        var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-        if (selectImageCard?.ImageSource?.LocalFile?.FullPath is not { })
+        if (selectImageCardVm?.ImageSource?.LocalFile?.FullPath is not { })
         {
             notificationService.Show("No image selected", "Please select an image first");
             return;
@@ -266,5 +280,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         };
 
         await RunGeneration(generationArgs, cancellationToken);
+    }
+
+    // Cleanup event handler kad se ViewModel uništi
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && selectImageCardVm is not null)
+        {
+            selectImageCardVm.PropertyChanged -= OnSelectImageCardPropertyChanged;
+        }
+        base.Dispose(disposing);
     }
 }
