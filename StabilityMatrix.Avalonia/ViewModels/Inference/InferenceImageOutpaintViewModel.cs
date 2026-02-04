@@ -120,9 +120,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Model = checkpoint.Output1,
             Seed = (ulong)(StackCardViewModel.GetCard<SeedCardViewModel>()?.Seed ?? 0),
             Steps = StackCardViewModel.GetCard<SamplerCardViewModel>()?.Steps ?? 20,
-            Cfg = 7.0,
-            SamplerName = "euler",
-            Scheduler = "normal",
+            Cfg = 6.0,
+            SamplerName = "dpmpp_2m",
+            Scheduler = "karras",
             Positive = prompt.Output,
             Negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { 
                 Name = "EmptyNeg", 
@@ -130,7 +130,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Text = "" 
             }).Output,
             LatentImage = vaeEncode.Output,
-            Denoise = StackCardViewModel.GetCard<SamplerCardViewModel>()?.DenoiseStrength ?? 1.0
+            Denoise = StackCardViewModel.GetCard<SamplerCardViewModel>()?.DenoiseStrength ?? 0.35
         });
 
         // Try to use the new AdvancedOutpaintLatentComposite node first
