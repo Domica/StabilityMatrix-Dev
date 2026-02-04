@@ -30,6 +30,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     private AsyncRelayCommand? _generateImageCommandOverride;
     private CancellationTokenSource? _generationCancellationTokenSource;
     private bool _isGenerating;
+    private bool _isProgressIndeterminate;
     
     public StackCardViewModel StackCardViewModel { get; }
 
@@ -39,7 +40,20 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public bool IsGenerating
     {
         get => _isGenerating;
-        private set => SetProperty(ref _isGenerating, value);
+        private set
+        {
+            if (SetProperty(ref _isGenerating, value))
+            {
+                GenerateImageCommand.NotifyCanExecuteChanged();
+                CancelCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+    
+    public bool IsProgressIndeterminate
+    {
+        get => _isProgressIndeterminate;
+        private set => SetProperty(ref _isProgressIndeterminate, value);
     }
     
     private string _generationStatus = "Ready";
@@ -53,7 +67,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public double GenerationProgress
     {
         get => _generationProgress;
-        private set => SetProperty(ref _generationProgress, value);
+        private set
+        {
+            SetProperty(ref _generationProgress, value);
+            IsProgressIndeterminate = value < 5; // Show indeterminate if progress < 5%
+        }
     }
 
     // Override the command to handle cancellation
@@ -86,19 +104,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<ModelCardViewModel>(),
             vmFactory.Get<SeedCardViewModel>()
         );
-        
-        // Subscribe to generation events
-        PropertyChanged += OnPropertyChanged;
-    }
-
-    private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        // Refresh command states when properties change
-        if (e.PropertyName == nameof(IsGenerating))
-        {
-            GenerateImageCommand.NotifyCanExecuteChanged();
-            CancelCommand.NotifyCanExecuteChanged();
-        }
     }
 
     private bool CanGenerateImage()
@@ -131,7 +136,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             GenerationStatus = "Generation completed";
             GenerationProgress = 100;
             
-            // Reset after a delay
+            // Reset after a short delay
             await Task.Delay(1000, cancellationToken);
             GenerationStatus = "Ready";
             GenerationProgress = 0;
@@ -403,10 +408,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         if (img != null) yield return img;
     }
     
-    public override void Dispose()
-    {
-        base.Dispose();
-        PropertyChanged -= OnPropertyChanged;
-        _generationCancellationTokenSource?.Dispose();
-    }
+    // Uklonjena Dispose metoda jer nije potrebna i uzrokuje build error
+    // Base klasa već implementira IDisposable na drugačiji način
 }
