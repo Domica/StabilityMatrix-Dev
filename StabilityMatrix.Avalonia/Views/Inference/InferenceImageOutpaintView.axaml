@@ -39,9 +39,10 @@
             </ScrollViewer>
         </Grid>
 
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,12">
+        <Grid Grid.Column="1" RowDefinitions="*,Auto,Auto" Margin="0,0,0,12">
             
             <Border 
+                Grid.Row="0"
                 Background="#1E1E1E" 
                 CornerRadius="6" 
                 Padding="8"
@@ -50,13 +51,68 @@
                     DataContext="{Binding ImageGalleryCardViewModel}" />
             </Border>
             
-            <Button 
+            <!-- Progress Bar and Status -->
+            <Border
                 Grid.Row="1"
-                HorizontalAlignment="Stretch"
-                Height="40"
-                Content="Generate Image"
-                Command="{Binding GenerateImageCommand}" 
-                x:CompileBindings="False"/>
+                Background="Transparent"
+                Padding="0,0,0,8"
+                IsVisible="{Binding IsGenerating}">
+                <StackPanel Spacing="4">
+                    <TextBlock 
+                        Text="{Binding GenerationStatus}"
+                        Foreground="White"
+                        FontSize="12"
+                        HorizontalAlignment="Center"/>
+                    <ProgressBar 
+                        Height="8"
+                        Value="{Binding GenerationProgress}"
+                        Maximum="100"
+                        IsIndeterminate="{Binding GenerationProgress, Converter={x:Static converters:LessThanConverter}, ConverterParameter=5}"
+                        Background="#2D2D30"
+                        Foreground="#007ACC"
+                        CornerRadius="4"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Buttons -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,*" Spacing="8">
+                <!-- Generate Button (visible when NOT generating) -->
+                <Button 
+                    Grid.Column="0"
+                    Grid.ColumnSpan="2"
+                    Height="40"
+                    Content="Generate Image"
+                    Command="{Binding GenerateImageCommand}" 
+                    IsVisible="{Binding !IsGenerating}"
+                    Background="#007ACC"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    CornerRadius="4"/>
+                
+                <!-- Cancel Button (visible when generating) -->
+                <Button 
+                    Grid.Column="0"
+                    Height="40"
+                    Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    IsVisible="{Binding IsGenerating}"
+                    Background="#D13438"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    CornerRadius="4"/>
+                
+                <!-- Regenerate Button (visible when generating) -->
+                <Button 
+                    Grid.Column="1"
+                    Height="40"
+                    Content="Generate Again"
+                    Command="{Binding GenerateImageCommand}" 
+                    IsVisible="{Binding IsGenerating}"
+                    Background="#107C10"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    CornerRadius="4"/>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>
