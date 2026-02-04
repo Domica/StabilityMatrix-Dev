@@ -75,31 +75,36 @@
             </Border>
             
             <!-- Buttons -->
-            <Grid Grid.Row="2" ColumnDefinitions="*,*" Spacing="8">
-                <!-- Generate Button (visible when NOT generating) -->
-                <Button 
-                    Grid.Column="0"
-                    Grid.ColumnSpan="2"
-                    Height="40"
-                    Content="Generate Image"
-                    Command="{Binding GenerateImageCommand}" 
-                    IsVisible="{Binding !IsGenerating}"
-                    Background="#007ACC"
-                    Foreground="White"
-                    FontWeight="Bold"
-                    CornerRadius="4"/>
-                
-                <!-- Cancel Button (visible when generating) -->
-                <Button 
-                    Grid.Column="0"
-                    Height="40"
-                    Content="Cancel"
-                    Command="{Binding CancelCommand}"
-                    IsVisible="{Binding IsGenerating}"
-                    Background="#D13438"
-                    Foreground="White"
-                    FontWeight="Bold"
-                    CornerRadius="4"/>
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid Margin="0,0,4,0">
+                    <!-- Generate Button (visible when NOT generating) -->
+                    <Button 
+                        Grid.Column="0"
+                        Grid.ColumnSpan="2"
+                        Height="40"
+                        Content="Generate Image"
+                        Command="{Binding GenerateImageCommand}" 
+                        IsVisible="{Binding !IsGenerating}"
+                        Background="#007ACC"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        CornerRadius="4"/>
+                    
+                    <!-- Cancel Button (visible when generating) -->
+                    <Button 
+                        Height="40"
+                        Content="Cancel"
+                        Command="{Binding CancelCommand}"
+                        IsVisible="{Binding IsGenerating}"
+                        Background="#D13438"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        CornerRadius="4"/>
+                </Grid>
                 
                 <!-- Regenerate Button (visible when generating) -->
                 <Button 
@@ -111,7 +116,8 @@
                     Background="#107C10"
                     Foreground="White"
                     FontWeight="Bold"
-                    CornerRadius="4"/>
+                    CornerRadius="4"
+                    Margin="4,0,0,0"/>
             </Grid>
         </Grid>
     </Grid>
