@@ -15,6 +15,8 @@ using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Core.Services;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
+using StabilityMatrix.Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -26,14 +28,44 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     public const string ModuleKey = "ImageOutpaint";
     private readonly INotificationService _notificationService;
     private AsyncRelayCommand? _generateImageCommandOverride;
-
+    private CancellationTokenSource? _generationCancellationTokenSource;
+    private bool _isGenerating;
+    
     public StackCardViewModel StackCardViewModel { get; }
 
     public ImageSource? SelectedImage => StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
 
-    // Override the command to always be executable
+    // Status properties for UI
+    public bool IsGenerating
+    {
+        get => _isGenerating;
+        private set => SetProperty(ref _isGenerating, value);
+    }
+    
+    private string _generationStatus = "Ready";
+    public string GenerationStatus
+    {
+        get => _generationStatus;
+        private set => SetProperty(ref _generationStatus, value);
+    }
+    
+    private double _generationProgress;
+    public double GenerationProgress
+    {
+        get => _generationProgress;
+        private set => SetProperty(ref _generationProgress, value);
+    }
+
+    // Override the command to handle cancellation
     public new IAsyncRelayCommand GenerateImageCommand => 
-        _generateImageCommandOverride ??= new AsyncRelayCommand(GenerateImageAsync);
+        _generateImageCommandOverride ??= new AsyncRelayCommand(
+            GenerateImageAsync,
+            CanGenerateImage);
+
+    // Cancel command
+    private IAsyncRelayCommand? _cancelCommand;
+    public IAsyncRelayCommand CancelCommand => 
+        _cancelCommand ??= new AsyncRelayCommand(CancelGenerationAsync, CanCancelGeneration);
 
     public InferenceImageOutpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -54,12 +86,84 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             vmFactory.Get<ModelCardViewModel>(),
             vmFactory.Get<SeedCardViewModel>()
         );
+        
+        // Subscribe to generation events
+        PropertyChanged += OnPropertyChanged;
+    }
+
+    private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // Refresh command states when properties change
+        if (e.PropertyName == nameof(IsGenerating))
+        {
+            GenerateImageCommand.NotifyCanExecuteChanged();
+            CancelCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private bool CanGenerateImage()
+    {
+        return !IsGenerating && SelectedImage != null && 
+               StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel != null;
+    }
+
+    private bool CanCancelGeneration()
+    {
+        return IsGenerating && _generationCancellationTokenSource != null;
     }
 
     private async Task GenerateImageAsync()
     {
-        // Call the base implementation with default overrides and cancellation token
-        await GenerateImageImpl(new GenerateOverrides(), CancellationToken.None);
+        if (IsGenerating) return;
+        
+        try
+        {
+            IsGenerating = true;
+            GenerationStatus = "Preparing generation...";
+            GenerationProgress = 0;
+            
+            _generationCancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = _generationCancellationTokenSource.Token;
+
+            // Call the base implementation with cancellation
+            await GenerateImageImpl(new GenerateOverrides(), cancellationToken);
+            
+            GenerationStatus = "Generation completed";
+            GenerationProgress = 100;
+            
+            // Reset after a delay
+            await Task.Delay(1000, cancellationToken);
+            GenerationStatus = "Ready";
+            GenerationProgress = 0;
+        }
+        catch (OperationCanceledException)
+        {
+            GenerationStatus = "Generation cancelled";
+            _notificationService.Show("Cancelled", "Image generation was cancelled.", NotificationType.Information);
+        }
+        catch (Exception ex)
+        {
+            GenerationStatus = "Error occurred";
+            _notificationService.Show("Error", $"Failed to generate image: {ex.Message}", NotificationType.Error);
+        }
+        finally
+        {
+            IsGenerating = false;
+            _generationCancellationTokenSource?.Dispose();
+            _generationCancellationTokenSource = null;
+        }
+    }
+
+    private async Task CancelGenerationAsync()
+    {
+        if (_generationCancellationTokenSource != null && !_generationCancellationTokenSource.IsCancellationRequested)
+        {
+            GenerationStatus = "Cancelling...";
+            _generationCancellationTokenSource.Cancel();
+            
+            // Wait a bit for cancellation to propagate
+            await Task.Delay(500);
+        }
     }
 
     protected override void BuildPrompt(BuildPromptEventArgs args)
@@ -90,8 +194,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         };
         
         var padImage = nodes.AddNamedNode(padImageNode);
-        var paddedImage = padImage.Output1;  // Proširena slika
-        var outpaintMask = padImage.Output2; // Mask za outpaint područja
+        var paddedImage = padImage.Output1;
+        var outpaintMask = padImage.Output2;
 
         var checkpoint = nodes.AddTypedNode(new ComfyNodeBuilder.CheckpointLoaderSimple
         {
@@ -119,7 +223,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Name = "MainSampler",
             Model = checkpoint.Output1,
             Seed = (ulong)(StackCardViewModel.GetCard<SeedCardViewModel>()?.Seed ?? 0),
-            Steps = StackCardViewModel.GetCard<SamplerCardViewModel>()?.Steps ?? 20,
+            Steps = StackCardViewModel.GetCard<SamplerCardViewModel>()?.Steps ?? 30,
             Cfg = 6.0,
             SamplerName = "dpmpp_2m",
             Scheduler = "karras",
@@ -136,16 +240,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         // Try to use the new AdvancedOutpaintLatentComposite node first
         try
         {
-            // KORISTI NOVI ČVOR - AdvancedOutpaintLatentComposite
             var latentCompositeNode = new NamedComfyNode<LatentNodeConnection>("AdvancedOutpaintLatentCompositeNode")
             {
-                ClassType = "AdvancedOutpaintLatentComposite", // NOVO IMENA
+                ClassType = "AdvancedOutpaintLatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = vaeEncode.Output,   // Original encoded latent
-                    ["generated"] = sampler.Output,    // Generated latent
-                    ["mask"] = outpaintMask,           // Mask from outpainting
-                    ["feathering"] = outpaintCard?.Feathering ?? 40  // Feathering parameter
+                    ["original"] = vaeEncode.Output,
+                    ["generated"] = sampler.Output,
+                    ["mask"] = outpaintMask,
+                    ["feathering"] = outpaintCard?.Feathering ?? 40
                 }
             };
             
@@ -205,21 +308,24 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
     {
-        // Provjera da li je ComfyUI pokrenut - isto kao i na upscaler ekranu
+        // Update status
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            GenerationStatus = "Checking connection...";
+        });
+        
         if (!ClientManager.IsConnected)
         {
             _notificationService.Show("Not Connected", "Please start ComfyUI.");
             return;
         }
 
-        // Provjera da li je odabrana slika
         if (SelectedImage == null)
         {
             _notificationService.Show("No Image", "Please select an image first.");
             return;
         }
 
-        // Provjera da li je odabran model
         if (StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel == null)
         {
             _notificationService.Show("No Model", "Please select a model first.");
@@ -228,10 +334,22 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         try
         {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GenerationStatus = "Uploading images...";
+                GenerationProgress = 10;
+            });
+            
             await UploadInputImages(ClientManager.Client!);
 
             var buildArgs = new BuildPromptEventArgs();
             BuildPrompt(buildArgs);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GenerationStatus = "Building workflow...";
+                GenerationProgress = 30;
+            });
 
             var genArgs = new ImageGenerationEventArgs
             {
@@ -242,14 +360,39 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 { 
                     ModelName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath 
                 },
-                Project = InferenceProjectDocument.FromLoadable(this)
+                Project = InferenceProjectDocument.FromLoadable(this),
+                ProgressCallback = (progress, status) =>
+                {
+                    // Update progress from ComfyUI
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        GenerationProgress = 40 + (progress * 0.6); // 40-100% range for generation
+                        if (!string.IsNullOrEmpty(status))
+                        {
+                            GenerationStatus = status;
+                        }
+                    });
+                }
             };
 
-            // This should trigger progress bar updates through base class
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GenerationStatus = "Generating image...";
+                GenerationProgress = 40;
+            });
+
             await RunGeneration(genArgs, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw; // Re-throw to be handled in GenerateImageAsync
         }
         catch (Exception ex)
         {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GenerationStatus = "Error occurred";
+            });
             _notificationService.Show("Error", $"Failed to generate image: {ex.Message}");
         }
     }
@@ -258,5 +401,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     {
         var img = StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
         if (img != null) yield return img;
+    }
+    
+    public override void Dispose()
+    {
+        base.Dispose();
+        PropertyChanged -= OnPropertyChanged;
+        _generationCancellationTokenSource?.Dispose();
     }
 }
