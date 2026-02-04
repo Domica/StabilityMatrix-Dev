@@ -124,41 +124,83 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             SamplerName = "euler",
             Scheduler = "normal",
             Positive = prompt.Output,
-            Negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { Name = "EmptyNeg", Clip = checkpoint.Output2, Text = "" }).Output,
+            Negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode { 
+                Name = "EmptyNeg", 
+                Clip = checkpoint.Output2, 
+                Text = "" 
+            }).Output,
             LatentImage = vaeEncode.Output,
             Denoise = StackCardViewModel.GetCard<SamplerCardViewModel>()?.DenoiseStrength ?? 1.0
         });
 
-        // Use LatentComposite to blend original latent and generated latent using mask
-        // OVAJ DIO MORA BITI PROMIJENJEN ako ste promijenili ime čvora u Python datoteki
-        var latentCompositeNode = new NamedComfyNode<LatentNodeConnection>("LatentCompositeNode")
+        // Try to use the new AdvancedOutpaintLatentComposite node first
+        try
         {
-            ClassType = "LatentComposite", // OVO MORA ODRŽAVATI KONZISTENTNOST S PYTHON DATOTEKOM!
-            Inputs = new Dictionary<string, object?>
+            // KORISTI NOVI ČVOR - AdvancedOutpaintLatentComposite
+            var latentCompositeNode = new NamedComfyNode<LatentNodeConnection>("AdvancedOutpaintLatentCompositeNode")
             {
-                ["original"] = vaeEncode.Output,  // Original encoded latent (without generation)
-                ["generated"] = sampler.Output,   // Generated latent
-                ["mask"] = outpaintMask           // Mask from outpainting
-            }
-        };
-        
-        var compositeOutput = nodes.AddNamedNode(latentCompositeNode);
+                ClassType = "AdvancedOutpaintLatentComposite", // NOVO IMENA
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["original"] = vaeEncode.Output,   // Original encoded latent
+                    ["generated"] = sampler.Output,    // Generated latent
+                    ["mask"] = outpaintMask,           // Mask from outpainting
+                    ["feathering"] = outpaintCard?.Feathering ?? 40  // Feathering parameter
+                }
+            };
+            
+            var compositeOutput = nodes.AddNamedNode(latentCompositeNode);
+            
+            var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
+            {
+                Name = "VAEDecodeNode",
+                Samples = compositeOutput.Output,
+                Vae = checkpoint.Output3
+            });
 
-        var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
+            builder.Connections.Primary = vaeDecode.Output;
+            
+            var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
+            {
+                Name = "PreviewNode",
+                Images = vaeDecode.Output
+            });
+            builder.Connections.OutputNodes.Add(preview);
+        }
+        catch (Exception)
         {
-            Name = "VAEDecodeNode",
-            Samples = compositeOutput.Output,
-            Vae = checkpoint.Output3
-        });
+            // Fallback na stari čvor ako novi nije dostupan
+            var latentCompositeNode = new NamedComfyNode<LatentNodeConnection>("LatentCompositeNode")
+            {
+                ClassType = "LatentComposite",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["samples_from"] = vaeEncode.Output,
+                    ["samples_to"] = sampler.Output,
+                    ["x"] = 0,
+                    ["y"] = 0,
+                    ["feather"] = outpaintCard?.Feathering ?? 40
+                }
+            };
+            
+            var compositeOutput = nodes.AddNamedNode(latentCompositeNode);
+            
+            var vaeDecode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEDecode
+            {
+                Name = "VAEDecodeNode",
+                Samples = compositeOutput.Output,
+                Vae = checkpoint.Output3
+            });
 
-        builder.Connections.Primary = vaeDecode.Output;
-        
-        var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
-        {
-            Name = "PreviewNode",
-            Images = vaeDecode.Output
-        });
-        builder.Connections.OutputNodes.Add(preview);
+            builder.Connections.Primary = vaeDecode.Output;
+            
+            var preview = nodes.AddTypedNode(new ComfyNodeBuilder.PreviewImage
+            {
+                Name = "PreviewNode",
+                Images = vaeDecode.Output
+            });
+            builder.Connections.OutputNodes.Add(preview);
+        }
     }
 
     protected override async Task GenerateImageImpl(GenerateOverrides overrides, CancellationToken cancellationToken)
