@@ -144,12 +144,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         catch (OperationCanceledException)
         {
             GenerationStatus = "Generation cancelled";
-            _notificationService.Show("Cancelled", "Image generation was cancelled.", NotificationType.Information);
+            _notificationService.Show("Cancelled", "Image generation was cancelled.");
         }
         catch (Exception ex)
         {
             GenerationStatus = "Error occurred";
-            _notificationService.Show("Error", $"Failed to generate image: {ex.Message}", NotificationType.Error);
+            _notificationService.Show("Error", $"Failed to generate image: {ex.Message}");
         }
         finally
         {
@@ -356,6 +356,25 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 GenerationProgress = 30;
             });
 
+            // Simulate progress during generation since we don't have ProgressCallback
+            // We'll update progress periodically during the generation
+            var progressUpdateTask = Task.Run(async () =>
+            {
+                while (IsGenerating && !cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(500, cancellationToken);
+                    
+                    // Increment progress slowly to show activity
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (GenerationProgress < 90)
+                        {
+                            GenerationProgress += 1;
+                        }
+                    });
+                }
+            });
+
             var genArgs = new ImageGenerationEventArgs
             {
                 Client = ClientManager.Client!,
@@ -365,19 +384,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 { 
                     ModelName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath 
                 },
-                Project = InferenceProjectDocument.FromLoadable(this),
-                ProgressCallback = (progress, status) =>
-                {
-                    // Update progress from ComfyUI
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        GenerationProgress = 40 + (progress * 0.6); // 40-100% range for generation
-                        if (!string.IsNullOrEmpty(status))
-                        {
-                            GenerationStatus = status;
-                        }
-                    });
-                }
+                Project = InferenceProjectDocument.FromLoadable(this)
             };
 
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -387,6 +394,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             });
 
             await RunGeneration(genArgs, cancellationToken);
+            
+            // Cancel the progress update task
+            await progressUpdateTask;
         }
         catch (OperationCanceledException)
         {
@@ -407,7 +417,4 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var img = StackCardViewModel.GetCard<SelectImageCardViewModel>()?.ImageSource;
         if (img != null) yield return img;
     }
-    
-    // Uklonjena Dispose metoda jer nije potrebna i uzrokuje build error
-    // Base klasa već implementira IDisposable na drugačiji način
 }
