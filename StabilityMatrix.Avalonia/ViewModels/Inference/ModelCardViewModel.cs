@@ -83,6 +83,49 @@ public partial class ModelCardViewModel(
     private HybridModelFile? selectedClip4;
 
     [ObservableProperty]
+    private HybridModelFile? autoSuggestedOutpaintModel;
+
+    [ObservableProperty]
+    private bool showModelSwitchHint;
+
+    public bool ModelNotRecommendedForOutpaint =>
+        SelectedModel is not null && HasPoseCompletionBias(SelectedModel);
+
+    public string AutoSuggestedModelHint =>
+        AutoSuggestedOutpaintModel is null
+            ? string.Empty
+            : $"Recommended alternative for outpaint: {AutoSuggestedOutpaintModel.ShortDisplayName}";
+
+    public string ModelPickerTooltip =>
+    $"""
+    ⭐ Recommended Models for Outpaint
+    • Realistic Vision 5.1 (best SD 1.5)
+    • RealVis XL 3.0 (best SDXL)
+    • AbsoluteReality v1.8 (best for people)
+
+    🌄 Landscapes: RV 5.1, RealVis XL 3.0
+    👤 People: AbsoluteReality v1.8, RV 5.1
+    🏙️ Architecture: RV 5.1, RealVis XL 3.0
+
+    ✔ Outpaint Models: RV 5.1, RealVis XL 3.0, AbsoluteReality
+    ✔ Inpaint Models: RV 6.0 Hyper-Inpaint, RV 5.1 Inpainting
+
+    ⭐ Prompt Injection Strength:
+    • Landscapes: 0.80–1.00
+    • People: 0.50–0.70
+    • Creative: 0.90–1.00
+    • Small outpaints: 0.40–0.60
+    • Recommended default: 0.85
+
+    🔥 Recommended for this image:
+    {AutoSuggestedModelLabel}
+    """;
+
+    public string AutoSuggestedModelLabel =>
+        AutoSuggestedOutpaintModel?.ShortDisplayName ?? "Realistic Vision V5.1";
+
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSd3Clip), nameof(IsHiDreamClip))]
     private string? selectedClipType;
 
@@ -424,23 +467,41 @@ public partial class ModelCardViewModel(
         }
     }
 
-    partial void OnSelectedModelChanged(HybridModelFile? value)
+   partial void OnSelectedModelChanged(HybridModelFile? value)
     {
-        // Update TabContext with the selected model
+        
         tabContext.SelectedModel = value;
 
-        if (!IsExtraNetworksEnabled)
-            return;
+        if (IsExtraNetworksEnabled)
+            {
+            foreach (var card in ExtraNetworksStackCardViewModel.Cards)
+            {
+                if (card is not LoraModule loraModule)
+                    continue;
 
-        foreach (var card in ExtraNetworksStackCardViewModel.Cards)
+                if (loraModule.GetCard<ExtraNetworkCardViewModel>() is not { } cardViewModel)
+                    continue;
+
+                cardViewModel.SelectedBaseModel = value;
+            }
+        }
+
+        if (value is null)
         {
-            if (card is not LoraModule loraModule)
-                continue;
+            ShowModelSwitchHint = false;
+            AutoSuggestedOutpaintModel = null;
+            return;
+        }
 
-            if (loraModule.GetCard<ExtraNetworkCardViewModel>() is not { } cardViewModel)
-                continue;
-
-            cardViewModel.SelectedBaseModel = value;
+        if (HasPoseCompletionBias(value))
+        {
+            AutoSuggestedOutpaintModel = FindRecommendedOutpaintModel();
+            ShowModelSwitchHint = AutoSuggestedOutpaintModel is not null;
+        }
+        else
+        {
+            ShowModelSwitchHint = false;
+            AutoSuggestedOutpaintModel = null;
         }
     }
 
