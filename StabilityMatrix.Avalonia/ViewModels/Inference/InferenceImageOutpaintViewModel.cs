@@ -286,7 +286,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Model = checkpoint.Output1,
             Seed = (ulong)(StackCardViewModel.GetCard<SeedCardViewModel>()?.Seed ?? 0),
             Steps = steps,
-            Cfg = 6.0,
+            Cfg = 7.0,
             SamplerName = "dpmpp_2m",
             Scheduler = "karras",
             Positive = prompt.Output,
