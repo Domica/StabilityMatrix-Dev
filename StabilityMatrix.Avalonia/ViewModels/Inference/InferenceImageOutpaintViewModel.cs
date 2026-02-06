@@ -18,6 +18,7 @@ using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using StabilityMatrix.Core.Models.Inference;
 
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
