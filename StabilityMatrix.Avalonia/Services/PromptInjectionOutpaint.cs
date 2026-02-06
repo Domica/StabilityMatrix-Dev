@@ -1,3 +1,6 @@
+using StabilityMatrix.Avalonia.Services;
+
+
 namespace StabilityMatrix.Avalonia.Services.Prompting
 {
     public readonly struct OutpaintPromptInjection
