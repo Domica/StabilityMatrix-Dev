@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System;
+using System.Linq;
 using System.Text.Json.Nodes;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Controls;
@@ -17,13 +18,17 @@ public class StackCardViewModel : StackViewModelBase
 {
     /// <inheritdoc />
     public StackCardViewModel(IServiceManager<ViewModelBase> vmFactory)
-        : base(vmFactory) { }
+        : base(vmFactory) 
+    { 
+        // ✅ Debug output za tracking instance creation
+        var instanceId = Guid.NewGuid().ToString().Substring(0, 8);
+        Console.WriteLine($"🎴 NEW StackCardViewModel created: {instanceId} (hash: {GetHashCode()})");
+    }
 
     /// <inheritdoc />
     public override void LoadStateFromJsonObject(JsonObject state)
     {
         var model = DeserializeModel<StackCardModel>(state);
-
         if (model.Cards is null)
             return;
 
