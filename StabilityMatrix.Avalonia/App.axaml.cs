@@ -440,6 +440,7 @@ public sealed class App : Application
         services.AddServicesByAttributes();
         services.AddTransient<InferenceImageOutpaintView>(); 
         services.AddTransient<OutpaintCardViewModel>();
+        services.AddTransient<InferenceImageOutpaintViewModel>();
         
         ConfigurePageViewModels(services);
 
