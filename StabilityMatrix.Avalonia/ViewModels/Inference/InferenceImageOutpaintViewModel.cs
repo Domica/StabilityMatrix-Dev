@@ -83,6 +83,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     }
 
     private double _smartOutpaintInjectionStrength = 0.7;
+    // --- Debug Prompt Overlay ---
+    [ObservableProperty]
+    private bool showDebugPrompt;
+
+    [ObservableProperty]
+    private string? debugFinalPositive;
+
+    [ObservableProperty]
+    private string? debugFinalNegative;
+
+    [ObservableProperty]
+    private string? debugFinalModelName;
+
     public double SmartOutpaintInjectionStrength
     {
         get => _smartOutpaintInjectionStrength;
@@ -271,28 +284,35 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         // === SMART OUTPAINT ASSIST ===
         if (SmartOutpaintAssistEnabled)
         {
-            // Create smart outpaint injection
-            var injection = PromptInjectionOutpaint.Build(
-                outpaintCard?.ExpandLeft ?? 0,
-                outpaintCard?.ExpandRight ?? 0,
-                outpaintCard?.ExpandTop ?? 0,
-                outpaintCard?.ExpandBottom ?? 0,
-                SmartOutpaintInjectionStrength
+            var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
+            var modelName = modelCard?.SelectedModel?.ShortDisplayName ?? "";
+            var availableModels = ClientManager.Models.Select(m => m.ShortDisplayName ?? m.RelativePath);
+
+            var gp = new GenerationParameters
+            {
+                OutpaintLeft = outpaintCard?.ExpandLeft ?? 0,
+                OutpaintRight = outpaintCard?.ExpandRight ?? 0,
+                OutpaintTop = outpaintCard?.ExpandTop ?? 0,
+                OutpaintBottom = outpaintCard?.ExpandBottom ?? 0,
+                SmartOutpaintInjectionStrength = SmartOutpaintInjectionStrength,
+                SceneType = SceneType.Unknown,
+                AvailableModels = availableModels
+            };
+    
+            PromptInjectionOutpaint.ApplyOutpaintPromptInjection(
+                gp,
+                modelName,
+                availableModels,
+                ref positiveText,
+                ref negativeText
             );
 
-            // Add injection to prompts
-            if (!string.IsNullOrWhiteSpace(injection.Positive))
-            {
-                positiveText = (positiveText + injection.Positive).Trim();
-                Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(injection.Negative))
-            {
-                negativeText = (negativeText + injection.Negative).Trim();
-                Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
-            }
+            // Save debug output
+            DebugFinalPositive = gp.DebugFinalPositive;
+            DebugFinalNegative = gp.DebugFinalNegative;
+            DebugFinalModelName = gp.DebugFinalModelName;
         }
+
         
         // --- PROMPTS ---
         var prompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
