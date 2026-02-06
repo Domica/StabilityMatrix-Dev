@@ -75,6 +75,20 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         }
     }
 
+    private bool _smartOutpaintAssistEnabled = true;
+    public bool SmartOutpaintAssistEnabled
+    {
+        get => _smartOutpaintAssistEnabled;
+        set => SetProperty(ref _smartOutpaintAssistEnabled, value);
+    }
+
+    private double _smartOutpaintInjectionStrength = 0.7;
+    public double SmartOutpaintInjectionStrength
+    {
+        get => _smartOutpaintInjectionStrength;
+        set => SetProperty(ref _smartOutpaintInjectionStrength, Math.Clamp(value, 0.0, 1.0));
+    }
+    
     // Override the command to handle cancellation
     public new IAsyncRelayCommand GenerateImageCommand => 
         _generateImageCommandOverride ??= new AsyncRelayCommand(
@@ -212,8 +226,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var nodes = builder.Nodes;
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
-        var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
-
+        
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
 
@@ -281,16 +294,14 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     // Append to positive prompt
     if (!string.IsNullOrWhiteSpace(injection.Positive))
     {
-        var originalText = prompt.Inputs["text"]?.ToString() ?? "";
-        prompt.Inputs["text"] = originalText + injection.Positive;
+        prompt.Text += injection.Positive;
         Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
     }
 
     // Append to negative prompt
     if (!string.IsNullOrWhiteSpace(injection.Negative))
     {
-        var originalNeg = negative.Inputs["text"]?.ToString() ?? "";
-        negative.Inputs["text"] = originalNeg + injection.Negative;
+        negative.Text += injection.Negative;
         Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
     }
 }
