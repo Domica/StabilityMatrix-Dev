@@ -30,6 +30,25 @@ public record GenerationParameters
     public string? VideoOutputMethod { get; set; }
     public int? ModelVersionId { get; set; }
     public List<int>? ExtraNetworkModelVersionIds { get; set; }
+   // --- Outpaint Extensions ---
+    public int OutpaintLeft { get; init; }
+    public int OutpaintRight { get; init; }
+    public int OutpaintTop { get; init; }
+    public int OutpaintBottom { get; init; }
+
+    // Smart Outpaint Assist
+    public double SmartOutpaintInjectionStrength { get; init; }
+    
+    // Scene classification (People / Landscape / Architecture)
+    public SceneType SceneType { get; init; } = SceneType.Unknown;
+
+    // List of available models for auto-switch logic
+    public IEnumerable<string> AvailableModels { get; init; } = Array.Empty<string>();
+
+    // Debug overlay
+    public string? DebugFinalPositive { get; set; }
+    public string? DebugFinalNegative { get; set; }
+    public string? DebugFinalModelName { get; set; }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
