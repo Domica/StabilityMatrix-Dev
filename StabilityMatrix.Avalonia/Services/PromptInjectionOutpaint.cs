@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using StabilityMatrix.Core.Models.Inference;
+using StabilityMatrix.Core.Models;
+
 
 namespace StabilityMatrix.Avalonia.Services;
 
