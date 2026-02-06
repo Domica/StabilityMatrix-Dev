@@ -1,4 +1,4 @@
-using StabilityMatrix.Avalonia.Services;
+using StabilityMatrix.Avalonia.Services.Prompting;
 
 
 namespace StabilityMatrix.Avalonia.Services.Prompting
