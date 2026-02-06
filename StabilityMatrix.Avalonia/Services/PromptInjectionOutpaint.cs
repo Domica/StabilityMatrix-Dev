@@ -7,14 +7,6 @@ using StabilityMatrix.Core.Models;
 
 namespace StabilityMatrix.Avalonia.Services;
 
-public enum SceneType
-{
-    Unknown,
-    People,
-    Landscape,
-    Architecture
-}
-
 public static class PromptInjectionOutpaint
 {
     public static void ApplyOutpaintPromptInjection(
