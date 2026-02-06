@@ -1,7 +1,7 @@
 using StabilityMatrix.Avalonia.Services.Prompting;
 
 
-namespace StabilityMatrix.Avalonia.Services.Prompting
+namespace StabilityMatrix.Avalonia.Services
 {
     public readonly struct OutpaintPromptInjection
     {
