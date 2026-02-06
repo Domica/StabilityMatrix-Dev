@@ -26,7 +26,7 @@ public partial class OutpaintCardViewModel : LoadableViewModelBase
     private int expandBottom;
 
     [ObservableProperty]
-    private int feathering = 40;
+    private int feathering = 10;
 
     [ObservableProperty]
     private OutpaintDirection selectedDirection = OutpaintDirection.Custom;
