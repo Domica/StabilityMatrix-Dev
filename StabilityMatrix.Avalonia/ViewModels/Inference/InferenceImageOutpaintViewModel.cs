@@ -265,6 +265,37 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Text = ""
         });
 
+        // === SMART OUTPAINT ASSIST ===
+        if (SmartOutpaintAssistEnabled)
+        {
+            var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
+
+            var injection = PromptInjectionOutpaint.Build(
+                outpaintCard?.ExpandLeft ?? 0,
+                outpaintCard?.ExpandRight ?? 0,
+                outpaintCard?.ExpandTop ?? 0,
+                outpaintCard?.ExpandBottom ?? 0,
+                SmartOutpaintInjectionStrength
+            );
+
+    // Append to positive prompt
+    if (!string.IsNullOrWhiteSpace(injection.Positive))
+    {
+        var originalText = prompt.Inputs["text"]?.ToString() ?? "";
+        prompt.Inputs["text"] = originalText + injection.Positive;
+        Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
+    }
+
+    // Append to negative prompt
+    if (!string.IsNullOrWhiteSpace(injection.Negative))
+    {
+        var originalNeg = negative.Inputs["text"]?.ToString() ?? "";
+        negative.Inputs["text"] = originalNeg + injection.Negative;
+        Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
+    }
+}
+
+        
         // --- ENCODE ---
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
         {
