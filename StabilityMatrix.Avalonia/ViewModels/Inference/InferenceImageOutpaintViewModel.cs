@@ -278,34 +278,34 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Clip = checkpoint.Output2,
             Text = ""
         });
+    // === SMART OUTPAINT ASSIST ===
+    if (SmartOutpaintAssistEnabled)
+    {
+        var injection = PromptInjectionOutpaint.Build(
+            outpaintCard?.ExpandLeft ?? 0,
+            outpaintCard?.ExpandRight ?? 0,
+            outpaintCard?.ExpandTop ?? 0,
+            outpaintCard?.ExpandBottom ?? 0,
+            SmartOutpaintInjectionStrength
+        );
 
-        // === SMART OUTPAINT ASSIST ===
-        if (SmartOutpaintAssistEnabled)
-        {
-            var injection = PromptInjectionOutpaint.Build(
-                outpaintCard?.ExpandLeft ?? 0,
-                outpaintCard?.ExpandRight ?? 0,
-                outpaintCard?.ExpandTop ?? 0,
-                outpaintCard?.ExpandBottom ?? 0,
-                SmartOutpaintInjectionStrength
-            );
-
-    // Append to positive prompt
+    // Positive
     if (!string.IsNullOrWhiteSpace(injection.Positive))
     {
-        var originalText = prompt.Inputs["text"]?.ToString() ?? "";
-        prompt.Inputs["text"] = originalText + injection.Positive;
+        var originalText = prompt.Text ?? "";
+        builder.SetInput(prompt, "text", originalText + injection.Positive);
         Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
     }
 
-    // Append to negative prompt
+    // Negative
     if (!string.IsNullOrWhiteSpace(injection.Negative))
     {
-        var originalNeg = negative.Inputs["text"]?.ToString() ?? "";
-        negative.Inputs["text"] = originalNeg + injection.Negative;
+        var originalNeg = negative.Text ?? "";
+        builder.SetInput(negative, "text", originalNeg + injection.Negative);
         Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
     }
 }
+
 
         
         // --- ENCODE ---
