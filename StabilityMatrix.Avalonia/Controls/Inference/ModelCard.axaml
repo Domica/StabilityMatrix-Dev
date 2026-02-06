@@ -65,7 +65,28 @@
                             IsVisible="{Binding !IsStandaloneModelLoader}"
                             ItemsSource="{Binding ClientManager.Models}"
                             SelectedItem="{Binding SelectedModel}"
-                            Theme="{StaticResource BetterComboBoxHybridModelTheme}" />
+                            Theme="{StaticResource BetterComboBoxHybridModelTheme}"
+                            ToolTip.Tip="{Binding ModelPickerTooltip}" />
+
+                        <TextBlock
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Margin="0,28,0,0"
+                            Foreground="#FFB000"
+                            FontSize="11"
+                            Text="⚠ Model not recommended for outpaint"
+                            IsHitTestVisible="False"
+                            IsVisible="{Binding ModelNotRecommendedForOutpaint}" />
+
+                        <TextBlock
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Margin="0,42,0,0"
+                            Foreground="#6CC644"
+                            FontSize="11"
+                            Text="{Binding AutoSuggestedModelHint}"
+                            IsHitTestVisible="False"
+                            IsVisible="{Binding ShowModelSwitchHint}" />
 
                         <controls:BetterComboBox
                             Grid.Row="0"
