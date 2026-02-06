@@ -292,16 +292,16 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     // Positive
     if (!string.IsNullOrWhiteSpace(injection.Positive))
     {
-        var originalText = prompt.Text ?? "";
-        builder.SetInput(prompt, "text", originalText + injection.Positive);
+        var originalText = prompt.Text.AsT0 ?? "";
+        builder.SetNodeInput(prompt, "text", originalText + injection.Positive);
         Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
     }
 
     // Negative
     if (!string.IsNullOrWhiteSpace(injection.Negative))
     {
-        var originalNeg = negative.Text ?? "";
-        builder.SetInput(negative, "text", originalNeg + injection.Negative);
+        var originalNeg = negative.Text.AsT0 ?? "";
+        builder.SetNodeInput(negative, "text", originalNeg + injection.Negative);
         Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
     }
 }
