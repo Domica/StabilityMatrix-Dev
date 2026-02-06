@@ -507,6 +507,48 @@ public partial class ModelCardViewModel(
 
     partial void OnSelectedUnetModelChanged(HybridModelFile? value) => OnSelectedModelChanged(value);
 
+    // ------------------------------------------------------------
+    //  Outpaint Model Recommendation Helpers
+    // ------------------------------------------------------------
+    private bool HasPoseCompletionBias(HybridModelFile model)
+    {
+        var name = (model.ShortDisplayName ?? model.RelativePath ?? string.Empty)
+            .ToLowerInvariant();
+
+        string[] risky =
+        [
+            "realistic vision v6",
+            "rv6",
+            "v6.0",
+            "hyper-inpaint",
+            "inpainting",
+            "b1"
+        ];
+
+        return risky.Any(name.Contains);
+    }
+
+    private HybridModelFile? FindRecommendedOutpaintModel()
+    {
+        var rv51 = ClientManager.Models
+            .FirstOrDefault(m =>
+                (m.ShortDisplayName ?? m.RelativePath ?? string.Empty)
+                    .Contains("Realistic Vision V5.1", StringComparison.InvariantCultureIgnoreCase)
+            );
+
+        if (rv51 is not null)
+            return rv51;
+
+        var rv5 = ClientManager.Models
+            .FirstOrDefault(m =>
+                (m.ShortDisplayName ?? m.RelativePath ?? string.Empty)
+                    .Contains("Realistic Vision V5", StringComparison.InvariantCultureIgnoreCase)
+            );
+
+        return rv5;
+    }
+
+
     private void SetupStandaloneModelLoader(ModuleApplyStepEventArgs e)
     {
         if (SelectedModelLoader is ModelLoader.Unet && IsGguf)
