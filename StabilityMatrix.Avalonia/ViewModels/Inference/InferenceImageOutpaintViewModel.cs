@@ -264,49 +264,50 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             CkptName = StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath ?? ""
         });
 
+        // Initialize prompt text variables
+        var positiveText = StackCardViewModel.GetCard<PromptCardViewModel>()?.PromptDocument.Text ?? "";
+        var negativeText = "";
+        
+        // === SMART OUTPAINT ASSIST ===
+        if (SmartOutpaintAssistEnabled)
+        {
+            // Create smart outpaint injection
+            var injection = PromptInjectionOutpaint.Build(
+                outpaintCard?.ExpandLeft ?? 0,
+                outpaintCard?.ExpandRight ?? 0,
+                outpaintCard?.ExpandTop ?? 0,
+                outpaintCard?.ExpandBottom ?? 0,
+                SmartOutpaintInjectionStrength
+            );
+
+            // Add injection to prompts
+            if (!string.IsNullOrWhiteSpace(injection.Positive))
+            {
+                positiveText = (positiveText + injection.Positive).Trim();
+                Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(injection.Negative))
+            {
+                negativeText = (negativeText + injection.Negative).Trim();
+                Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
+            }
+        }
+        
         // --- PROMPTS ---
         var prompt = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
         {
             Name = "PositivePrompt",
             Clip = checkpoint.Output2,
-            Text = StackCardViewModel.GetCard<PromptCardViewModel>()?.PromptDocument.Text ?? ""
+            Text = positiveText
         });
 
         var negative = nodes.AddTypedNode(new ComfyNodeBuilder.CLIPTextEncode
         {
             Name = "EmptyNeg",
             Clip = checkpoint.Output2,
-            Text = ""
+            Text = negativeText
         });
-    // === SMART OUTPAINT ASSIST ===
-    if (SmartOutpaintAssistEnabled)
-    {
-        var injection = PromptInjectionOutpaint.Build(
-            outpaintCard?.ExpandLeft ?? 0,
-            outpaintCard?.ExpandRight ?? 0,
-            outpaintCard?.ExpandTop ?? 0,
-            outpaintCard?.ExpandBottom ?? 0,
-            SmartOutpaintInjectionStrength
-        );
-
-    // Positive
-    if (!string.IsNullOrWhiteSpace(injection.Positive))
-    {
-        var originalText = prompt.Text.AsT0 ?? "";
-        builder.SetNodeInput(prompt, "text", originalText + injection.Positive);
-        Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
-    }
-
-    // Negative
-    if (!string.IsNullOrWhiteSpace(injection.Negative))
-    {
-        var originalNeg = negative.Text.AsT0 ?? "";
-        builder.SetNodeInput(negative, "text", originalNeg + injection.Negative);
-        Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
-    }
-}
-
-
         
         // --- ENCODE ---
         var vaeEncode = nodes.AddTypedNode(new ComfyNodeBuilder.VAEEncode
