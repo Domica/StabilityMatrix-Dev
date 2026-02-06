@@ -1,112 +1,140 @@
+using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
+using StabilityMatrix.Core.Models.Inference;
 
+namespace StabilityMatrix.Avalonia.Services;
 
-namespace StabilityMatrix.Avalonia.Services
+public static class PromptInjectionOutpaint
 {
-    public readonly struct OutpaintPromptInjection
+    public static void ApplyOutpaintPromptInjection(
+        GenerationParameters parameters,
+        string modelName,
+        ref string positivePrompt,
+        ref string negativePrompt)
     {
-        public string Positive { get; }
-        public string Negative { get; }
+        // 1) Pose suppression
+        var poseSuppression = GetPoseSuppression(parameters.OutpaintTop, parameters.OutpaintBottom);
 
-        public OutpaintPromptInjection(string positive, string negative)
-        {
-            Positive = positive;
-            Negative = negative;
-        }
+        // 2) Model-aware injection
+        var modelInjection = GetModelAwareInjection(modelName);
 
-        public static readonly OutpaintPromptInjection Empty = new("", "");
+        // 3) Scene-aware injection
+        var sceneInjection = GetSceneAwareInjection(
+            parameters.OutpaintLeft,
+            parameters.OutpaintRight,
+            parameters.OutpaintTop,
+            parameters.OutpaintBottom);
+
+        // 4) Strength-aware injection
+        var strengthInjection = GetStrengthAwareInjection(
+            parameters.SmartOutpaintInjectionStrength,
+            modelName);
+
+        // Build final positive
+        positivePrompt = string.Join(", ",
+            positivePrompt,
+            poseSuppression,
+            modelInjection.Positive,
+            sceneInjection.Positive,
+            strengthInjection.Positive
+        );
+
+        // Build final negative
+        negativePrompt = string.Join(", ",
+            negativePrompt,
+            poseSuppression,
+            modelInjection.Negative,
+            sceneInjection.Negative,
+            strengthInjection.Negative
+        );
     }
 
-    public static class PromptInjectionOutpaint
+    // ------------------------------------------------------------
+    //  POSE SUPPRESSION
+    // ------------------------------------------------------------
+    private static string GetPoseSuppression(int expandTop, int expandBottom)
     {
-        public static OutpaintPromptInjection Build(
-            int expandLeft,
-            int expandRight,
-            int expandTop,
-            int expandBottom,
-            double strength // 0.0 – 1.0
-        )
+        bool vertical = expandTop > 0 || expandBottom > 0;
+
+        if (vertical)
         {
-            if (strength <= 0.0)
-                return OutpaintPromptInjection.Empty;
-
-            var pos = new List<string>();
-            var neg = new List<string>();
-
-            // scale factor ovisno o veličini outpainta
-            var total = expandLeft + expandRight + expandTop + expandBottom;
-            var sizeFactor = total <= 0 ? 0.0 : Math.Clamp(total / 512.0, 0.25, 1.5);
-            var w = strength * sizeFactor; // ukupna “težina” injekcije
-
-            // helper za weight
-            string W(string text, double weight)
-                => weight == 0.0 ? text : $"{text}::{weight:0.##}";
-
-            bool down = expandBottom > 0;
-            bool up = expandTop > 0;
-            bool left = expandLeft > 0;
-            bool right = expandRight > 0;
-            bool horizontal = left || right;
-            bool vertical = up || down;
-
-            // DOLJE – noge, donji dio tijela
-            if (down)
-            {
-                pos.Add("full body continuation");
-                pos.Add("anatomically correct legs");
-                pos.Add("natural posture");
-                pos.Add("consistent proportions");
-
-                neg.Add(W("disfigured legs", -1.0 * w));
-                neg.Add(W("broken anatomy", -1.0 * w));
-                neg.Add(W("extra limbs", -1.2 * w));
-                neg.Add(W("distorted proportions", -0.8 * w));
-            }
-
-            // GORE – gornji dio tijela, glava
-            if (up)
-            {
-                pos.Add("upper body continuation");
-                pos.Add("head and shoulders");
-                pos.Add("natural anatomy");
-                pos.Add("consistent proportions");
-
-                neg.Add(W("deformed head", -1.0 * w));
-                neg.Add(W("broken neck", -1.0 * w));
-                neg.Add(W("extra faces", -1.2 * w));
-            }
-
-            // LIJEVO / DESNO – scena, pozadina
-            if (horizontal)
-            {
-                pos.Add("scene continuation");
-                pos.Add("consistent background");
-                pos.Add("matching lighting");
-                pos.Add("seamless environment");
-
-                neg.Add(W("mismatched lighting", -1.0 * w));
-                neg.Add(W("warped background", -1.0 * w));
-                neg.Add(W("duplicate objects", -1.0 * w));
-            }
-
-            // KOMBINACIJE – ako je sve, naglasi koherenciju
-            if (horizontal && vertical)
-            {
-                pos.Add("coherent composition");
-                pos.Add("consistent perspective");
-                pos.Add("seamless extension of the original image");
-
-                neg.Add(W("incoherent composition", -0.8 * w));
-                neg.Add(W("perspective distortion", -0.8 * w));
-            }
-
-            if (pos.Count == 0 && neg.Count == 0)
-                return OutpaintPromptInjection.Empty;
-
-            var positive = " " + string.Join(", ", pos.Distinct());
-            var negative = " " + string.Join(", ", neg.Distinct());
-
-            return new OutpaintPromptInjection(positive, negative);
+            return "avoid pose continuation, avoid extending limbs, avoid extending torso, avoid adding hands above head, avoid adding arms, disconnected limbs, extra arms, extra hands, incorrect anatomy";
         }
+
+        return "avoid pose continuation, avoid extending limbs, disconnected limbs, extra arms, extra hands";
+    }
+
+    // ------------------------------------------------------------
+    //  MODEL-AWARE INJECTION
+    // ------------------------------------------------------------
+    private static (string Positive, string Negative) GetModelAwareInjection(string modelName)
+    {
+        var name = modelName.ToLowerInvariant();
+
+        bool isRv6 =
+            name.Contains("v6") ||
+            name.Contains("hyper") ||
+            name.Contains("inpaint") ||
+            name.Contains("b1");
+
+        if (!isRv6)
+            return ("", "");
+
+        return (
+            Positive:
+                "avoid HDR contrast, avoid clarity boost, avoid stylized anatomy, maintain natural lighting, maintain original proportions",
+            Negative:
+                "HDR, overprocessed, oversharpened, extra limbs, pose completion, distorted anatomy"
+        );
+    }
+
+    // ------------------------------------------------------------
+    //  SCENE-AWARE INJECTION
+    // ------------------------------------------------------------
+    private static (string Positive, string Negative) GetSceneAwareInjection(
+        int left, int right, int top, int bottom)
+    {
+        bool horizontal = left > 0 || right > 0;
+        bool vertical = top > 0 || bottom > 0;
+
+        string pos = "";
+        string neg = "";
+
+        if (horizontal)
+        {
+            pos += "extend background, extend environment, match lighting, match perspective, seamless continuation";
+        }
+
+        if (vertical)
+        {
+            pos += ", extend composition, maintain proportions, avoid stretching body";
+            neg += ", distorted proportions, stretched anatomy";
+        }
+
+        return (pos, neg);
+    }
+
+    // ------------------------------------------------------------
+    //  STRENGTH-AWARE INJECTION
+    // ------------------------------------------------------------
+    private static (string Positive, string Negative) GetStrengthAwareInjection(
+        double strength,
+        string modelName)
+    {
+        var name = modelName.ToLowerInvariant();
+        bool isRv6 = name.Contains("v6") || name.Contains("hyper");
+
+        if (!isRv6)
+            return ("", "");
+
+        if (strength < 0.6)
+        {
+            return (
+                Positive: "strong scene continuation, strong composition preservation",
+                Negative: "pose completion, stylized anatomy"
+            );
+        }
+
+        return ("", "");
     }
 }
