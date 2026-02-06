@@ -226,6 +226,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var nodes = builder.Nodes;
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
+        var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
         
         if (selectImageCard?.ImageSource == null) return;
         selectImageCard.ApplyStep(args);
@@ -281,8 +282,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         // === SMART OUTPAINT ASSIST ===
         if (SmartOutpaintAssistEnabled)
         {
-            var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
-
             var injection = PromptInjectionOutpaint.Build(
                 outpaintCard?.ExpandLeft ?? 0,
                 outpaintCard?.ExpandRight ?? 0,
@@ -294,14 +293,16 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     // Append to positive prompt
     if (!string.IsNullOrWhiteSpace(injection.Positive))
     {
-        prompt.Text += injection.Positive;
+        var originalText = prompt.Inputs["text"]?.ToString() ?? "";
+        prompt.Inputs["text"] = originalText + injection.Positive;
         Console.WriteLine($"🧠 SmartOutpaintAssist Positive: {injection.Positive}");
     }
 
     // Append to negative prompt
     if (!string.IsNullOrWhiteSpace(injection.Negative))
     {
-        negative.Text += injection.Negative;
+        var originalNeg = negative.Inputs["text"]?.ToString() ?? "";
+        negative.Inputs["text"] = originalNeg + injection.Negative;
         Console.WriteLine($"🧠 SmartOutpaintAssist Negative: {injection.Negative}");
     }
 }
