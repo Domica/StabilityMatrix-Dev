@@ -30,17 +30,8 @@ public class InferenceWanImageToVideoViewModel : InferenceWanTextToVideoViewMode
         SamplerCardViewModel.Width = 512;
         SamplerCardViewModel.Height = 512;
 
-        // Wan 2.1 (1.3B/14B) -> true; Wan 2.2 (TI2V/5B/14B GGUF) -> false
-        var modelPath = ModelCardViewModel?.ModelPath ?? "";
-        if (!string.IsNullOrEmpty(modelPath) &&
-            (modelPath.Contains("2.2") || modelPath.Contains("GGUF") || modelPath.Contains("TI2V")))
-        {
-            ModelCardViewModel.IsClipVisionEnabled = false;
-        }
-        else
-        {
-            ModelCardViewModel.IsClipVisionEnabled = true;
-        }
+        // Wan 2.2 GGUF (5B/TI2V) does not need CLIP Vision; enable manually for Wan 2.1 if needed
+        ModelCardViewModel.IsClipVisionEnabled = false;
     }
 
     [JsonPropertyName("ImageLoader")]
