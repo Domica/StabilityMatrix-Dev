@@ -1,10 +1,10 @@
-name: Build SM (Windows) - MEM/MP4/ZIMG
+name: Build SM (Windows) - FULL_GGUF
 
 on:
   push:
-    branches: [ "mem_mp4_zimg" ]
+    branches: [ "FULL_GGUF" ]
   pull_request:
-    branches: [ "mem_mp4_zimg" ]
+    branches: [ "FULL_GGUF" ]
   workflow_dispatch:
 
 jobs:
