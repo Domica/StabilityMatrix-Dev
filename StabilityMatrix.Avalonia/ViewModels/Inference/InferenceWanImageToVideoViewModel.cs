@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Models;
@@ -30,7 +30,17 @@ public class InferenceWanImageToVideoViewModel : InferenceWanTextToVideoViewMode
         SamplerCardViewModel.Width = 512;
         SamplerCardViewModel.Height = 512;
 
-        ModelCardViewModel.IsClipVisionEnabled = true;
+        // Wan 2.1 (1.3B/14B) -> true; Wan 2.2 (TI2V/5B/14B GGUF) -> false
+        var modelName = ModelCardViewModel?.Model?.Name ?? "";
+        if (!string.IsNullOrEmpty(modelName) &&
+            (modelName.Contains("2.2") || modelName.Contains("TI2V") || modelName.Contains("GGUF")))
+        {
+            ModelCardViewModel.IsClipVisionEnabled = false;
+        }
+        else
+        {
+            ModelCardViewModel.IsClipVisionEnabled = true;
+        }
     }
 
     [JsonPropertyName("ImageLoader")]
