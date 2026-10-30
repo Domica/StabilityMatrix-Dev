@@ -31,9 +31,9 @@ public class InferenceWanImageToVideoViewModel : InferenceWanTextToVideoViewMode
         SamplerCardViewModel.Height = 512;
 
         // Wan 2.1 (1.3B/14B) -> true; Wan 2.2 (TI2V/5B/14B GGUF) -> false
-        var modelName = ModelCardViewModel?.Model?.Name ?? "";
-        if (!string.IsNullOrEmpty(modelName) &&
-            (modelName.Contains("2.2") || modelName.Contains("TI2V") || modelName.Contains("GGUF")))
+        var modelPath = ModelCardViewModel?.ModelPath ?? "";
+        if (!string.IsNullOrEmpty(modelPath) &&
+            (modelPath.Contains("2.2") || modelPath.Contains("GGUF") || modelPath.Contains("TI2V")))
         {
             ModelCardViewModel.IsClipVisionEnabled = false;
         }
