@@ -48,7 +48,10 @@
                             x:DataType="Tool"
                             CanClose="False"
                             Id="ConfigTool">
-                            <controls:StackCard DataContext="{ReflectionBinding ElementName=Dock, Path=DataContext.StackCardViewModel}" Opacity="1" />
+                            <StackPanel>
+                                <controls:StackCard DataContext="{ReflectionBinding ElementName=Dock, Path=DataContext.StackCardViewModel}" Opacity="1" />
+                                <CheckBox Content="Enable CLIP Vision (Wan 2.1)" IsChecked="{Binding ModelCardViewModel.IsClipVisionEnabled, Mode=TwoWay}" Margin="4,4,4,4"/>
+                            </StackPanel>
                         </Tool>
                     </ToolDock>
 

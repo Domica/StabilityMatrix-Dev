@@ -1,0 +1,29 @@
+  Determining projects to restore...
+  You must install or update .NET to run this application.
+  
+  App: C:\Users\domag\.nuget\packages\husky\0.7.2\tools\net9.0\any\Husky.dll
+  Architecture: x64
+  Framework: 'Microsoft.NETCore.App', version '9.0.0' (x64)
+  .NET location: C:\Program Files\dotnet\
+  
+  The following frameworks were found:
+    6.0.29 at [C:\Program Files\dotnet\shared\Microsoft.NETCore.App]
+    8.0.0 at [C:\Program Files\dotnet\shared\Microsoft.NETCore.App]
+    8.0.4 at [C:\Program Files\dotnet\shared\Microsoft.NETCore.App]
+    8.0.23 at [C:\Program Files\dotnet\shared\Microsoft.NETCore.App]
+    10.0.14 at [C:\Program Files\dotnet\shared\Microsoft.NETCore.App]
+  
+  Learn more:
+  https://aka.ms/dotnet/app-launch-failed
+  
+  To install missing framework, download:
+  https://aka.ms/dotnet-core-applaunch?framework=Microsoft.NETCore.App&framework_version=9.0.0&arch=x64&rid=win-x64&os=win10
+E:\StabilityMatrix-GIT\StabilityMatrix.Avalonia\StabilityMatrix.Avalonia.csproj(282,9): error MSB3073: The command "dotnet husky install" exited with code -2147450730.
+
+Build FAILED.
+
+E:\StabilityMatrix-GIT\StabilityMatrix.Avalonia\StabilityMatrix.Avalonia.csproj(282,9): error MSB3073: The command "dotnet husky install" exited with code -2147450730.
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:03.46
