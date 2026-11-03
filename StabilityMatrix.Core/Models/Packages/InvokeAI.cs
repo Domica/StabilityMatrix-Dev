@@ -43,7 +43,7 @@ public class InvokeAI(
     public override PackageDifficulty InstallerSortOrder => PackageDifficulty.Advanced;
 
     public override Uri PreviewImageUri =>
-        new("https://raw.githubusercontent.com/invoke-ai/InvokeAI/main/docs/assets/canvas_preview.png");
+        new("https://raw.githubusercontent.com/invoke-ai/InvokeAI/main/docs/public/coverimage.png");
 
     public override IEnumerable<SharedFolderMethod> AvailableSharedFolderMethods =>
         [SharedFolderMethod.None, SharedFolderMethod.Configuration];
