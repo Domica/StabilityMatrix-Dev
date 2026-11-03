@@ -57,6 +57,11 @@ public partial class InferencePage : UserControlBase
         }
     }
 
+    private void AddTabMenu_Wan2ImgToVideo_OnClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as InferenceViewModel)!.AddTabCommand.Execute(InferenceProjectType.Wan2ImageToVideo);
+    }
+
     private void AddTabMenu_ImgToVideo_OnClick(object? sender, RoutedEventArgs e)
     {
         (DataContext as InferenceViewModel)!.AddTabCommand.Execute(InferenceProjectType.ImageToVideo);

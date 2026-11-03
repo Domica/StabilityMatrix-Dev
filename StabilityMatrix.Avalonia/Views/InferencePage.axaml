@@ -88,6 +88,14 @@
                     </ui:CommandBarButton.IconSource>
                 </ui:CommandBarButton>
                 <ui:CommandBarButton
+                    Click="AddTabMenu_Wan2ImgToVideo_OnClick"
+                    Label="Wan 2.2 Image to Video"
+                    ToolTip.Tip="Wan 2.2 Image to Video">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="VideoAdd" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
                     Click="AddTabMenu_ImgToVideo_OnClick"
                     Label="SVD Image to Video"
                     ToolTip.Tip="SVD Image to Video">
