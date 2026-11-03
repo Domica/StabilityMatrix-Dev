@@ -11,11 +11,11 @@ using StabilityMatrix.Core.Services;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
-[View(typeof(InferenceWanImageToVideoView), IsPersistent = true)]
-[RegisterScoped<InferenceWanImageToVideoViewModel>, ManagedService]
+[View(typeof(InferenceWan2ImageToVideoView), IsPersistent = true)]
+[RegisterScoped<InferenceWan2ImageToVideoViewModel>, ManagedService]
 public class InferenceWan2ImageToVideoViewModel : InferenceWanTextToVideoViewModel
 {
-    public InferenceWanImageToVideoViewModel(
+    public InferenceWan2ImageToVideoViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager inferenceClientManager,
         INotificationService notificationService,

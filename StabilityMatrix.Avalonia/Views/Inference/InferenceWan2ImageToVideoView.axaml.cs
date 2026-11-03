@@ -6,7 +6,7 @@ namespace StabilityMatrix.Avalonia.Views.Inference;
 [RegisterTransient<InferenceWan2ImageToVideoView>]
 public partial class InferenceWan2ImageToVideoView : DockUserControlBase
 {
-    public InferenceWanImageToVideoView()
+    public InferenceWan2ImageToVideoView()
     {
         InitializeComponent();
     }
