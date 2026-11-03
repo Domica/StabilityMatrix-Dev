@@ -30,7 +30,7 @@ public class InferenceWanImageToVideoViewModel : InferenceWanTextToVideoViewMode
         SamplerCardViewModel.Width = 512;
         SamplerCardViewModel.Height = 512;
 
-        ModelCardViewModel.IsClipVisionEnabled = true;
+        ModelCardViewModel.IsClipVisionEnabled = false;
     }
 
     [JsonPropertyName("ImageLoader")]
