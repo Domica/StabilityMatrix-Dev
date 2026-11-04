@@ -407,7 +407,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Scheduler = "karras",
                 Positive = prompt.Output,
                 Negative = negative.Output,
-                LatentImage = vaeEncode.Output,
+                LatentImage = routerOut.GetOutput<LatentNodeConnection>(0),
                 Denoise = denoiseStrength,
             }
         );
@@ -428,7 +428,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var realPhotoDetector = new ComfyNode
             {
                 ClassType = "RealPhotoDetectorCNN",
-                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
+                Inputs = new Dictionary<string, object?> { ["image"] = builder.GetPrimaryAsImage().Data },
             }.ToNamedNode("RealPhotoDetector");
 
             var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
@@ -454,7 +454,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var styleFingerprint = new ComfyNode
             {
                 ClassType = "StyleFingerprintExtractorV2",
-                Inputs = new Dictionary<string, object?> { ["caption"] = florenceCaption.Data },
+                Inputs = new Dictionary<string, object?> { ["latent"] = vaeEncode.Output.Data },
             }.ToNamedNode("StyleFingerprint");
 
             var styleOut = nodes.AddNamedNode(styleFingerprint);
