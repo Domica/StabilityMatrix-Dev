@@ -419,6 +419,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             // =========================================================
 
             // --- REAL PHOTO DETECTOR (CNN) ---
+            // Outputs: is_real_photo (BOOL), confidence (FLOAT), description (STRING)
             var realPhotoDetector = new ComfyNode
             {
                 ClassType = "RealPhotoDetectorCNN",
@@ -426,11 +427,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("RealPhotoDetector");
 
             var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
-            // realPhotoOut.Output1 = is_real_photo (BOOLEAN)
-            // realPhotoOut.Output2 = confidence (FLOAT)
-            // realPhotoOut.Output3 = description (STRING)
+            var realPhotoBool = realPhotoOut.GetOutput<StringNodeConnection>(0);
+            var realPhotoConf = realPhotoOut.GetOutput<StringNodeConnection>(1);
+            var realPhotoDesc = realPhotoOut.GetOutput<StringNodeConnection>(2);
 
             // --- FLORENCE-2 INTERROGATE (auto image captioning) ---
+            // Output: caption (STRING)
             var florenceInterrogate = new ComfyNode
             {
                 ClassType = "florence2_interrogate",
@@ -438,27 +440,30 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("FlorenceInterrogate");
 
             var florenceOut = nodes.AddNamedNode(florenceInterrogate);
-            // florenceOut.Output1 = caption (STRING)
+            var florenceCaption = florenceOut.GetOutput<StringNodeConnection>(0);
 
             // --- STYLE FINGERPRINT EXTRACTOR ---
+            // Output: style_fingerprint (STRING)
             var styleFingerprint = new ComfyNode
             {
                 ClassType = "StyleFingerprintExtractorV2",
-                Inputs = new Dictionary<string, object?> { ["caption"] = florenceOut.Output1 },
+                Inputs = new Dictionary<string, object?> { ["caption"] = florenceCaption },
             }.ToNamedNode("StyleFingerprint");
 
             var styleOut = nodes.AddNamedNode(styleFingerprint);
-            // styleOut.Output1 = style_fingerprint (STRING)
+            var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
 
             // --- CONDITIONAL OUTPAINT ROUTER PRO ---
+            // Outputs: routed_latent (LATENT), routed_mask (MASK), direction_score (FLOAT),
+            // outpaint_direction (INT), auto_room (BOOL), balanced_mode (STRING)
             var router = new ComfyNode
             {
                 ClassType = "ConditionalOutpaintRouterPRO",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["latent"] = vaeEncode.Output,
-                    ["is_real_photo"] = realPhotoOut.Output1,
-                    ["photo_confidence"] = realPhotoOut.Output2,
+                    ["is_real_photo"] = realPhotoBool,
+                    ["photo_confidence"] = realPhotoConf,
                     ["router_profile"] = "",
                     ["router_horizon"] = 0.0,
                     ["router_water"] = 0.0,
@@ -470,12 +475,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("ConditionalRouter");
 
             var routerOut = nodes.AddNamedNode(router);
-            // routerOut.Output1 = routed_latent (LATENT)
-            // routerOut.Output2 = routed_mask (MASK)
-            // routerOut.Output3 = direction_score (FLOAT)
-            // routerOut.Output4 = outpaint_direction (INT)
-            // routerOut.Output5 = auto_room (BOOLEAN)
-            // routerOut.Output6 = balanced_mode (STRING)
+            var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0);
+            var routerMask = routerOut.GetOutput<ImageMaskConnection>(1);
+            var routerDirectionScore = routerOut.GetOutput<StringNodeConnection>(2);
+            var routerOutpaintDir = routerOut.GetOutput<StringNodeConnection>(3);
+            var routerAutoRoom = routerOut.GetOutput<StringNodeConnection>(4);
+            var routerBalancedMode = routerOut.GetOutput<StringNodeConnection>(5);
 
             // --- ADVANCED OUTPAINT COMPOSITE V95 ---
             var compositeNode = new ComfyNode
@@ -485,21 +490,21 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 {
                     ["original"] = vaeEncode.Output,
                     ["generated"] = sampler.Output,
-                    ["mask"] = routerOut.Output2,
+                    ["mask"] = routerMask,
                     ["feathering"] = feathering,
                     ["sharpen_strength"] = 0.15,
                     ["exposure_blend"] = 0.85,
                     ["invert_mask"] = false,
-                    ["style_fingerprint"] = styleOut.Output1,
-                    ["direction_score"] = routerOut.Output3,
-                    ["outpaint_direction"] = routerOut.Output4,
-                    ["auto_room"] = routerOut.Output5,
-                    ["balanced_mode"] = routerOut.Output6,
+                    ["style_fingerprint"] = styleFingerprintOut,
+                    ["direction_score"] = routerDirectionScore,
+                    ["outpaint_direction"] = routerOutpaintDir,
+                    ["auto_room"] = routerAutoRoom,
+                    ["balanced_mode"] = routerBalancedMode,
                 },
             }.ToNamedNode("CompositeV95");
 
             var compositeOutput = nodes.AddNamedNode(compositeNode);
-            // compositeOutput.Output1 = composite_latent (LATENT)
+            var compositeLatent = compositeOutput.GetOutput<LatentNodeConnection>(0);
 
             // --- REAL PHOTO POST FIXER V3 ---
             var photoFixer = new ComfyNode
@@ -507,15 +512,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "RealPhotoPostFixerV3",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["latent"] = compositeOutput.Output1,
-                    ["is_real_photo"] = realPhotoOut.Output1,
-                    ["photo_confidence"] = realPhotoOut.Output2,
-                    ["description"] = florenceOut.Output1,
+                    ["latent"] = compositeLatent,
+                    ["is_real_photo"] = realPhotoBool,
+                    ["photo_confidence"] = realPhotoConf,
+                    ["description"] = florenceCaption,
                 },
             }.ToNamedNode("PhotoFixer");
 
             var fixerOut = nodes.AddNamedNode(photoFixer);
-            // fixerOut.Output1 = fixed_latent (LATENT)
+            var fixedLatent = fixerOut.GetOutput<LatentNodeConnection>(0);
 
             // --- LT TILED VAE DECODE ---
             var vaeDecode = new ComfyNode
@@ -523,19 +528,19 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "LTTiledVAEDecode",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["samples"] = fixerOut.Output1,
+                    ["samples"] = fixedLatent,
                     ["vae"] = checkpoint.Output3,
                 },
             }.ToNamedNode("LT-Tiled-VAEDecode");
 
             var decodeOut = nodes.AddNamedNode(vaeDecode);
-            // decodeOut.Output1 = decoded_image (IMAGE)
+            var decodedImage = decodeOut.GetOutput<ImageNodeConnection>(0);
 
-            builder.Connections.Primary = decodeOut.Output1;
+            builder.Connections.Primary = decodedImage;
 
             // --- PREVIEW ---
             var preview = nodes.AddTypedNode(
-                new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = decodeOut.Output1 }
+                new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = decodedImage }
             );
 
             builder.Connections.OutputNodes.Add(preview);
