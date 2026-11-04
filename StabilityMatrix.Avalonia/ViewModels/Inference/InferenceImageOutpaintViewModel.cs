@@ -528,8 +528,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "LTTiledVAEDecode",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["samples"] = fixedLatent,
+                    ["latents"] = fixedLatent,
                     ["vae"] = checkpoint.Output3,
+                    ["horizontal_tiles"] = 2,
+                    ["vertical_tiles"] = 2,
+                    ["overlap"] = 2,
+                    ["last_frame_fix"] = false,
                 },
             }.ToNamedNode("LT-Tiled-VAEDecode");
 
