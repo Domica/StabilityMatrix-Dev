@@ -454,29 +454,30 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
 
             // --- CONDITIONAL OUTPAINT ROUTER PRO ---
-            // Outputs: routed_latent (LATENT), routed_mask (MASK), direction_score (FLOAT),
-            // outpaint_direction (INT), auto_room (BOOL), balanced_mode (STRING)
+            // Outputs: routed_latent (LATENT), direction_score (FLOAT), outpaint_direction (INT),
+            // auto_room (BOOL), balanced_mode (STRING)
             var router = new ComfyNode
             {
                 ClassType = "ConditionalOutpaintRouterPRO",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["latent"] = vaeEncode.Output,
-                    ["is_real_photo"] = realPhotoBool,
-                    ["photo_confidence"] = realPhotoConf,
-                    ["router_profile"] = "",
-                    ["router_horizon"] = 0.0,
-                    ["router_water"] = 0.0,
-                    ["router_beach"] = 0.0,
-                    ["router_is_photo"] = false,
-                    ["router_outpaint_dir"] = "AUTO",
-                    ["fast_ai_boost"] = true,
+                    ["encoded_latent"] = vaeEncode.Output,
+                    ["mask"] = outpaintMask,
+                    ["original_latent"] = vaeEncode.Output,
+                    ["style_fingerprint"] = styleFingerprintOut,
+                    ["is_photo"] = realPhotoBool,
+                    ["photo_score"] = realPhotoConf,
+                    ["model_name"] = "",
+                    ["profile_hint"] = "",
+                    ["debug_mode"] = false,
+                    ["seamless_outpaint_mode"] = false,
+                    ["cnn_score"] = realPhotoConf,
+                    ["cnn_reason"] = realPhotoDesc,
                 },
             }.ToNamedNode("ConditionalRouter");
 
             var routerOut = nodes.AddNamedNode(router);
             var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0);
-            var routerMask = routerOut.GetOutput<ImageMaskConnection>(1);
             var routerDirectionScore = routerOut.GetOutput<StringNodeConnection>(2);
             var routerOutpaintDir = routerOut.GetOutput<StringNodeConnection>(3);
             var routerAutoRoom = routerOut.GetOutput<StringNodeConnection>(4);
@@ -490,16 +491,29 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 {
                     ["original"] = vaeEncode.Output,
                     ["generated"] = sampler.Output,
-                    ["mask"] = routerMask,
-                    ["feathering"] = feathering,
-                    ["sharpen_strength"] = 0.15,
+                    ["mask"] = outpaintMask,
+                    ["feather_radius"] = feathering,
                     ["exposure_blend"] = 0.85,
-                    ["invert_mask"] = false,
-                    ["style_fingerprint"] = styleFingerprintOut,
-                    ["direction_score"] = routerDirectionScore,
-                    ["outpaint_direction"] = routerOutpaintDir,
-                    ["auto_room"] = routerAutoRoom,
-                    ["balanced_mode"] = routerBalancedMode,
+                    ["cinematic_intensity"] = 1.0,
+                    ["bleed_strength"] = 1.0,
+                    ["blur_strength"] = 1.0,
+                    ["is_photo"] = realPhotoBool,
+                    ["real_photo_mode"] = "SAFE",
+                    ["denoise"] = denoiseStrength,
+                    ["debug_mode"] = false,
+                    ["seamless_outpaint_mode"] = false,
+                    ["auto_feather_enabled"] = false,
+                    ["auto_invert_enabled"] = false,
+                    ["preserve_enabled"] = false,
+                    ["structure_enabled"] = false,
+                    ["harmonize_enabled"] = false,
+                    ["anti_mirror_enabled"] = false,
+                    ["colormatch_enabled"] = false,
+                    ["smartclamp_enabled"] = false,
+                    ["pro_mode"] = "",
+                    ["zero_diff_enabled"] = false,
+                    ["ai_boost_enabled"] = false,
+                    ["real_photo_safe_enabled"] = false,
                 },
             }.ToNamedNode("CompositeV95");
 
@@ -513,9 +527,41 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Inputs = new Dictionary<string, object?>
                 {
                     ["latent"] = compositeLatent,
-                    ["is_real_photo"] = realPhotoBool,
-                    ["photo_confidence"] = realPhotoConf,
-                    ["description"] = florenceCaption,
+                    ["original_latent"] = vaeEncode.Output,
+                    ["vae"] = checkpoint.Output3,
+                    ["outpaint_mask"] = outpaintMask,
+                    ["is_photo"] = realPhotoBool,
+                    ["auto_profile"] = false,
+                    ["profile_name"] = "",
+                    ["outpaint_dir"] = "",
+                    ["enable_luma_match"] = false,
+                    ["enable_color_match"] = false,
+                    ["enable_texture_match"] = false,
+                    ["enable_grain_match"] = false,
+                    ["enable_lens_profile"] = false,
+                    ["luma_strength"] = 1.0,
+                    ["color_strength"] = 1.0,
+                    ["texture_strength"] = 1.0,
+                    ["grain_strength"] = 1.0,
+                    ["lens_softness"] = 1.0,
+                    ["sensor_emulation"] = false,
+                    ["chromatic_aberration"] = false,
+                    ["vignette_strength"] = 0.0,
+                    ["pre_sharpen"] = false,
+                    ["sharpen_radius"] = 1.0,
+                    ["sharpen_amount"] = 1.0,
+                    ["sharpen_threshold"] = 0.0,
+                    ["auto_fix_for_ai"] = false,
+                    ["force_real_photo"] = false,
+                    ["cnn_score"] = realPhotoConf,
+                    ["auto_ai_real"] = false,
+                    ["ai_mode_strength"] = 1.0,
+                    ["ai_enhance_mode"] = false,
+                    ["disable_fixer_on_outpaint"] = false,
+                    ["fix_only_original_region"] = false,
+                    ["minimal_luma_match_mode"] = false,
+                    ["debug_mode"] = false,
+                    ["force_tiled"] = false,
                 },
             }.ToNamedNode("PhotoFixer");
 
