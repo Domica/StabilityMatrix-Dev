@@ -423,7 +423,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var realPhotoDetector = new ComfyNode
             {
                 ClassType = "RealPhotoDetectorCNN",
-                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage },
+                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
             }.ToNamedNode("RealPhotoDetector");
 
             var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
@@ -436,7 +436,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var florenceInterrogate = new ComfyNode
             {
                 ClassType = "florence2_interrogate",
-                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage },
+                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
             }.ToNamedNode("FlorenceInterrogate");
 
             var florenceOut = nodes.AddNamedNode(florenceInterrogate);
@@ -447,7 +447,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var styleFingerprint = new ComfyNode
             {
                 ClassType = "StyleFingerprintExtractorV2",
-                Inputs = new Dictionary<string, object?> { ["caption"] = florenceCaption },
+                Inputs = new Dictionary<string, object?> { ["caption"] = florenceCaption.Data },
             }.ToNamedNode("StyleFingerprint");
 
             var styleOut = nodes.AddNamedNode(styleFingerprint);
@@ -461,18 +461,18 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "ConditionalOutpaintRouterPRO",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["encoded_latent"] = vaeEncode.Output,
-                    ["mask"] = outpaintMask,
-                    ["original_latent"] = vaeEncode.Output,
-                    ["style_fingerprint"] = styleFingerprintOut,
-                    ["is_photo"] = realPhotoBool,
-                    ["photo_score"] = realPhotoConf,
+                    ["encoded_latent"] = vaeEncode.Output.Data,
+                    ["mask"] = outpaintMask.Data,
+                    ["original_latent"] = vaeEncode.Output.Data,
+                    ["style_fingerprint"] = styleFingerprintOut.Data,
+                    ["is_photo"] = realPhotoBool.Data,
+                    ["photo_score"] = realPhotoConf.Data,
                     ["model_name"] = "",
                     ["profile_hint"] = "",
                     ["debug_mode"] = false,
                     ["seamless_outpaint_mode"] = false,
-                    ["cnn_score"] = realPhotoConf,
-                    ["cnn_reason"] = realPhotoDesc,
+                    ["cnn_score"] = realPhotoConf.Data,
+                    ["cnn_reason"] = realPhotoDesc.Data,
                 },
             }.ToNamedNode("ConditionalRouter");
 
@@ -489,15 +489,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "AdvancedOutpaintCompositeV95Universal",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = vaeEncode.Output,
-                    ["generated"] = sampler.Output,
-                    ["mask"] = outpaintMask,
+                    ["original"] = vaeEncode.Output.Data,
+                    ["generated"] = sampler.Output.Data,
+                    ["mask"] = outpaintMask.Data,
                     ["feather_radius"] = feathering,
                     ["exposure_blend"] = 0.85,
                     ["cinematic_intensity"] = 1.0,
                     ["bleed_strength"] = 1.0,
                     ["blur_strength"] = 1.0,
-                    ["is_photo"] = realPhotoBool,
+                    ["is_photo"] = realPhotoBool.Data,
                     ["real_photo_mode"] = "SAFE",
                     ["denoise"] = denoiseStrength,
                     ["debug_mode"] = false,
@@ -526,11 +526,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "RealPhotoPostFixerV3",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["latent"] = compositeLatent,
-                    ["original_latent"] = vaeEncode.Output,
-                    ["vae"] = checkpoint.Output3,
-                    ["outpaint_mask"] = outpaintMask,
-                    ["is_photo"] = realPhotoBool,
+                    ["latent"] = compositeLatent.Data,
+                    ["original_latent"] = vaeEncode.Output.Data,
+                    ["vae"] = checkpoint.Output3.Data,
+                    ["outpaint_mask"] = outpaintMask.Data,
+                    ["is_photo"] = realPhotoBool.Data,
                     ["auto_profile"] = false,
                     ["profile_name"] = "",
                     ["outpaint_dir"] = "",
@@ -553,7 +553,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                     ["sharpen_threshold"] = 0.0,
                     ["auto_fix_for_ai"] = false,
                     ["force_real_photo"] = false,
-                    ["cnn_score"] = realPhotoConf,
+                    ["cnn_score"] = realPhotoConf.Data,
                     ["auto_ai_real"] = false,
                     ["ai_mode_strength"] = 1.0,
                     ["ai_enhance_mode"] = false,
@@ -574,8 +574,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "LTTiledVAEDecode",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["latents"] = fixedLatent,
-                    ["vae"] = checkpoint.Output3,
+                    ["latents"] = fixedLatent.Data,
+                    ["vae"] = checkpoint.Output3.Data,
                     ["horizontal_tiles"] = 2,
                     ["vertical_tiles"] = 2,
                     ["overlap"] = 2,
@@ -586,11 +586,15 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var decodeOut = nodes.AddNamedNode(vaeDecode);
             var decodedImage = decodeOut.GetOutput<ImageNodeConnection>(0);
 
-            builder.Connections.Primary = decodedImage;
+            builder.Connections.Primary = new ImageNodeConnection { Data = decodedImage.Data };
 
             // --- PREVIEW ---
             var preview = nodes.AddTypedNode(
-                new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = decodedImage }
+                new ComfyNodeBuilder.PreviewImage
+                {
+                    Name = "PreviewNode",
+                    Images = new ImageNodeConnection { Data = decodedImage.Data },
+                }
             );
 
             builder.Connections.OutputNodes.Add(preview);
@@ -609,9 +613,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ClassType = "AdvancedOutpaintLatentComposite",
                 Inputs = new Dictionary<string, object?>
                 {
-                    ["original"] = vaeEncode.Output,
-                    ["generated"] = sampler.Output,
-                    ["mask"] = outpaintMask,
+                    ["original"] = vaeEncode.Output.Data,
+                    ["generated"] = sampler.Output.Data,
+                    ["mask"] = outpaintMask.Data,
                     ["feathering"] = feathering,
                     ["sharpen_strength"] = 0.15,
                     ["exposure_blend"] = 0.85,
