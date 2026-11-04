@@ -414,7 +414,139 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         try
         {
-            // --- PRO COMPOSITE ---
+            // =========================================================
+            // COMPLEX WORKFLOW: Matches user's tested OUTPAINT PERFECTION workflow
+            // =========================================================
+
+            // --- REAL PHOTO DETECTOR (CNN) ---
+            var realPhotoDetector = new ComfyNode
+            {
+                ClassType = "RealPhotoDetectorCNN",
+                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage },
+            }.ToNamedNode("RealPhotoDetector");
+
+            var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
+            // realPhotoOut.Output1 = is_real_photo (BOOLEAN)
+            // realPhotoOut.Output2 = confidence (FLOAT)
+            // realPhotoOut.Output3 = description (STRING)
+
+            // --- FLORENCE-2 INTERROGATE (auto image captioning) ---
+            var florenceInterrogate = new ComfyNode
+            {
+                ClassType = "florence2_interrogate",
+                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage },
+            }.ToNamedNode("FlorenceInterrogate");
+
+            var florenceOut = nodes.AddNamedNode(florenceInterrogate);
+            // florenceOut.Output1 = caption (STRING)
+
+            // --- STYLE FINGERPRINT EXTRACTOR ---
+            var styleFingerprint = new ComfyNode
+            {
+                ClassType = "StyleFingerprintExtractorV2",
+                Inputs = new Dictionary<string, object?> { ["caption"] = florenceOut.Output1 },
+            }.ToNamedNode("StyleFingerprint");
+
+            var styleOut = nodes.AddNamedNode(styleFingerprint);
+            // styleOut.Output1 = style_fingerprint (STRING)
+
+            // --- CONDITIONAL OUTPAINT ROUTER PRO ---
+            var router = new ComfyNode
+            {
+                ClassType = "ConditionalOutpaintRouterPRO",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["latent"] = vaeEncode.Output,
+                    ["is_real_photo"] = realPhotoOut.Output1,
+                    ["photo_confidence"] = realPhotoOut.Output2,
+                    ["router_profile"] = "",
+                    ["router_horizon"] = 0.0,
+                    ["router_water"] = 0.0,
+                    ["router_beach"] = 0.0,
+                    ["router_is_photo"] = false,
+                    ["router_outpaint_dir"] = "AUTO",
+                    ["fast_ai_boost"] = true,
+                },
+            }.ToNamedNode("ConditionalRouter");
+
+            var routerOut = nodes.AddNamedNode(router);
+            // routerOut.Output1 = routed_latent (LATENT)
+            // routerOut.Output2 = routed_mask (MASK)
+            // routerOut.Output3 = direction_score (FLOAT)
+            // routerOut.Output4 = outpaint_direction (INT)
+            // routerOut.Output5 = auto_room (BOOLEAN)
+            // routerOut.Output6 = balanced_mode (STRING)
+
+            // --- ADVANCED OUTPAINT COMPOSITE V95 ---
+            var compositeNode = new ComfyNode
+            {
+                ClassType = "AdvancedOutpaintCompositeV95Universal",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["original"] = vaeEncode.Output,
+                    ["generated"] = sampler.Output,
+                    ["mask"] = routerOut.Output2,
+                    ["feathering"] = feathering,
+                    ["sharpen_strength"] = 0.15,
+                    ["exposure_blend"] = 0.85,
+                    ["invert_mask"] = false,
+                    ["style_fingerprint"] = styleOut.Output1,
+                    ["direction_score"] = routerOut.Output3,
+                    ["outpaint_direction"] = routerOut.Output4,
+                    ["auto_room"] = routerOut.Output5,
+                    ["balanced_mode"] = routerOut.Output6,
+                },
+            }.ToNamedNode("CompositeV95");
+
+            var compositeOutput = nodes.AddNamedNode(compositeNode);
+            // compositeOutput.Output1 = composite_latent (LATENT)
+
+            // --- REAL PHOTO POST FIXER V3 ---
+            var photoFixer = new ComfyNode
+            {
+                ClassType = "RealPhotoPostFixerV3",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["latent"] = compositeOutput.Output1,
+                    ["is_real_photo"] = realPhotoOut.Output1,
+                    ["photo_confidence"] = realPhotoOut.Output2,
+                    ["description"] = florenceOut.Output1,
+                },
+            }.ToNamedNode("PhotoFixer");
+
+            var fixerOut = nodes.AddNamedNode(photoFixer);
+            // fixerOut.Output1 = fixed_latent (LATENT)
+
+            // --- LT TILED VAE DECODE ---
+            var vaeDecode = new ComfyNode
+            {
+                ClassType = "LTTiledVAEDecode",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["samples"] = fixerOut.Output1,
+                    ["vae"] = checkpoint.Output3,
+                },
+            }.ToNamedNode("LT-Tiled-VAEDecode");
+
+            var decodeOut = nodes.AddNamedNode(vaeDecode);
+            // decodeOut.Output1 = decoded_image (IMAGE)
+
+            builder.Connections.Primary = decodeOut.Output1;
+
+            // --- PREVIEW ---
+            var preview = nodes.AddTypedNode(
+                new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = decodeOut.Output1 }
+            );
+
+            builder.Connections.OutputNodes.Add(preview);
+
+            Console.WriteLine("✅ Using complex OUTPAINT PERFECTION workflow");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Falling back to standard composite: {ex.Message}");
+
+            // --- FALLBACK (original simple workflow) ---
             var compositeNode = new NamedComfyNode<LatentNodeConnection>(
                 "AdvancedOutpaintLatentCompositeNode"
             )
@@ -434,52 +566,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
             var compositeOutput = nodes.AddNamedNode(compositeNode);
 
-            // --- DECODE ---
             var vaeDecode = nodes.AddTypedNode(
                 new ComfyNodeBuilder.VAEDecode
                 {
                     Name = "VAEDecodeNode",
                     Samples = compositeOutput.Output,
-                    Vae = checkpoint.Output3,
-                }
-            );
-
-            builder.Connections.Primary = vaeDecode.Output;
-
-            // --- PREVIEW ---
-            var preview = nodes.AddTypedNode(
-                new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = vaeDecode.Output }
-            );
-
-            builder.Connections.OutputNodes.Add(preview);
-
-            Console.WriteLine("✅ Using AdvancedOutpaintLatentComposite workflow");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"⚠️ Falling back to LatentComposite: {ex.Message}");
-
-            // --- FALLBACK ---
-            var fallbackNode = new NamedComfyNode<LatentNodeConnection>("LatentCompositeNode")
-            {
-                ClassType = "LatentComposite",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["samples_from"] = vaeEncode.Output,
-                    ["samples_to"] = sampler.Output,
-                    ["x"] = 0,
-                    ["y"] = 0,
-                    ["feather"] = feathering,
-                },
-            };
-
-            var fallbackOutput = nodes.AddNamedNode(fallbackNode);
-
-            var vaeDecode = nodes.AddTypedNode(
-                new ComfyNodeBuilder.VAEDecode
-                {
-                    Name = "VAEDecodeNode",
-                    Samples = fallbackOutput.Output,
                     Vae = checkpoint.Output3,
                 }
             );
