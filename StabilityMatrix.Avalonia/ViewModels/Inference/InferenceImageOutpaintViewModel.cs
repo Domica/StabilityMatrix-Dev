@@ -523,7 +523,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             // --- REAL PHOTO POST FIXER V3 ---
             var photoFixer = new ComfyNode
             {
-                ClassType = "RealPhotoPostFixer",
+                ClassType = "RealPhotoPostFixerV3",
                 Inputs = new Dictionary<string, object?>
                 {
                     ["latent"] = compositeLatent.Data,
