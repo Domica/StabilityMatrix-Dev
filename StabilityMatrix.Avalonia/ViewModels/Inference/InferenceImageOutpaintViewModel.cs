@@ -424,15 +424,18 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             );
 
             // --- REAL PHOTO DETECTOR (CNN) ---
-            // Omit CLIP/RealPhoto detector node entirely if weights are missing/corrupt.
-            // Default to AI-generated (false) so the rest of the complex pipeline still runs.
-            var realPhotoBool = new StringNodeConnection { Data = new[] { "false" } };
-            var realPhotoConf = new StringNodeConnection { Data = new[] { "0.0" } };
-            var realPhotoDesc = new StringNodeConnection { Data = new[] { "" } };
+            // Outputs: is_real_photo (BOOL), confidence (FLOAT), description (STRING)
+            var realPhotoDetector = new ComfyNode
+            {
+                ClassType = "RealPhotoDetectorCNN",
+                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
+            }.ToNamedNode("RealPhotoDetector");
 
-            Console.WriteLine(
-                $"   ⚠️ RealPhotoDetectorCNN weights missing — defaulting to AI-generated (is_real_photo=false)"
-            );
+            var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
+            Console.WriteLine($"   ✅ RealPhotoDetectorCNN node created: {realPhotoOut.Name}");
+            var realPhotoBool = realPhotoOut.GetOutput<StringNodeConnection>(0);
+            var realPhotoConf = realPhotoOut.GetOutput<StringNodeConnection>(1);
+            var realPhotoDesc = realPhotoOut.GetOutput<StringNodeConnection>(2);
 
             // --- FLORENCE-2 INTERROGATE (auto image captioning) ---
             // Output: caption (STRING)
