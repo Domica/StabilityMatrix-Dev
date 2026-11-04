@@ -418,6 +418,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             // COMPLEX WORKFLOW: Matches user's tested OUTPAINT PERFECTION workflow
             // =========================================================
 
+            Console.WriteLine($"📦 Building complex OUTPAINT workflow:");
+            Console.WriteLine(
+                $"   Nodes to build: RealPhotoDetectorCNN, Florence2, StyleFingerprintExtractorV2, ConditionalOutpaintRouterPRO, AdvancedOutpaintCompositeV95Universal, RealPhotoPostFixerV3, LTTiledVAEDecode"
+            );
+
             // --- REAL PHOTO DETECTOR (CNN) ---
             // Outputs: is_real_photo (BOOL), confidence (FLOAT), description (STRING)
             var realPhotoDetector = new ComfyNode
@@ -427,6 +432,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("RealPhotoDetector");
 
             var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
+            Console.WriteLine($"   ✅ RealPhotoDetectorCNN node created: {realPhotoOut.Name}");
             var realPhotoBool = realPhotoOut.GetOutput<StringNodeConnection>(0);
             var realPhotoConf = realPhotoOut.GetOutput<StringNodeConnection>(1);
             var realPhotoDesc = realPhotoOut.GetOutput<StringNodeConnection>(2);
@@ -440,6 +446,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("FlorenceInterrogate");
 
             var florenceOut = nodes.AddNamedNode(florenceInterrogate);
+            Console.WriteLine($"   ✅ Florence2 node created: {florenceOut.Name}");
             var florenceCaption = florenceOut.GetOutput<StringNodeConnection>(0);
 
             // --- STYLE FINGERPRINT EXTRACTOR ---
@@ -451,6 +458,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("StyleFingerprint");
 
             var styleOut = nodes.AddNamedNode(styleFingerprint);
+            Console.WriteLine($"   ✅ StyleFingerprint node created: {styleOut.Name}");
             var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
 
             // --- CONDITIONAL OUTPAINT ROUTER PRO ---
@@ -477,6 +485,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("ConditionalRouter");
 
             var routerOut = nodes.AddNamedNode(router);
+            Console.WriteLine($"   ✅ ConditionalOutpaintRouterPRO node created: {routerOut.Name}");
             var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0);
             var routerDirectionScore = routerOut.GetOutput<StringNodeConnection>(2);
             var routerOutpaintDir = routerOut.GetOutput<StringNodeConnection>(3);
@@ -518,6 +527,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("CompositeV95");
 
             var compositeOutput = nodes.AddNamedNode(compositeNode);
+            Console.WriteLine(
+                $"   ✅ AdvancedOutpaintCompositeV95Universal node created: {compositeOutput.Name}"
+            );
             var compositeLatent = compositeOutput.GetOutput<LatentNodeConnection>(0);
 
             // --- REAL PHOTO POST FIXER V3 ---
@@ -566,6 +578,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("PhotoFixer");
 
             var fixerOut = nodes.AddNamedNode(photoFixer);
+            Console.WriteLine($"   ✅ RealPhotoPostFixerV3 node created: {fixerOut.Name}");
             var fixedLatent = fixerOut.GetOutput<LatentNodeConnection>(0);
 
             // --- LT TILED VAE DECODE ---
@@ -584,6 +597,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             }.ToNamedNode("LT-Tiled-VAEDecode");
 
             var decodeOut = nodes.AddNamedNode(vaeDecode);
+            Console.WriteLine($"   ✅ LTTiledVAEDecode node created: {decodeOut.Name}");
             var decodedImage = decodeOut.GetOutput<ImageNodeConnection>(0);
 
             builder.Connections.Primary = new ImageNodeConnection { Data = decodedImage.Data };
