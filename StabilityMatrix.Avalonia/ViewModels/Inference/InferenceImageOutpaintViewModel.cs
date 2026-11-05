@@ -395,6 +395,44 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         Console.WriteLine($"   Denoise: {denoiseStrength:F2}, Steps: {steps}");
 
         // --- SAMPLER ---
+        // --- REAL PHOTO DETECTOR (CNN) ---
+        // Outputs: is_real_photo (BOOL), confidence (FLOAT), description (STRING)
+        var realPhotoDetector = new ComfyNode
+        {
+            ClassType = "RealPhotoDetectorCNN",
+            Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
+        }.ToNamedNode("RealPhotoDetector");
+
+        var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
+        Console.WriteLine($"   ✅ RealPhotoDetectorCNN node created: {realPhotoOut.Name}");
+        var realPhotoBool = realPhotoOut.GetOutput<StringNodeConnection>(0);
+        var realPhotoConf = realPhotoOut.GetOutput<StringNodeConnection>(1);
+        var realPhotoDesc = realPhotoOut.GetOutput<StringNodeConnection>(2);
+
+        // --- FLORENCE-2 INTERROGATE (auto image captioning) ---
+        // Output: caption (STRING)
+        var florenceInterrogate = new ComfyNode
+        {
+            ClassType = "florence2_interrogate",
+            Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
+        }.ToNamedNode("FlorenceInterrogate");
+
+        var florenceOut = nodes.AddNamedNode(florenceInterrogate);
+        Console.WriteLine($"   ✅ Florence2 node created: {florenceOut.Name}");
+        var florenceCaption = florenceOut.GetOutput<StringNodeConnection>(0);
+
+        // --- STYLE FINGERPRINT EXTRACTOR ---
+        // Output: style_fingerprint (STRING)
+        var styleFingerprint = new ComfyNode
+        {
+            ClassType = "StyleFingerprintExtractorV2",
+            Inputs = new Dictionary<string, object?> { ["latent"] = vaeEncode.Output.Data },
+        }.ToNamedNode("StyleFingerprint");
+
+        var styleOut = nodes.AddNamedNode(styleFingerprint);
+        Console.WriteLine($"   ✅ StyleFingerprint node created: {styleOut.Name}");
+        var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
+
         var router = new ComfyNode
         {
             ClassType = "ConditionalOutpaintRouterPRO",
@@ -450,44 +488,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Console.WriteLine(
                 $"   Nodes to build: RealPhotoDetectorCNN, Florence2, StyleFingerprintExtractorV2, ConditionalOutpaintRouterPRO, AdvancedOutpaintCompositeV95Universal, RealPhotoPostFixerV3, LTTiledVAEDecode"
             );
-
-            // --- REAL PHOTO DETECTOR (CNN) ---
-            // Outputs: is_real_photo (BOOL), confidence (FLOAT), description (STRING)
-            var realPhotoDetector = new ComfyNode
-            {
-                ClassType = "RealPhotoDetectorCNN",
-                Inputs = new Dictionary<string, object?> { ["image"] = builder.GetPrimaryAsImage().Data },
-            }.ToNamedNode("RealPhotoDetector");
-
-            var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
-            Console.WriteLine($"   ✅ RealPhotoDetectorCNN node created: {realPhotoOut.Name}");
-            var realPhotoBool = realPhotoOut.GetOutput<StringNodeConnection>(0);
-            var realPhotoConf = realPhotoOut.GetOutput<StringNodeConnection>(1);
-            var realPhotoDesc = realPhotoOut.GetOutput<StringNodeConnection>(2);
-
-            // --- FLORENCE-2 INTERROGATE (auto image captioning) ---
-            // Output: caption (STRING)
-            var florenceInterrogate = new ComfyNode
-            {
-                ClassType = "florence2_interrogate",
-                Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
-            }.ToNamedNode("FlorenceInterrogate");
-
-            var florenceOut = nodes.AddNamedNode(florenceInterrogate);
-            Console.WriteLine($"   ✅ Florence2 node created: {florenceOut.Name}");
-            var florenceCaption = florenceOut.GetOutput<StringNodeConnection>(0);
-
-            // --- STYLE FINGERPRINT EXTRACTOR ---
-            // Output: style_fingerprint (STRING)
-            var styleFingerprint = new ComfyNode
-            {
-                ClassType = "StyleFingerprintExtractorV2",
-                Inputs = new Dictionary<string, object?> { ["latent"] = vaeEncode.Output.Data },
-            }.ToNamedNode("StyleFingerprint");
-
-            var styleOut = nodes.AddNamedNode(styleFingerprint);
-            Console.WriteLine($"   ✅ StyleFingerprint node created: {styleOut.Name}");
-            var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
 
             // --- ADVANCED OUTPAINT COMPOSITE V95 ---
             var compositeNode = new ComfyNode
