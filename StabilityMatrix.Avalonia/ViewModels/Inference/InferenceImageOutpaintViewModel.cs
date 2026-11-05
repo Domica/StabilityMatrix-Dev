@@ -395,6 +395,34 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         Console.WriteLine($"   Denoise: {denoiseStrength:F2}, Steps: {steps}");
 
         // --- SAMPLER ---
+        var router = new ComfyNode
+        {
+            ClassType = "ConditionalOutpaintRouterPRO",
+            Inputs = new Dictionary<string, object?>
+            {
+                ["encoded_latent"] = vaeEncode.Output.Data,
+                ["mask"] = outpaintMask.Data,
+                ["original_latent"] = vaeEncode.Output.Data,
+                ["style_fingerprint"] = styleFingerprintOut.Data,
+                ["is_photo"] = realPhotoBool.Data,
+                ["photo_score"] = realPhotoConf.Data,
+                ["model_name"] = "",
+                ["profile_hint"] = "",
+                ["debug_mode"] = false,
+                ["seamless_outpaint_mode"] = false,
+                ["cnn_score"] = realPhotoConf.Data,
+                ["cnn_reason"] = realPhotoDesc.Data,
+            },
+        }.ToNamedNode("ConditionalRouter");
+
+        var routerOut = nodes.AddNamedNode(router);
+        Console.WriteLine($"   ✅ ConditionalOutpaintRouterPRO node created: {routerOut.Name}");
+        var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0);
+        var routerDirectionScore = routerOut.GetOutput<StringNodeConnection>(2);
+        var routerOutpaintDir = routerOut.GetOutput<StringNodeConnection>(3);
+        var routerAutoRoom = routerOut.GetOutput<StringNodeConnection>(4);
+        var routerBalancedMode = routerOut.GetOutput<StringNodeConnection>(5);
+
         var sampler = nodes.AddTypedNode(
             new ComfyNodeBuilder.KSampler
             {
@@ -407,7 +435,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 Scheduler = "karras",
                 Positive = prompt.Output,
                 Negative = negative.Output,
-                LatentImage = routerOut.GetOutput<LatentNodeConnection>(0),
+                LatentImage = routerLatent,
                 Denoise = denoiseStrength,
             }
         );
@@ -460,37 +488,6 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             var styleOut = nodes.AddNamedNode(styleFingerprint);
             Console.WriteLine($"   ✅ StyleFingerprint node created: {styleOut.Name}");
             var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
-
-            // --- CONDITIONAL OUTPAINT ROUTER PRO ---
-            // Outputs: routed_latent (LATENT), direction_score (FLOAT), outpaint_direction (INT),
-            // auto_room (BOOL), balanced_mode (STRING)
-            var router = new ComfyNode
-            {
-                ClassType = "ConditionalOutpaintRouterPRO",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["encoded_latent"] = vaeEncode.Output.Data,
-                    ["mask"] = outpaintMask.Data,
-                    ["original_latent"] = vaeEncode.Output.Data,
-                    ["style_fingerprint"] = styleFingerprintOut.Data,
-                    ["is_photo"] = realPhotoBool.Data,
-                    ["photo_score"] = realPhotoConf.Data,
-                    ["model_name"] = "",
-                    ["profile_hint"] = "",
-                    ["debug_mode"] = false,
-                    ["seamless_outpaint_mode"] = false,
-                    ["cnn_score"] = realPhotoConf.Data,
-                    ["cnn_reason"] = realPhotoDesc.Data,
-                },
-            }.ToNamedNode("ConditionalRouter");
-
-            var routerOut = nodes.AddNamedNode(router);
-            Console.WriteLine($"   ✅ ConditionalOutpaintRouterPRO node created: {routerOut.Name}");
-            var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0);
-            var routerDirectionScore = routerOut.GetOutput<StringNodeConnection>(2);
-            var routerOutpaintDir = routerOut.GetOutput<StringNodeConnection>(3);
-            var routerAutoRoom = routerOut.GetOutput<StringNodeConnection>(4);
-            var routerBalancedMode = routerOut.GetOutput<StringNodeConnection>(5);
 
             // --- ADVANCED OUTPAINT COMPOSITE V95 ---
             var compositeNode = new ComfyNode
