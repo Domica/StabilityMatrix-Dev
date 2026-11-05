@@ -260,6 +260,8 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         var selectImageCard = StackCardViewModel.GetCard<SelectImageCardViewModel>();
         var outpaintCard = StackCardViewModel.GetCard<OutpaintCardViewModel>();
+        var promptCard = StackCardViewModel.GetCard<PromptCardViewModel>();
+        var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
 
         if (selectImageCard?.ImageSource == null)
             return;
@@ -268,19 +270,41 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         // ✅ Get optimal feathering value (default 10 for outpaint)
         var feathering = outpaintCard?.Feathering ?? 10;
 
-        Console.WriteLine($"🎨 Building outpaint workflow:");
+        Console.WriteLine($"🎨 Building outpaint workflow (matching JSON exactly):");
         Console.WriteLine($"   Feathering: {feathering}");
         Console.WriteLine(
             $"   Padding: L={outpaintCard?.ExpandLeft ?? 0} R={outpaintCard?.ExpandRight ?? 0} T={outpaintCard?.ExpandTop ?? 0} B={outpaintCard?.ExpandBottom ?? 0}"
         );
 
-        // --- PRO PAD NODE ---
-        var padImageNode = new NamedComfyNode<ImageNodeConnection, ImageMaskConnection>("OutpaintPadNode")
+        // Original (un-padded) image — used as pad input and as Florence-2 image source.
+        // In the JSON this is node 9 (LoadImage); in C# it is the builder primary image.
+        var originalImage = builder.GetPrimaryAsImage();
+
+        // ============================================================
+        // 1. CHECKPOINT LOADER — JSON node 4 (CheckpointLoaderSimple)
+        //    Outputs: model(0), clip(1), vae(2)
+        // ============================================================
+        var ckptName = modelCard?.SelectedModel?.RelativePath ?? "";
+        var checkpoint = new ComfyNode
+        {
+            ClassType = "CheckpointLoaderSimple",
+            Inputs = new Dictionary<string, object?> { ["ckpt_name"] = ckptName },
+        }.ToNamedNode("CkptLoader");
+        var checkpointOut = nodes.AddNamedNode(checkpoint);
+        var ckptModel = checkpointOut.GetOutput<ModelNodeConnection>(0).Data;
+        var ckptClip = checkpointOut.GetOutput<ClipNodeConnection>(1).Data;
+        var ckptVae = checkpointOut.GetOutput<VAENodeConnection>(2).Data;
+
+        // ============================================================
+        // 2. IMAGE PAD FOR OUTPAINTING — JSON node 188
+        //    Outputs: image(0), mask(1), + additional outputs (index 4 = bool for AntiMirror)
+        // ============================================================
+        var padNode = new ComfyNode
         {
             ClassType = "ImagePadForOutpainting",
             Inputs = new Dictionary<string, object?>
             {
-                ["image"] = builder.GetPrimaryAsImage(),
+                ["image"] = originalImage.Data,
                 ["left"] = outpaintCard?.ExpandLeft ?? 0,
                 ["right"] = outpaintCard?.ExpandRight ?? 0,
                 ["top"] = outpaintCard?.ExpandTop ?? 0,
@@ -307,30 +331,79 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ["fast_ai_boost"] = true,
                 ["enable_fix3_cap"] = true,
             },
-        };
+        }.ToNamedNode("OutpaintPadNode");
+        var padOut = nodes.AddNamedNode(padNode);
+        var paddedImage = padOut.GetOutput<ImageNodeConnection>(0);
+        var outpaintMask = padOut.GetOutput<ImageMaskConnection>(1);
+        var padOutput4 = padOut.GetOutput<StringNodeConnection>(4).Data; // bool output → AntiMirror is_real_photo
 
-        var padImage = nodes.AddNamedNode(padImageNode);
-        var paddedImage = padImage.Output1;
-        var outpaintMask = padImage.Output2;
+        // ============================================================
+        // 3. VAE ENCODE — JSON node 111
+        //    Inputs: pixels, vae → Output: latent(0)
+        // ============================================================
+        var vaeEncodeNode = new ComfyNode
+        {
+            ClassType = "VAEEncode",
+            Inputs = new Dictionary<string, object?> { ["pixels"] = paddedImage.Data, ["vae"] = ckptVae },
+        }.ToNamedNode("VAEEncodeNode");
+        var vaeEncodeOut = nodes.AddNamedNode(vaeEncodeNode);
+        var vaeLatent = vaeEncodeOut.GetOutput<LatentNodeConnection>(0).Data;
 
-        // --- MODEL ---
-        var checkpoint = nodes.AddTypedNode(
-            new ComfyNodeBuilder.CheckpointLoaderSimple
+        // ============================================================
+        // 4. LOAD FLORENCE-2 — JSON node 277 (load_florence2)
+        //    No inputs → Outputs: model(0), processor(1)
+        // ============================================================
+        var florenceLoader = new ComfyNode
+        {
+            ClassType = "load_florence2",
+            Inputs = new Dictionary<string, object?>(),
+        }.ToNamedNode("FlorenceLoader");
+        var florenceLoaderOut = nodes.AddNamedNode(florenceLoader);
+        var florenceModel = florenceLoaderOut.GetOutput<StringNodeConnection>(0).Data;
+        var florenceProcessor = florenceLoaderOut.GetOutput<StringNodeConnection>(1).Data;
+
+        // ============================================================
+        // 5. NSFW FALCON LOADER — JSON node 280 (nsfw_falcon_loader)
+        //    Outputs: nsfw_model(0), nsfw_processor(1)
+        // ============================================================
+        var nsfwLoader = new ComfyNode
+        {
+            ClassType = "nsfw_falcon_loader",
+            Inputs = new Dictionary<string, object?>
             {
-                Name = "CkptLoader",
-                CkptName =
-                    StackCardViewModel.GetCard<ModelCardViewModel>()?.SelectedModel?.RelativePath ?? "",
-            }
-        );
+                ["model_repo_or_path"] = "F:/StabilityMatrix/Packages/ComfyUI/models/nsfw_image_detection",
+                ["local_only"] = true,
+                ["force_cpu"] = false,
+                ["use_float16"] = true,
+                ["dwpose_model_path"] = "",
+                ["seg_model_path"] = "",
+            },
+        }.ToNamedNode("NsfwLoader");
+        var nsfwLoaderOut = nodes.AddNamedNode(nsfwLoader);
+        var nsfwModel = nsfwLoaderOut.GetOutput<StringNodeConnection>(0).Data;
+        var nsfwProcessor = nsfwLoaderOut.GetOutput<StringNodeConnection>(1).Data;
 
-        // Initialize prompt text variables
-        var positiveText = StackCardViewModel.GetCard<PromptCardViewModel>()?.PromptDocument.Text ?? "";
-        var negativeText = "";
+        // ============================================================
+        // 6. FLORENCE-2 NEGATIVE — JSON node 276 (florence2_negative)
+        //    Inputs: image, user_suffix → Output: auto_negative(0)
+        // ============================================================
+        var florenceNegativeNode = new ComfyNode
+        {
+            ClassType = "florence2_negative",
+            Inputs = new Dictionary<string, object?> { ["image"] = originalImage.Data, ["user_suffix"] = "" },
+        }.ToNamedNode("FlorenceNegative");
+        var florenceNegativeOut = nodes.AddNamedNode(florenceNegativeNode);
+        var florenceAutoNegative = florenceNegativeOut.GetOutput<StringNodeConnection>(0).Data;
+
+        // ============================================================
+        // 7. PROMPT TEXTS (C# side) — fed into Florence as prefix/negative
+        // ============================================================
+        var positiveText = promptCard?.PromptDocument.Text ?? "";
+        var negativeText = promptCard?.NegativePromptDocument.Text ?? "";
 
         // === SMART OUTPAINT ASSIST ===
         if (SmartOutpaintAssistEnabled)
         {
-            var modelCard = StackCardViewModel.GetCard<ModelCardViewModel>();
             var modelName = modelCard?.SelectedModel?.ShortDisplayName ?? "";
             var availableModels = ClientManager.Models.Select(m => m.ShortDisplayName ?? m.RelativePath);
 
@@ -353,306 +426,365 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 ref negativeText
             );
 
-            // Save debug output
             DebugFinalPositive = gp.DebugFinalPositive;
             DebugFinalNegative = gp.DebugFinalNegative;
             DebugFinalModelName = gp.DebugFinalModelName;
         }
 
-        // --- PROMPTS ---
-        var prompt = nodes.AddTypedNode(
-            new ComfyNodeBuilder.CLIPTextEncode
-            {
-                Name = "PositivePrompt",
-                Clip = checkpoint.Output2,
-                Text = positiveText,
-            }
-        );
-
-        var negative = nodes.AddTypedNode(
-            new ComfyNodeBuilder.CLIPTextEncode
-            {
-                Name = "EmptyNeg",
-                Clip = checkpoint.Output2,
-                Text = negativeText,
-            }
-        );
-
-        // --- ENCODE ---
-        var vaeEncode = nodes.AddTypedNode(
-            new ComfyNodeBuilder.VAEEncode
-            {
-                Name = "VAEEncodeNode",
-                Pixels = paddedImage,
-                Vae = checkpoint.Output3,
-            }
-        );
-
-        // ✅ Get denoise strength (default 0.55 for outpaint)
-        var denoiseStrength = StackCardViewModel.GetCard<SamplerCardViewModel>()?.DenoiseStrength ?? 0.55;
-        var steps = StackCardViewModel.GetCard<SamplerCardViewModel>()?.Steps ?? 30;
-
-        Console.WriteLine($"   Denoise: {denoiseStrength:F2}, Steps: {steps}");
-
-        // --- SAMPLER ---
-        // --- REAL PHOTO DETECTOR (CNN) ---
-        // Outputs: is_real_photo (BOOL), confidence (FLOAT), description (STRING)
-        var realPhotoDetector = new ComfyNode
-        {
-            ClassType = "RealPhotoDetectorCNN",
-            Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
-        }.ToNamedNode("RealPhotoDetector");
-
-        var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
-        Console.WriteLine($"   ✅ RealPhotoDetectorCNN node created: {realPhotoOut.Name}");
-        var realPhotoBool = realPhotoOut.GetOutput<StringNodeConnection>(0);
-        var realPhotoConf = realPhotoOut.GetOutput<StringNodeConnection>(1);
-        var realPhotoDesc = realPhotoOut.GetOutput<StringNodeConnection>(2);
-
-        // --- FLORENCE-2 INTERROGATE (auto image captioning) ---
-        // Output: caption (STRING)
+        // ============================================================
+        // 8. FLORENCE-2 INTERROGATE — JSON node 275 (florence2_interrogate)
+        //    Inputs: image, model, processor, prefix, suffix, negative, auto_negative, ...
+        //    Outputs: positive(0), negative_out(1), ...
+        // ============================================================
         var florenceInterrogate = new ComfyNode
         {
             ClassType = "florence2_interrogate",
-            Inputs = new Dictionary<string, object?> { ["image"] = paddedImage.Data },
+            Inputs = new Dictionary<string, object?>
+            {
+                ["image"] = originalImage.Data,
+                ["model"] = florenceModel,
+                ["processor"] = florenceProcessor,
+                ["prefix"] = positiveText,
+                ["suffix"] = "",
+                ["negative"] = negativeText,
+                ["auto_negative"] = florenceAutoNegative,
+                ["use_negative"] = true,
+                ["detailed_mode"] = true,
+                ["very_detailed_mode"] = false,
+                ["minimal_mode"] = false,
+                ["caption_only"] = false,
+                ["prompt_cleaner"] = true,
+                ["auto_enrich_prompt"] = false,
+                ["max_tokens"] = 512,
+                ["nsfw_model"] = nsfwModel,
+                ["nsfw_processor"] = nsfwProcessor,
+                ["nsfw_ml_threshold"] = 0.72,
+                ["nsfw_tags_only"] = false,
+                ["ultra_detailed_nsfw"] = false,
+                ["fairface_model_path"] =
+                    "F:/StabilityMatrix/Packages/ComfyUI/models/fairface/Race-CLS-FairFace_yolov8s.pt",
+                ["face_detect_model_path"] = "F:/StabilityMatrix/Packages/ComfyUI/models/yolo-face/model.pt",
+                ["pose_model_path"] = "F:/StabilityMatrix/Packages/ComfyUI/models/yolo-pose/yolov8m-pose.pt",
+                ["dwpose_model_path"] = "",
+                ["seg_model_path"] = "",
+            },
         }.ToNamedNode("FlorenceInterrogate");
-
         var florenceOut = nodes.AddNamedNode(florenceInterrogate);
         Console.WriteLine($"   ✅ Florence2 node created: {florenceOut.Name}");
-        var florenceCaption = florenceOut.GetOutput<StringNodeConnection>(0);
+        var florencePositive = florenceOut.GetOutput<StringNodeConnection>(0).Data;
 
-        // --- STYLE FINGERPRINT EXTRACTOR ---
-        // Output: style_fingerprint (STRING)
+        // ============================================================
+        // 9. CLIP TEXT ENCODE (POSITIVE) — JSON node 70
+        //    Inputs: clip, text ← Florence positive → Output: conditioning(0)
+        // ============================================================
+        var clipPositive = new ComfyNode
+        {
+            ClassType = "CLIPTextEncode",
+            Inputs = new Dictionary<string, object?> { ["clip"] = ckptClip, ["text"] = florencePositive },
+        }.ToNamedNode("PositivePrompt");
+        var clipPositiveOut = nodes.AddNamedNode(clipPositive);
+        var condPositive = clipPositiveOut.GetOutput<ConditioningNodeConnection>(0).Data;
+
+        // ============================================================
+        // 10. CLIP TEXT ENCODE (NEGATIVE) — JSON node 6
+        //     Inputs: clip, text ← florence2_negative auto_negative → Output: conditioning(0)
+        // ============================================================
+        var clipNegative = new ComfyNode
+        {
+            ClassType = "CLIPTextEncode",
+            Inputs = new Dictionary<string, object?> { ["clip"] = ckptClip, ["text"] = florenceAutoNegative },
+        }.ToNamedNode("NegativePrompt");
+        var clipNegativeOut = nodes.AddNamedNode(clipNegative);
+        var condNegative = clipNegativeOut.GetOutput<ConditioningNodeConnection>(0).Data;
+
+        // ============================================================
+        // 11. REAL PHOTO DETECTOR CNN — JSON node 178 (RealPhotoDetectorCNN)
+        //     Inputs: image (original, NOT padded) → Outputs: is_photo(0), score(1), reason(2)
+        // ============================================================
+        var realPhotoDetector = new ComfyNode
+        {
+            ClassType = "RealPhotoDetectorCNN",
+            Inputs = new Dictionary<string, object?> { ["image"] = originalImage.Data },
+        }.ToNamedNode("RealPhotoDetector");
+        var realPhotoOut = nodes.AddNamedNode(realPhotoDetector);
+        Console.WriteLine($"   ✅ RealPhotoDetectorCNN node created: {realPhotoOut.Name}");
+        var realPhotoIsPhoto = realPhotoOut.GetOutput<StringNodeConnection>(0).Data;
+        var realPhotoScore = realPhotoOut.GetOutput<StringNodeConnection>(1).Data;
+        var realPhotoReason = realPhotoOut.GetOutput<StringNodeConnection>(2).Data;
+
+        // ============================================================
+        // 12. STYLE FINGERPRINT EXTRACTOR V2 — JSON node 215
+        //     Inputs: latent → Outputs: style_fingerprint(0), fp_*(1..14)
+        // ============================================================
         var styleFingerprint = new ComfyNode
         {
             ClassType = "StyleFingerprintExtractorV2",
-            Inputs = new Dictionary<string, object?> { ["latent"] = vaeEncode.Output.Data },
+            Inputs = new Dictionary<string, object?> { ["latent"] = vaeLatent },
         }.ToNamedNode("StyleFingerprint");
-
         var styleOut = nodes.AddNamedNode(styleFingerprint);
         Console.WriteLine($"   ✅ StyleFingerprint node created: {styleOut.Name}");
-        var styleFingerprintOut = styleOut.GetOutput<StringNodeConnection>(0);
+        var styleFp = styleOut.GetOutput<StringNodeConnection>(0).Data;
+        var styleFpExpMean = styleOut.GetOutput<StringNodeConnection>(1).Data;
+        var styleFpExpStd = styleOut.GetOutput<StringNodeConnection>(2).Data;
+        var styleFpExpRange = styleOut.GetOutput<StringNodeConnection>(3).Data;
+        var styleFpColorEnergy = styleOut.GetOutput<StringNodeConnection>(4).Data;
+        var styleFpWbShift = styleOut.GetOutput<StringNodeConnection>(5).Data;
+        var styleFpEdgeMean = styleOut.GetOutput<StringNodeConnection>(6).Data;
+        var styleFpEdgeStd = styleOut.GetOutput<StringNodeConnection>(7).Data;
+        var styleFpNoiseLevel = styleOut.GetOutput<StringNodeConnection>(8).Data;
 
+        // ============================================================
+        // 13. CONDITIONAL OUTPAINT ROUTER PRO — JSON node 206
+        //     Inputs: encoded_latent, mask, original_latent, is_photo, photo_score,
+        //            model_name, profile_hint, debug_mode, seamless_outpaint_mode,
+        //            cnn_score, cnn_reason, style_fingerprint, outpaint_mask
+        //     Outputs: latent(0), is_photo(1), photo_score(2), profile_name(3),
+        //            denoise(4), anti_strength(5), composite_strength(6), debug_info(7),
+        //            auto_preserve(8), auto_colormatch(9), auto_blur(10), zero_diff(11),
+        //            outpaint_mask(12)
+        // ============================================================
         var router = new ComfyNode
         {
             ClassType = "ConditionalOutpaintRouterPRO",
             Inputs = new Dictionary<string, object?>
             {
-                ["encoded_latent"] = vaeEncode.Output.Data,
+                ["encoded_latent"] = vaeLatent,
                 ["mask"] = outpaintMask.Data,
-                ["original_latent"] = vaeEncode.Output.Data,
-                ["style_fingerprint"] = styleFingerprintOut.Data,
-                ["is_photo"] = realPhotoBool.Data,
-                ["photo_score"] = realPhotoConf.Data,
-                ["model_name"] = "",
+                ["original_latent"] = vaeLatent,
+                ["is_photo"] = realPhotoIsPhoto,
+                ["photo_score"] = realPhotoScore,
+                ["model_name"] = "sd15",
                 ["profile_hint"] = "",
                 ["debug_mode"] = false,
                 ["seamless_outpaint_mode"] = false,
-                ["cnn_score"] = realPhotoConf.Data,
-                ["cnn_reason"] = realPhotoDesc.Data,
+                ["cnn_score"] = realPhotoScore,
+                ["cnn_reason"] = realPhotoReason,
+                ["style_fingerprint"] = styleFp,
+                ["outpaint_mask"] = outpaintMask.Data,
             },
         }.ToNamedNode("ConditionalRouter");
-
         var routerOut = nodes.AddNamedNode(router);
         Console.WriteLine($"   ✅ ConditionalOutpaintRouterPRO node created: {routerOut.Name}");
-        var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0);
-        var routerDirectionScore = routerOut.GetOutput<StringNodeConnection>(2);
-        var routerOutpaintDir = routerOut.GetOutput<StringNodeConnection>(3);
-        var routerAutoRoom = routerOut.GetOutput<StringNodeConnection>(4);
-        var routerBalancedMode = routerOut.GetOutput<StringNodeConnection>(5);
+        var routerLatent = routerOut.GetOutput<LatentNodeConnection>(0).Data;
+        var routerIsPhoto = routerOut.GetOutput<StringNodeConnection>(1).Data;
+        var routerPhotoScore = routerOut.GetOutput<StringNodeConnection>(2).Data;
+        var routerProfileName = routerOut.GetOutput<StringNodeConnection>(3).Data;
+        var routerDenoise = routerOut.GetOutput<StringNodeConnection>(4).Data;
+        var routerAntiStrength = routerOut.GetOutput<StringNodeConnection>(5).Data;
+        var routerCompositeStrength = routerOut.GetOutput<StringNodeConnection>(6).Data;
+        var routerDebugInfo = routerOut.GetOutput<StringNodeConnection>(7).Data;
+        var routerAutoPreserve = routerOut.GetOutput<StringNodeConnection>(8).Data;
+        var routerAutoColormatch = routerOut.GetOutput<StringNodeConnection>(9).Data;
+        var routerAutoBlur = routerOut.GetOutput<StringNodeConnection>(10).Data;
+        var routerZeroDiff = routerOut.GetOutput<StringNodeConnection>(11).Data;
+        var routerOutpaintMask = routerOut.GetOutput<StringNodeConnection>(12).Data;
 
-        var sampler = nodes.AddTypedNode(
-            new ComfyNodeBuilder.KSampler
+        // ============================================================
+        // 14. ANTI MIRROR SAMPLER WRAPPER — JSON node 186
+        //     Inputs: latent_image, mask, original_latent, is_real_photo
+        //     Outputs: latent(0), outpaint_mask(1), auto_denoise(2), auto_anti_mirror(3),
+        //            force_steps(4), profile_name(5), profile_params(6)
+        // ============================================================
+        var antiMirror = new ComfyNode
+        {
+            ClassType = "AntiMirrorSamplerWrapper",
+            Inputs = new Dictionary<string, object?>
             {
-                Name = "MainSampler",
-                Model = checkpoint.Output1,
-                Seed = (ulong)(StackCardViewModel.GetCard<SeedCardViewModel>()?.Seed ?? 0),
-                Steps = steps,
-                Cfg = 7.0,
-                SamplerName = "dpmpp_2m",
-                Scheduler = "karras",
-                Positive = prompt.Output,
-                Negative = negative.Output,
-                LatentImage = routerLatent,
-                Denoise = denoiseStrength,
-            }
+                ["latent_image"] = routerLatent,
+                ["mask"] = outpaintMask.Data,
+                ["original_latent"] = vaeLatent,
+                ["is_real_photo"] = padOutput4,
+            },
+        }.ToNamedNode("AntiMirror");
+        var antiMirrorOut = nodes.AddNamedNode(antiMirror);
+        Console.WriteLine($"   ✅ AntiMirrorSamplerWrapper node created: {antiMirrorOut.Name}");
+        var antiMirrorLatent = antiMirrorOut.GetOutput<LatentNodeConnection>(0).Data;
+        var antiMirrorOutpaintMask = antiMirrorOut.GetOutput<ImageMaskConnection>(1).Data;
+        var autoDenoise = antiMirrorOut.GetOutput<StringNodeConnection>(2).Data;
+        var autoAntiMirror = antiMirrorOut.GetOutput<StringNodeConnection>(3).Data;
+        var forceSteps = antiMirrorOut.GetOutput<StringNodeConnection>(4).Data;
+
+        // ============================================================
+        // 15. KSAMPLER — JSON node 136 (KSampler)
+        //     Inputs: model, seed, steps, cfg, sampler_name, scheduler,
+        //            positive, negative, latent_image, denoise → Output: latent(0)
+        //     Uses raw ComfyNode because steps/denoise come from AntiMirror connections.
+        // ============================================================
+        var seedCard = StackCardViewModel.GetCard<SeedCardViewModel>();
+        var seed = (ulong)(seedCard?.Seed ?? 0);
+
+        var sampler = new ComfyNode
+        {
+            ClassType = "KSampler",
+            Inputs = new Dictionary<string, object?>
+            {
+                ["model"] = ckptModel,
+                ["seed"] = seed,
+                ["steps"] = forceSteps,
+                ["cfg"] = 7.0,
+                ["sampler_name"] = "dpmpp_2m",
+                ["scheduler"] = "karras",
+                ["positive"] = condPositive,
+                ["negative"] = condNegative,
+                ["latent_image"] = antiMirrorLatent,
+                ["denoise"] = autoDenoise,
+            },
+        }.ToNamedNode("MainSampler");
+        var samplerOut = nodes.AddNamedNode(sampler);
+        var samplerLatent = samplerOut.GetOutput<LatentNodeConnection>(0).Data;
+
+        // ============================================================
+        // 16. ADVANCED OUTPAINT COMPOSITE V95 — JSON node 225
+        //     Inputs: original, generated, mask, feather_radius, ...,
+        //            is_photo, profile_name, denoise, composite_strength,
+        //            zero_diff_enabled, auto_preserve, auto_colormatch, auto_blur,
+        //            fp_exposure_mean, ... → Outputs: composited(0), outpaint_mask(1)
+        // ============================================================
+        var composite = new ComfyNode
+        {
+            ClassType = "AdvancedOutpaintCompositeV95Universal",
+            Inputs = new Dictionary<string, object?>
+            {
+                ["original"] = vaeLatent,
+                ["generated"] = samplerLatent,
+                ["mask"] = outpaintMask.Data,
+                ["feather_radius"] = feathering,
+                ["mask_boost"] = 1.0,
+                ["preserve_original"] = 0.0,
+                ["structure_weight"] = 0.3,
+                ["exposure_blend"] = 0.5,
+                ["anti_mirror_strength"] = 0.0,
+                ["auto_feather_enabled"] = false,
+                ["auto_invert_enabled"] = true,
+                ["preserve_enabled"] = false,
+                ["structure_enabled"] = true,
+                ["harmonize_enabled"] = false,
+                ["anti_mirror_enabled"] = false,
+                ["colormatch_enabled"] = false,
+                ["colormatch_strength"] = 1.0,
+                ["cinematic_intensity"] = 1.0,
+                ["bleed_strength"] = 1.0,
+                ["blur_strength"] = 1.0,
+                ["smartclamp_enabled"] = true,
+                ["smartclamp_strength"] = 2.0,
+                ["pro_mode"] = "NORMAL",
+                ["zero_diff_enabled"] = routerZeroDiff,
+                ["is_photo"] = routerIsPhoto,
+                ["profile_name"] = routerProfileName,
+                ["denoise"] = routerDenoise,
+                ["composite_strength"] = routerCompositeStrength,
+                ["debug_mode"] = true,
+                ["seamless_outpaint_mode"] = false,
+                ["ultra_analysis"] = false,
+                ["real_photo_mode"] = "SAFE",
+                ["auto_preserve"] = routerAutoPreserve,
+                ["auto_colormatch"] = routerAutoColormatch,
+                ["auto_blur"] = routerAutoBlur,
+                ["fp_exposure_mean"] = styleFpExpMean,
+                ["fp_exposure_std"] = styleFpExpStd,
+                ["fp_exposure_range"] = styleFpExpRange,
+                ["fp_color_energy"] = styleFpColorEnergy,
+                ["fp_wb_shift"] = styleFpWbShift,
+                ["fp_edge_mean"] = styleFpEdgeMean,
+                ["fp_edge_std"] = styleFpEdgeStd,
+                ["fp_noise_level"] = styleFpNoiseLevel,
+                ["limb"] = 0.0,
+                ["entropy"] = 0.0,
+                ["ai_boost_enabled"] = false,
+                ["real_photo_safe_enabled"] = true,
+            },
+        }.ToNamedNode("CompositeV95");
+        var compositeOut = nodes.AddNamedNode(composite);
+        Console.WriteLine($"   ✅ AdvancedOutpaintCompositeV95Universal node created: {compositeOut.Name}");
+        var compositeLatent = compositeOut.GetOutput<LatentNodeConnection>(0).Data;
+        var compositeMask = compositeOut.GetOutput<ImageMaskConnection>(1).Data;
+
+        // ============================================================
+        // 17. REAL PHOTO POST FIXER V3 — JSON node 223
+        //     Inputs: latent, original_latent, vae, is_photo, auto_profile,
+        //            ..., cnn_score, ..., outpaint_mask → Output: fixed_latent(0)
+        // ============================================================
+        var photoFixer = new ComfyNode
+        {
+            ClassType = "RealPhotoPostFixerV3",
+            Inputs = new Dictionary<string, object?>
+            {
+                ["latent"] = compositeLatent,
+                ["original_latent"] = vaeLatent,
+                ["vae"] = ckptVae,
+                ["is_photo"] = routerIsPhoto,
+                ["auto_profile"] = true,
+                ["profile_name"] = "",
+                ["outpaint_dir"] = "",
+                ["enable_luma_match"] = true,
+                ["enable_color_match"] = true,
+                ["enable_texture_match"] = true,
+                ["enable_grain_match"] = true,
+                ["enable_lens_profile"] = true,
+                ["luma_strength"] = 0.20,
+                ["color_strength"] = 0.18,
+                ["texture_strength"] = 0.10,
+                ["grain_strength"] = 0.08,
+                ["lens_softness"] = 0.06,
+                ["sensor_emulation"] = true,
+                ["chromatic_aberration"] = true,
+                ["vignette_strength"] = 0.06,
+                ["pre_sharpen"] = true,
+                ["sharpen_radius"] = 0.8,
+                ["sharpen_amount"] = 0.4,
+                ["sharpen_threshold"] = 0.0,
+                ["auto_fix_for_ai"] = true,
+                ["force_real_photo"] = false,
+                ["cnn_score"] = realPhotoScore,
+                ["auto_ai_real"] = true,
+                ["ai_mode_strength"] = 0.6,
+                ["ai_enhance_mode"] = false,
+                ["disable_fixer_on_outpaint"] = true,
+                ["fix_only_original_region"] = false,
+                ["minimal_luma_match_mode"] = false,
+                ["outpaint_mask"] = compositeMask,
+                ["debug_mode"] = true,
+                ["force_tiled"] = false,
+            },
+        }.ToNamedNode("PhotoFixer");
+        var fixerOut = nodes.AddNamedNode(photoFixer);
+        Console.WriteLine($"   ✅ RealPhotoPostFixerV3 node created: {fixerOut.Name}");
+        var fixedLatent = fixerOut.GetOutput<LatentNodeConnection>(0).Data;
+
+        // ============================================================
+        // 18. LT TILED VAE DECODE — JSON node 224 (LTTiledVAEDecode)
+        //     Inputs: latents, vae, horizontal_tiles, vertical_tiles, overlap, last_frame_fix
+        //     Output: image(0)
+        // ============================================================
+        var vaeDecode = new ComfyNode
+        {
+            ClassType = "LTTiledVAEDecode",
+            Inputs = new Dictionary<string, object?>
+            {
+                ["latents"] = fixedLatent,
+                ["vae"] = ckptVae,
+                ["horizontal_tiles"] = 2,
+                ["vertical_tiles"] = 2,
+                ["overlap"] = 2,
+                ["last_frame_fix"] = false,
+            },
+        }.ToNamedNode("LT-Tiled-VAEDecode");
+        var decodeOut = nodes.AddNamedNode(vaeDecode);
+        Console.WriteLine($"   ✅ LTTiledVAEDecode node created: {decodeOut.Name}");
+        var decodedImage = decodeOut.GetOutput<ImageNodeConnection>(0);
+
+        builder.Connections.Primary = decodedImage;
+
+        // ============================================================
+        // 19. PREVIEW — final output image
+        // ============================================================
+        var preview = nodes.AddTypedNode(
+            new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = decodedImage }
         );
 
-        try
-        {
-            // =========================================================
-            // COMPLEX WORKFLOW: Matches user's tested OUTPAINT PERFECTION workflow
-            // =========================================================
+        builder.Connections.OutputNodes.Add(preview);
 
-            Console.WriteLine($"📦 Building complex OUTPAINT workflow:");
-            Console.WriteLine(
-                $"   Nodes to build: RealPhotoDetectorCNN, Florence2, StyleFingerprintExtractorV2, ConditionalOutpaintRouterPRO, AdvancedOutpaintCompositeV95Universal, RealPhotoPostFixerV3, LTTiledVAEDecode"
-            );
-
-            // --- ADVANCED OUTPAINT COMPOSITE V95 ---
-            var compositeNode = new ComfyNode
-            {
-                ClassType = "AdvancedOutpaintCompositeV95Universal",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["original"] = vaeEncode.Output.Data,
-                    ["generated"] = sampler.Output.Data,
-                    ["mask"] = outpaintMask.Data,
-                    ["feather_radius"] = feathering,
-                    ["exposure_blend"] = 0.85,
-                    ["cinematic_intensity"] = 1.0,
-                    ["bleed_strength"] = 1.0,
-                    ["blur_strength"] = 1.0,
-                    ["is_photo"] = realPhotoBool.Data,
-                    ["real_photo_mode"] = "SAFE",
-                    ["denoise"] = denoiseStrength,
-                    ["debug_mode"] = false,
-                    ["seamless_outpaint_mode"] = false,
-                    ["auto_feather_enabled"] = false,
-                    ["auto_invert_enabled"] = false,
-                    ["preserve_enabled"] = false,
-                    ["structure_enabled"] = false,
-                    ["harmonize_enabled"] = false,
-                    ["anti_mirror_enabled"] = false,
-                    ["colormatch_enabled"] = false,
-                    ["smartclamp_enabled"] = false,
-                    ["pro_mode"] = "",
-                    ["zero_diff_enabled"] = false,
-                    ["ai_boost_enabled"] = false,
-                    ["real_photo_safe_enabled"] = false,
-                },
-            }.ToNamedNode("CompositeV95");
-
-            var compositeOutput = nodes.AddNamedNode(compositeNode);
-            Console.WriteLine(
-                $"   ✅ AdvancedOutpaintCompositeV95Universal node created: {compositeOutput.Name}"
-            );
-            var compositeLatent = compositeOutput.GetOutput<LatentNodeConnection>(0);
-
-            // --- REAL PHOTO POST FIXER V3 ---
-            var photoFixer = new ComfyNode
-            {
-                ClassType = "RealPhotoPostFixerV3",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["latent"] = compositeLatent.Data,
-                    ["original_latent"] = vaeEncode.Output.Data,
-                    ["vae"] = checkpoint.Output3.Data,
-                    ["outpaint_mask"] = outpaintMask.Data,
-                    ["is_photo"] = realPhotoBool.Data,
-                    ["auto_profile"] = false,
-                    ["profile_name"] = "",
-                    ["outpaint_dir"] = "",
-                    ["enable_luma_match"] = false,
-                    ["enable_color_match"] = false,
-                    ["enable_texture_match"] = false,
-                    ["enable_grain_match"] = false,
-                    ["enable_lens_profile"] = false,
-                    ["luma_strength"] = 0.5,
-                    ["color_strength"] = 0.5,
-                    ["texture_strength"] = 0.5,
-                    ["grain_strength"] = 0.5,
-                    ["lens_softness"] = 0.5,
-                    ["sensor_emulation"] = false,
-                    ["chromatic_aberration"] = false,
-                    ["vignette_strength"] = 0.0,
-                    ["pre_sharpen"] = false,
-                    ["sharpen_radius"] = 1.0,
-                    ["sharpen_amount"] = 1.0,
-                    ["sharpen_threshold"] = 0.0,
-                    ["auto_fix_for_ai"] = false,
-                    ["force_real_photo"] = false,
-                    ["cnn_score"] = realPhotoConf.Data,
-                    ["auto_ai_real"] = false,
-                    ["ai_mode_strength"] = 1.0,
-                    ["ai_enhance_mode"] = false,
-                    ["disable_fixer_on_outpaint"] = false,
-                    ["fix_only_original_region"] = false,
-                    ["minimal_luma_match_mode"] = false,
-                    ["debug_mode"] = false,
-                    ["force_tiled"] = false,
-                },
-            }.ToNamedNode("PhotoFixer");
-
-            var fixerOut = nodes.AddNamedNode(photoFixer);
-            Console.WriteLine($"   ✅ RealPhotoPostFixerV3 node created: {fixerOut.Name}");
-            var fixedLatent = fixerOut.GetOutput<LatentNodeConnection>(0);
-
-            // --- LT TILED VAE DECODE ---
-            var vaeDecode = new ComfyNode
-            {
-                ClassType = "LTTiledVAEDecode",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["latents"] = fixedLatent.Data,
-                    ["vae"] = checkpoint.Output3.Data,
-                    ["horizontal_tiles"] = 2,
-                    ["vertical_tiles"] = 2,
-                    ["overlap"] = 2,
-                    ["last_frame_fix"] = false,
-                },
-            }.ToNamedNode("LT-Tiled-VAEDecode");
-
-            var decodeOut = nodes.AddNamedNode(vaeDecode);
-            Console.WriteLine($"   ✅ LTTiledVAEDecode node created: {decodeOut.Name}");
-            var decodedImage = decodeOut.GetOutput<ImageNodeConnection>(0);
-
-            builder.Connections.Primary = new ImageNodeConnection { Data = decodedImage.Data };
-
-            // --- PREVIEW ---
-            var preview = nodes.AddTypedNode(
-                new ComfyNodeBuilder.PreviewImage
-                {
-                    Name = "PreviewNode",
-                    Images = new ImageNodeConnection { Data = decodedImage.Data },
-                }
-            );
-
-            builder.Connections.OutputNodes.Add(preview);
-
-            Console.WriteLine("✅ Using complex OUTPAINT PERFECTION workflow");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"⚠️ Falling back to standard composite: {ex.Message}");
-
-            // --- FALLBACK (original simple workflow) ---
-            var compositeNode = new NamedComfyNode<LatentNodeConnection>(
-                "AdvancedOutpaintLatentCompositeNode"
-            )
-            {
-                ClassType = "AdvancedOutpaintLatentComposite",
-                Inputs = new Dictionary<string, object?>
-                {
-                    ["original"] = vaeEncode.Output.Data,
-                    ["generated"] = sampler.Output.Data,
-                    ["mask"] = outpaintMask.Data,
-                    ["feathering"] = feathering,
-                    ["sharpen_strength"] = 0.15,
-                    ["exposure_blend"] = 0.85,
-                    ["invert_mask"] = false,
-                },
-            };
-
-            var compositeOutput = nodes.AddNamedNode(compositeNode);
-
-            var vaeDecode = nodes.AddTypedNode(
-                new ComfyNodeBuilder.VAEDecode
-                {
-                    Name = "VAEDecodeNode",
-                    Samples = compositeOutput.Output,
-                    Vae = checkpoint.Output3,
-                }
-            );
-
-            builder.Connections.Primary = vaeDecode.Output;
-
-            var preview = nodes.AddTypedNode(
-                new ComfyNodeBuilder.PreviewImage { Name = "PreviewNode", Images = vaeDecode.Output }
-            );
-
-            builder.Connections.OutputNodes.Add(preview);
-        }
+        Console.WriteLine("✅ Using OUTPAINT PERFECTION workflow matching JSON exactly");
     }
 
     protected override async Task GenerateImageImpl(
