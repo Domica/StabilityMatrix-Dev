@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -13,6 +14,7 @@ using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.ViewModels.Inference.Modules;
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Inference;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
@@ -84,6 +86,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         set => SetProperty(ref _smartOutpaintAssistEnabled, value);
     }
 
+    private const string FlorencePositivePreviewName = "FlorencePositivePreview";
+    private const string FlorenceNegativePreviewName = "FlorenceNegativePreview";
+
+    // True when ComfyUI has the core PreviewAny node (used to read back Florence-2 text)
+    private bool _previewAnyAvailable;
+
     private double _smartOutpaintInjectionStrength = 0.7;
 
     // --- Debug Prompt Overlay ---
@@ -131,8 +139,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
         Console.WriteLine($"   StackCardViewModel instance: {StackCardViewModel.GetHashCode()}");
 
+        var imageCard = vmFactory.Get<SelectImageCardViewModel>();
+        var modelCard = vmFactory.Get<ModelCardViewModel>();
+
         StackCardViewModel.AddCards(
-            vmFactory.Get<SelectImageCardViewModel>(),
+            imageCard,
             vmFactory.Get<OutpaintCardViewModel>(),
             vmFactory.Get<PromptCardViewModel>(),
             vmFactory.Get<SamplerCardViewModel>(s =>
@@ -142,13 +153,12 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 s.DenoiseStrength = 0.55; // Optimal for outpainting
                 s.Steps = 30; // Good balance of quality/speed
             }),
-            vmFactory.Get<ModelCardViewModel>(),
+            modelCard,
             vmFactory.Get<SeedCardViewModel>()
         );
 
         // Re-evaluate Generate button when input image or model changes
-        var imageCard = vmFactory.Get<SelectImageCardViewModel>();
-        var modelCard = vmFactory.Get<ModelCardViewModel>();
+        // (must be the SAME card instances that were added to the stack)
         imageCard.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(SelectImageCardViewModel.ImageSource))
@@ -159,6 +169,25 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             if (e.PropertyName == nameof(ModelCardViewModel.SelectedModel))
                 GenerateImageCommand.NotifyCanExecuteChanged();
         };
+    }
+
+    public override void LoadStateFromJsonObject(JsonObject state)
+    {
+        base.LoadStateFromJsonObject(state);
+
+        // A loaded project never resumes a running generation: reset transient UI state
+        // and re-evaluate the buttons, otherwise they stay disabled until the tab is re-created.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsGenerating)
+            {
+                GenerationStatus = "Ready";
+                GenerationProgress = 0;
+            }
+            OnPropertyChanged(nameof(SelectedImage));
+            GenerateImageCommand.NotifyCanExecuteChanged();
+            CancelCommand.NotifyCanExecuteChanged();
+        });
     }
 
     private bool CanGenerateImage()
@@ -472,6 +501,32 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         var florenceOut = nodes.AddNamedNode(florenceInterrogate);
         Console.WriteLine($"   ✅ Florence2 node created: {florenceOut.Name}");
         var florencePositive = florenceOut.GetOutput<StringNodeConnection>(0).Data;
+
+        // Text previews so SM can show what Florence-2 actually produced in the debug panel
+        if (_previewAnyAvailable)
+        {
+            builder.Connections.OutputNodes.Add(
+                nodes.AddNamedNode(
+                    new ComfyNode
+                    {
+                        ClassType = "PreviewAny",
+                        Inputs = new Dictionary<string, object?> { ["source"] = florencePositive },
+                    }.ToNamedNode(FlorencePositivePreviewName)
+                )
+            );
+            builder.Connections.OutputNodes.Add(
+                nodes.AddNamedNode(
+                    new ComfyNode
+                    {
+                        ClassType = "PreviewAny",
+                        Inputs = new Dictionary<string, object?>
+                        {
+                            ["source"] = florenceOut.GetOutput<StringNodeConnection>(1).Data,
+                        },
+                    }.ToNamedNode(FlorenceNegativePreviewName)
+                )
+            );
+        }
 
         // ============================================================
         // 9. CLIP TEXT ENCODE (POSITIVE) — JSON node 70
@@ -793,6 +848,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
     )
     {
         Task? progressUpdateTask = null;
+        CancellationTokenSource? progressCts = null;
 
         try
         {
@@ -828,6 +884,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
             await UploadInputImages(ClientManager.Client!);
 
+            _previewAnyAvailable =
+                ClientManager.Client is { } comfyClient
+                && await comfyClient.HasNodeTypeAsync("PreviewAny", cancellationToken);
+
             var buildArgs = new BuildPromptEventArgs();
             BuildPrompt(buildArgs);
 
@@ -837,7 +897,10 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                 GenerationProgress = 30;
             });
 
-            // ✅ Start progress tracking task with timeout
+            // ✅ Start progress tracking task with its own token so it can be stopped
+            // as soon as RunGeneration returns (IsGenerating is only reset AFTER this method returns)
+            progressCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var progressToken = progressCts.Token;
             progressUpdateTask = Task.Run(
                 async () =>
                 {
@@ -846,11 +909,11 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
                     while (
                         IsGenerating
-                        && !cancellationToken.IsCancellationRequested
+                        && !progressToken.IsCancellationRequested
                         && DateTime.UtcNow - startTime < timeout
                     )
                     {
-                        await Task.Delay(500, cancellationToken);
+                        await Task.Delay(500, progressToken);
 
                         // Increment progress slowly to show activity
                         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -863,7 +926,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                     }
 
                     // ✅ If timeout occurred
-                    if (DateTime.UtcNow - startTime >= timeout)
+                    if (!progressToken.IsCancellationRequested && DateTime.UtcNow - startTime >= timeout)
                     {
                         Console.WriteLine("⚠️ Progress tracking timeout");
                         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -872,7 +935,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                         });
                     }
                 },
-                cancellationToken
+                progressToken
             );
 
             var genArgs = new ImageGenerationEventArgs
@@ -901,6 +964,7 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
             Console.WriteLine("✅ RunGeneration completed successfully");
 
             // ✅ CRITICAL: Stop progress task immediately after RunGeneration completes
+            progressCts?.Cancel();
             if (progressUpdateTask != null)
             {
                 try
@@ -955,7 +1019,9 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
         {
             Console.WriteLine("🧹 GenerateImageImpl finally block started");
 
-            // ✅ CRITICAL: Always cleanup progress task
+            // ✅ CRITICAL: Always cleanup progress task (cancel first, otherwise this await
+            // waits for a loop that only ends when IsGenerating is reset after we return)
+            progressCts?.Cancel();
             if (progressUpdateTask != null)
             {
                 try
@@ -963,11 +1029,13 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
                     await progressUpdateTask;
                     Console.WriteLine("✅ Progress task awaited in finally");
                 }
+                catch (OperationCanceledException) { }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"⚠️ Progress task exception in finally: {ex.Message}");
                 }
             }
+            progressCts?.Dispose();
 
             // ✅ CRITICAL: Reset UI state on UI thread
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1001,6 +1069,29 @@ public partial class InferenceImageOutpaintViewModel : InferenceGenerationViewMo
 
             Console.WriteLine("✅ GenerateImageImpl finally block completed");
         }
+    }
+
+    protected override async Task OnPromptExecutedAsync(
+        ComfyClient client,
+        string promptId,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!_previewAnyAvailable)
+            return;
+
+        var texts = await client.GetTextOutputsForExecutedPromptAsync(promptId, cancellationToken);
+
+        texts.TryGetValue(FlorencePositivePreviewName, out var positive);
+        texts.TryGetValue(FlorenceNegativePreviewName, out var negative);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (positive is { Count: > 0 })
+                DebugFinalPositive = positive[0];
+            if (negative is { Count: > 0 })
+                DebugFinalNegative = negative[0];
+        });
     }
 
     protected override IEnumerable<ImageSource> GetInputImages()
