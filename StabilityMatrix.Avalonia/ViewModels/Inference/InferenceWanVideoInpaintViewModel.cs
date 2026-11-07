@@ -235,13 +235,13 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         {
             IsLoadingFrame = true;
 
-            var videoFileName = System.IO.Path.GetFileName(VideoInputPath);
-            await client.UploadFileAsync(VideoInputPath, videoFileName);
+            var sanitizedVideoName = $"sm_inpaint_{Guid.NewGuid():N}{System.IO.Path.GetExtension(VideoInputPath)}";
+            await client.UploadFileAsync(VideoInputPath, $"input/{sanitizedVideoName}");
 
             var builder = new ComfyNodeBuilder();
 
             var loadVideo = builder.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.LoadVideo { Name = "PreviewLoadVideo", Video = videoFileName }
+                new ComfyNodeBuilder.LoadVideo { Name = "PreviewLoadVideo", Video = sanitizedVideoName }
             );
             var components = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.GetVideoComponents { Name = "PreviewComponents", Video = loadVideo.Output }
@@ -373,17 +373,20 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
 
         Logger.Info($"VideoInpaint: Loading input video from {VideoInputPath}");
 
-        var videoFileName = System.IO.Path.GetFileName(VideoInputPath);
+        // Sanitize the filename for ComfyUI's input directory (avoid special chars, spaces)
+        var sanitizedVideoName = $"sm_inpaint_{Guid.NewGuid():N}{System.IO.Path.GetExtension(VideoInputPath)}";
 
-        // Only add to FilesToTransfer once per batch to avoid duplicates
+        // Copy to ComfyUI's input/ directory so LoadVideo can find it
+        // UploadFileAsync copies to LocalServerPath/destinationRelativePath
+        var destinationPath = $"input/{sanitizedVideoName}";
         if (!args.FilesToTransfer.Any(x => x.SourcePath == VideoInputPath))
-            args.FilesToTransfer.Add((VideoInputPath, videoFileName));
+            args.FilesToTransfer.Add((VideoInputPath, destinationPath));
 
         var loadVideo = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.LoadVideo
             {
                 Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.LoadVideo)),
-                Video = videoFileName,
+                Video = sanitizedVideoName,
             }
         );
 
