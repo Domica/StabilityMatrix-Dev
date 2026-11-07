@@ -143,8 +143,16 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
         if (string.IsNullOrEmpty(VideoInputPath))
             throw new ValidationException("Input video is required for Video Inpaint");
 
+        if (!System.IO.File.Exists(VideoInputPath))
+            throw new ValidationException($"Input video file not found: {VideoInputPath}");
+
+        Logger.Info($"VideoInpaint: Loading input video from {VideoInputPath}");
+
         var videoFileName = System.IO.Path.GetFileName(VideoInputPath);
-        args.FilesToTransfer.Add((VideoInputPath, videoFileName));
+
+        // Only add to FilesToTransfer once per batch to avoid duplicates
+        if (!args.FilesToTransfer.Any(x => x.SourcePath == VideoInputPath))
+            args.FilesToTransfer.Add((VideoInputPath, videoFileName));
 
         var loadVideo = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.LoadVideo
@@ -270,6 +278,8 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
         if (overrides is not { UseCurrentSeed: true } && seedCard.IsRandomizeEnabled)
             seedCard.GenerateNewSeed();
 
+        Logger.Info($"VideoInpaint: GenerateImageImpl called with VideoInputPath={VideoInputPath}, MaskImage={MaskImageCardViewModel.ImageSource?.LocalFile?.FullPath}");
+
         var batches = BatchSizeCardViewModel.BatchCount;
         var batchArgs = new List<ImageGenerationEventArgs>();
 
@@ -278,6 +288,7 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
             var seed = seedCard.Seed + i;
 
             var buildPromptArgs = new BuildPromptEventArgs { Overrides = overrides, SeedOverride = seed };
+            Logger.Info($"VideoInpaint: BuildPrompt batch {i}, VideoInputPath still={VideoInputPath}");
             BuildPrompt(buildPromptArgs);
 
             var inferenceProject = InferenceProjectDocument.FromLoadable(this);
