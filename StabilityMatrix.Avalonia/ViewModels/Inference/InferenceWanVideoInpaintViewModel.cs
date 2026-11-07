@@ -16,6 +16,7 @@ using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLog;
 
@@ -31,8 +32,9 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
     [JsonPropertyName("ReferenceImage")]
     public SelectImageCardViewModel ReferenceImageCardViewModel { get; }
 
+    [ObservableProperty]
     [JsonPropertyName("VideoInput")]
-    public string? VideoInputPath { get; set; }
+    private string? videoInputPath;
 
     /// <summary>
     /// Command to browse and select an input video file.
