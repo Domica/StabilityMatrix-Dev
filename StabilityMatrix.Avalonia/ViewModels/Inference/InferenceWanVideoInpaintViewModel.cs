@@ -539,6 +539,22 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         // WanVaceToVideo node - the core VACE inpainting node.
         // It fills the masked area of the control video with neutral gray internally.
         var baseConditioning = builder.Connections.GetRefinerOrBaseConditioning();
+        
+        // DEBUG: Log reference image and mask connections
+        var refImgStatus = referenceImage != null ? "SET" : "NULL";
+        var maskStatus = controlMasks != null ? "SET" : "NULL";
+        var clipStatus = clipFrames.Output != null ? "SET" : "NULL";
+        var refImgSrcStatus = ReferenceImageCardViewModel.ImageSource != null ? "SET" : "NULL";
+        var maskImgSrcStatus = MaskImageCardViewModel.ImageSource != null ? "SET" : "NULL";
+        
+        Logger.Info($"VideoInpaint: referenceImage connection = {refImgStatus}");
+        Logger.Info($"VideoInpaint: controlMasks connection = {maskStatus}");
+        Logger.Info($"VideoInpaint: clipFrames.Output = {clipStatus}");
+        Logger.Info($"VideoInpaint: UseSam2Tracking = {UseSam2Tracking}");
+        Logger.Info($"VideoInpaint: ReferenceImageCardViewModel.ImageSource = {refImgSrcStatus}");
+        Logger.Info($"VideoInpaint: MaskImageCardViewModel.ImageSource = {maskImgSrcStatus}");
+        Logger.Info($"VideoInpaint: UseSam2Tracking = {UseSam2Tracking}");
+        
         var wanVaceToVideo = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.WanVaceToVideo
             {
@@ -555,6 +571,12 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
                 BatchSize = BatchSizeCardViewModel.BatchSize,
             }
         );
+        
+        var wanOut1 = wanVaceToVideo.Output1 != null ? "SET" : "NULL";
+        var wanOut2 = wanVaceToVideo.Output2 != null ? "SET" : "NULL";
+        var wanOut3 = wanVaceToVideo.Output3 != null ? "SET" : "NULL";
+        var wanOut4 = wanVaceToVideo.Output4 != null ? "SET" : "NULL";
+        Logger.Info($"VideoInpaint: WanVaceToVideo created, outputs: {wanOut1}, {wanOut2}, {wanOut3}, {wanOut4}");
 
         // KSampler
         var kSampler = builder.Nodes.AddTypedNode(
@@ -584,27 +606,32 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
             }
         );
 
-        // VAEDecode
-        var vaeDecode = builder.Nodes.AddTypedNode(
-            new ComfyNodeBuilder.VAEDecode
+        // Tiled VAEDecode (uses TiledVAEModule settings if enabled)
+        var tiledVaeDecode = builder.Nodes.AddTypedNode(
+            new ComfyNodeBuilder.TiledVAEDecode
             {
-                Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.VAEDecode)),
+                Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.TiledVAEDecode)),
                 Samples = trimLatent.Output,
-                Vae = builder.Connections.GetDefaultVAE()
+                Vae = builder.Connections.GetDefaultVAE(),
+                TileSize = 256,
+                Overlap = 64,
+                TemporalSize = 32,
+                TemporalOverlap = 8
             }
         );
 
-        // SaveAnimatedMP4 for video output
+        // SaveAnimatedMP4Advanced for video output (uses the available Advanced node)
         var saveVideo = builder.Nodes.AddTypedNode(
-            new ComfyNodeBuilder.SaveAnimatedMP4
+            new ComfyNodeBuilder.SaveAnimatedMP4Advanced
             {
-                Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.SaveAnimatedMP4)),
-                Images = vaeDecode.Output,
+                Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.SaveAnimatedMP4Advanced)),
+                Images = tiledVaeDecode.Output,
                 FilenamePrefix = "wan_vace_inpaint",
                 Fps = VideoOutputSettingsCardViewModel.Fps,
                 Crf = 18,
                 Codec = "libx264",
-                Container = "mp4"
+                Container = "mp4",
+                Bitrate = VideoOutputSettingsCardViewModel.Bitrate
             }
         );
 
