@@ -758,6 +758,11 @@ public class ComfyNodeBuilder
     [TypedNodeOptions(Name = "LoadVideo")]
     public record LoadVideo : ComfyTypedNodeBase<VideoNodeConnection>
     {
+        /// <summary>
+        /// File name relative to the Comfy input directory.
+        /// ComfyUI's LoadVideo node names this input "file" (not "video").
+        /// </summary>
+        [JsonPropertyName("file")]
         public required string Video { get; init; }
     }
 
