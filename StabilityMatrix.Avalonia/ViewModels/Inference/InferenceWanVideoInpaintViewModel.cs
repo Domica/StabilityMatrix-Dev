@@ -24,7 +24,7 @@ namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
 [View(typeof(InferenceWanVideoInpaintView), IsPersistent = true)]
 [RegisterScoped<InferenceWanVideoInpaintViewModel>, ManagedService]
-public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewModel, IParametersLoadableState
+public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewModel, IParametersLoadableState
 {
     [JsonPropertyName("MaskImage")]
     public SelectImageCardViewModel MaskImageCardViewModel { get; }
