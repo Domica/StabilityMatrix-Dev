@@ -9,9 +9,11 @@ using StabilityMatrix.Avalonia.Views.Inference;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
+using StabilityMatrix.Avalonia.Extensions;
 using StabilityMatrix.Avalonia.ViewModels.Settings;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using NLog;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
@@ -68,8 +70,6 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
     /// <inheritdoc />
     protected override void BuildPrompt(BuildPromptEventArgs args)
     {
-        base.BuildPrompt(args);
-
         var applyArgs = args.ToModuleApplyStepEventArgs();
         var builder = args.Builder;
 
@@ -166,7 +166,7 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
             new ComfyNodeBuilder.KSampler
             {
                 Name = "Sampler",
-                Model = builder.Connections.Base.Model!.Unwrap(),
+                Model = builder.Connections.Base.Model,
                 Seed = builder.Connections.Seed,
                 SamplerName = SamplerCardViewModel.SelectedSampler?.Name ?? "uni_pc",
                 Scheduler = SamplerCardViewModel.SelectedScheduler?.Name ?? "simple",
@@ -199,12 +199,11 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
                 Fps = VideoOutputSettingsCardViewModel.Fps,
                 Crf = 18,
                 Codec = "libx264",
-                Container = "mp4",
-                Bitrate = 0
+                Container = "mp4"
             }
         );
 
-        builder.Connections.OutputNodeNames.Add(saveVideo.Name);
+        builder.Connections.OutputNodes.Add(saveVideo);
 
         applyArgs.InvokeAllPreOutputActions();
 
