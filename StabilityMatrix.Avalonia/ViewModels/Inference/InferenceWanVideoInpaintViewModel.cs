@@ -1,4 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using Avalonia.Controls.Notifications;
+using Avalonia.Media.Imaging;
 using System.Text.Json.Serialization;
 using Injectio.Attributes;
 using StabilityMatrix.Avalonia.Models;
@@ -37,12 +40,88 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
     private string? videoInputPath;
 
     /// <summary>
+    /// When enabled the mask is created inside Stability Matrix: click points on the first frame and
+    /// SAM2 tracks the object through the video. When disabled the mask image card is used as a static mask.
+    /// </summary>
+    [ObservableProperty]
+    [JsonPropertyName("UseSam2Tracking")]
+    private bool useSam2Tracking = true;
+
+    [ObservableProperty]
+    [JsonPropertyName("Sam2Model")]
+    private string sam2ModelName = "sam2.1_hiera_small.safetensors";
+
+    /// <summary>
+    /// Pixels the mask is grown by (covers hair/edges/shadows the tracker misses).
+    /// </summary>
+    [ObservableProperty]
+    [JsonPropertyName("MaskGrow")]
+    private int maskGrow = 8;
+
+    [ObservableProperty]
+    [JsonIgnore]
+    private bool isLoadingFrame;
+
+    private Bitmap? framePreview;
+
+    /// <summary>
+    /// First frame of the input video, shown in the point picker.
+    /// </summary>
+    [JsonIgnore]
+    public Bitmap? FramePreview
+    {
+        get => framePreview;
+        private set => SetProperty(ref framePreview, value);
+    }
+
+    private IReadOnlyList<MaskPoint> positivePoints = Array.Empty<MaskPoint>();
+
+    /// <summary>
+    /// Points (frame pixel coordinates) that mark what should be replaced.
+    /// </summary>
+    [JsonPropertyName("PositivePoints")]
+    public IReadOnlyList<MaskPoint> PositivePoints
+    {
+        get => positivePoints;
+        set => SetProperty(ref positivePoints, value ?? Array.Empty<MaskPoint>());
+    }
+
+    private IReadOnlyList<MaskPoint> negativePoints = Array.Empty<MaskPoint>();
+
+    /// <summary>
+    /// Points (frame pixel coordinates) that mark what must NOT be replaced.
+    /// </summary>
+    [JsonPropertyName("NegativePoints")]
+    public IReadOnlyList<MaskPoint> NegativePoints
+    {
+        get => negativePoints;
+        set => SetProperty(ref negativePoints, value ?? Array.Empty<MaskPoint>());
+    }
+
+    /// <summary>
+    /// Available SAM2 checkpoints (auto-downloaded by the SAM2 custom node on first use).
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> Sam2ModelNames { get; } =
+        new[]
+        {
+            "sam2.1_hiera_tiny.safetensors",
+            "sam2.1_hiera_small.safetensors",
+            "sam2.1_hiera_base_plus.safetensors",
+            "sam2.1_hiera_large.safetensors",
+        };
+
+    /// <summary>
     /// Command to browse and select an input video file.
     /// </summary>
     public IRelayCommand BrowseVideoCommand { get; }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly ISettingsManager settingsManager;
+    private readonly INotificationService notifications;
+
+    // Order the points were placed in, so Undo removes the newest one (true = positive)
+    private readonly Stack<bool> pointHistory = new();
 
     public InferenceWanVideoInpaintViewModel(
         IServiceManager<ViewModelBase> vmFactory,
@@ -54,6 +133,7 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         : base(vmFactory, inferenceClientManager, notificationService, settingsManager, runningPackageService)
     {
         this.settingsManager = settingsManager;
+        notifications = notificationService;
 
         // Override sampler settings for VACE inpainting
         SamplerCardViewModel.Width = 720;
@@ -63,6 +143,7 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         SamplerCardViewModel.IsLengthEnabled = true;
         SamplerCardViewModel.IsCfgScaleEnabled = true;
 
+        // Manual (static) mask, only used when SAM2 tracking is turned off
         MaskImageCardViewModel = vmFactory.Get<SelectImageCardViewModel>();
         MaskImageCardViewModel.IsMaskEditorEnabled = true;
 
@@ -78,6 +159,141 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         );
 
         BrowseVideoCommand = new RelayCommand(async () => await BrowseVideoAsync());
+    }
+
+    /// <summary>
+    /// Left click on the frame = positive point, right click = negative point.
+    /// </summary>
+    [RelayCommand]
+    private void AddPoint(MaskPointClick? click)
+    {
+        if (click is null)
+            return;
+
+        var point = new MaskPoint(Math.Round(click.X, 1), Math.Round(click.Y, 1));
+
+        if (click.IsPositive)
+            PositivePoints = PositivePoints.Append(point).ToList();
+        else
+            NegativePoints = NegativePoints.Append(point).ToList();
+
+        pointHistory.Push(click.IsPositive);
+    }
+
+    [RelayCommand]
+    private void UndoPoint()
+    {
+        // History is empty after loading a saved project, so fall back to "last negative, else last positive"
+        var removePositive = pointHistory.Count > 0 ? pointHistory.Pop() : NegativePoints.Count == 0;
+
+        if (removePositive && PositivePoints.Count > 0)
+            PositivePoints = PositivePoints.Take(PositivePoints.Count - 1).ToList();
+        else if (NegativePoints.Count > 0)
+            NegativePoints = NegativePoints.Take(NegativePoints.Count - 1).ToList();
+    }
+
+    [RelayCommand]
+    private void ClearPoints()
+    {
+        PositivePoints = Array.Empty<MaskPoint>();
+        NegativePoints = Array.Empty<MaskPoint>();
+        pointHistory.Clear();
+    }
+
+    /// <summary>
+    /// Extracts the first frame of the input video through ComfyUI (no extra tools needed)
+    /// and shows it in the point picker.
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadFrameAsync()
+    {
+        await LoadPreviewFrameAsync(promptForConnection: true);
+    }
+
+    private async Task LoadPreviewFrameAsync(bool promptForConnection)
+    {
+        if (string.IsNullOrEmpty(VideoInputPath) || !System.IO.File.Exists(VideoInputPath))
+        {
+            notifications.Show("No video", "Select an input video first", NotificationType.Warning);
+            return;
+        }
+
+        if (promptForConnection)
+        {
+            if (!await CheckClientConnectedWithPrompt())
+                return;
+        }
+        else if (!ClientManager.IsConnected)
+        {
+            return;
+        }
+
+        if (ClientManager.Client is not { } client)
+            return;
+
+        try
+        {
+            IsLoadingFrame = true;
+
+            var videoFileName = System.IO.Path.GetFileName(VideoInputPath);
+            await client.UploadFileAsync(VideoInputPath, videoFileName);
+
+            var builder = new ComfyNodeBuilder();
+
+            var loadVideo = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.LoadVideo { Name = "PreviewLoadVideo", Video = videoFileName }
+            );
+            var components = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.GetVideoComponents { Name = "PreviewComponents", Video = loadVideo.Output }
+            );
+            var firstFrame = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.ImageFromBatch
+                {
+                    Name = "PreviewFirstFrame",
+                    Image = components.Output,
+                    BatchIndex = 0,
+                    Length = 1,
+                }
+            );
+            var preview = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.PreviewImage { Name = "PreviewFrame", Images = firstFrame.Output }
+            );
+            builder.Connections.OutputNodes.Add(preview);
+
+            var promptTask = await client.QueuePromptAsync(builder.ToNodeDictionary());
+            await promptTask.Task;
+
+            var outputs = await client.GetImagesForExecutedPromptAsync(promptTask.Id);
+            var frame = outputs.Values.Where(images => images is { Count: > 0 }).Select(images => images![0]).FirstOrDefault();
+
+            if (frame is null)
+            {
+                notifications.Show("No frame", "ComfyUI did not return a frame preview", NotificationType.Warning);
+                return;
+            }
+
+            await using var stream = await client.GetImageStreamAsync(frame);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            FramePreview = new Bitmap(memory);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to load preview frame");
+            notifications.Show("Could not load frame", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsLoadingFrame = false;
+        }
+    }
+
+    private static string ToCoordinateJson(IEnumerable<MaskPoint> points)
+    {
+        // Format expected by Sam2VideoSegmentationAddPoints: [{"x":12.0,"y":34.0}]
+        return JsonSerializer.Serialize(points.Select(p => new { x = p.X, y = p.Y }));
     }
 
     private async Task BrowseVideoAsync()
@@ -105,6 +321,13 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
             {
                 VideoInputPath = file.Path.LocalPath;
                 Logger.Info($"Input video selected: {VideoInputPath}");
+
+                // Points belong to the previous video's frame
+                ClearPoints();
+                FramePreview = null;
+
+                // Show the first frame right away if ComfyUI is already connected
+                await LoadPreviewFrameAsync(promptForConnection: false);
             }
         }
         catch (Exception ex)
@@ -160,42 +383,158 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
             new ComfyNodeBuilder.LoadVideo
             {
                 Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.LoadVideo)),
-                Video = videoFileName
+                Video = videoFileName,
             }
         );
 
-        // Load mask image
-        if (MaskImageCardViewModel.ImageSource is not { } maskImage)
-            throw new ValidationException("Mask image is required for Video Inpaint");
-
-        var maskImageLoad = builder.Nodes.AddTypedNode(
-            new ComfyNodeBuilder.LoadImage
+        // VIDEO -> IMAGE frames (WanVaceToVideo needs IMAGE, not VIDEO)
+        var videoComponents = builder.Nodes.AddTypedNode(
+            new ComfyNodeBuilder.GetVideoComponents
             {
-                Name = builder.Nodes.GetUniqueName("LoadMaskImage"),
-                Image = maskImage.GetHashGuidFileNameCached("Inference")
+                Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.GetVideoComponents)),
+                Video = loadVideo.Output,
             }
         );
 
-        // Load reference image (optional - falls back to mask image if not provided)
-        ImageNodeConnection referenceImage;
+        // Only the first <Length> frames are used, so only track/encode those
+        var clipLength = SamplerCardViewModel.Length;
+        var clipFrames = builder.Nodes.AddTypedNode(
+            new ComfyNodeBuilder.ImageFromBatch
+            {
+                Name = builder.Nodes.GetUniqueName("ClipFrames"),
+                Image = videoComponents.Output,
+                BatchIndex = 0,
+                Length = clipLength,
+            }
+        );
+
+        // One mask per frame: white = replace, black = keep
+        ImageMaskConnection controlMasks;
+
+        if (UseSam2Tracking)
+        {
+            if (PositivePoints.Count == 0)
+            {
+                throw new ValidationException(
+                    "Click the object to replace on the frame preview (left click). Right click marks areas to exclude."
+                );
+            }
+
+            var sam2Model = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.DownloadAndLoadSam2Model
+                {
+                    Name = builder.Nodes.GetUniqueName("Sam2Loader"),
+                    Model = Sam2ModelName,
+                    Segmentor = "video",
+                    Device = "cuda",
+                    Precision = "fp16",
+                }
+            );
+
+            var addPoints = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.Sam2VideoSegmentationAddPoints
+                {
+                    Name = builder.Nodes.GetUniqueName("Sam2AddPoints"),
+                    Sam2Model = sam2Model.Output,
+                    CoordinatesPositive = ToCoordinateJson(PositivePoints),
+                    CoordinatesNegative = NegativePoints.Count > 0 ? ToCoordinateJson(NegativePoints) : null,
+                    // The points are placed on the first frame of the clip, tracking runs forward from it
+                    FrameIndex = 0,
+                    ObjectIndex = 0,
+                    Image = clipFrames.Output,
+                }
+            );
+
+            var sam2Segmentation = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.Sam2VideoSegmentation
+                {
+                    Name = builder.Nodes.GetUniqueName("Sam2Track"),
+                    Sam2Model = addPoints.Output1,
+                    InferenceState = addPoints.Output2,
+                    KeepModelLoaded = false,
+                }
+            );
+
+            controlMasks = sam2Segmentation.Output;
+        }
+        else
+        {
+            // Static mask image (same mask on every frame). Black/white: white = replace
+            if (MaskImageCardViewModel.ImageSource is not { } maskImage)
+            {
+                throw new ValidationException(
+                    "Mask image is required when SAM2 tracking is off (white = replace, black = keep)"
+                );
+            }
+
+            var maskLoad = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.LoadImageMask
+                {
+                    Name = builder.Nodes.GetUniqueName("LoadMaskImage"),
+                    Image = maskImage.GetHashGuidFileNameCached("Inference"),
+                    Channel = "red",
+                }
+            );
+
+            // WanVaceToVideo pads missing mask frames with 1.0 (= replace everything),
+            // so the single mask has to be repeated for every frame
+            var maskAsImage = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.MaskToImage
+                {
+                    Name = builder.Nodes.GetUniqueName("MaskToImage"),
+                    Mask = maskLoad.Output,
+                }
+            );
+            var maskRepeated = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.RepeatImageBatch
+                {
+                    Name = builder.Nodes.GetUniqueName("RepeatMask"),
+                    Image = maskAsImage.Output,
+                    Amount = clipLength,
+                }
+            );
+            var maskBatch = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.ImageToMask
+                {
+                    Name = builder.Nodes.GetUniqueName("MaskBatch"),
+                    Image = maskRepeated.Output,
+                    Channel = "red",
+                }
+            );
+
+            controlMasks = maskBatch.Output;
+        }
+
+        if (MaskGrow > 0)
+        {
+            var grownMask = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.GrowMask
+                {
+                    Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.GrowMask)),
+                    Mask = controlMasks,
+                    Expand = MaskGrow,
+                    TaperedCorners = true,
+                }
+            );
+            controlMasks = grownMask.Output;
+        }
+
+        // Reference image (optional): what the masked area should turn into
+        ImageNodeConnection? referenceImage = null;
         if (ReferenceImageCardViewModel.ImageSource is { } refImage)
         {
             var refImageLoad = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.LoadImage
                 {
                     Name = builder.Nodes.GetUniqueName("LoadReferenceImage"),
-                    Image = refImage.GetHashGuidFileNameCached("Inference")
+                    Image = refImage.GetHashGuidFileNameCached("Inference"),
                 }
             );
             referenceImage = refImageLoad.Output1;
         }
-        else
-        {
-            // Use mask image as reference fallback when no reference image provided
-            referenceImage = maskImageLoad.Output1;
-        }
 
-        // WanVaceToVideo node - the core VACE inpainting node
+        // WanVaceToVideo node - the core VACE inpainting node.
+        // It fills the masked area of the control video with neutral gray internally.
         var baseConditioning = builder.Connections.GetRefinerOrBaseConditioning();
         var wanVaceToVideo = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.WanVaceToVideo
@@ -204,14 +543,13 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
                 Positive = baseConditioning.Positive,
                 Negative = baseConditioning.Negative,
                 Vae = builder.Connections.GetDefaultVAE(),
-                ControlVideo = loadVideo.Output,
-                ControlMasks = maskImageLoad.Output2,
+                ControlVideo = clipFrames.Output,
+                ControlMasks = controlMasks,
                 ReferenceImage = referenceImage,
                 Width = SamplerCardViewModel.Width,
                 Height = SamplerCardViewModel.Height,
-                Length = SamplerCardViewModel.Length,
+                Length = clipLength,
                 BatchSize = BatchSizeCardViewModel.BatchSize,
-                Seed = Convert.ToInt32(SeedCardViewModel.Seed)
             }
         );
 
@@ -233,12 +571,22 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
             }
         );
 
+        // Remove the latent frames that belong to the reference image
+        var trimLatent = builder.Nodes.AddTypedNode(
+            new ComfyNodeBuilder.TrimVideoLatent
+            {
+                Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.TrimVideoLatent)),
+                Samples = kSampler.Output,
+                TrimAmount = wanVaceToVideo.Output4,
+            }
+        );
+
         // VAEDecode
         var vaeDecode = builder.Nodes.AddTypedNode(
             new ComfyNodeBuilder.VAEDecode
             {
                 Name = builder.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.VAEDecode)),
-                Samples = kSampler.Output,
+                Samples = trimLatent.Output,
                 Vae = builder.Connections.GetDefaultVAE()
             }
         );
@@ -333,7 +681,8 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
     /// <inheritdoc />
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        if (MaskImageCardViewModel.ImageSource is { } maskImage)
+        // The static mask image is only used when SAM2 tracking is off
+        if (!UseSam2Tracking && MaskImageCardViewModel.ImageSource is { } maskImage)
             yield return maskImage;
 
         if (ReferenceImageCardViewModel.ImageSource is { } refImage)

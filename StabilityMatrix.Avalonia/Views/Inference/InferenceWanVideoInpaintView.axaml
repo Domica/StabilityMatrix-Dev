@@ -63,7 +63,7 @@
                             x:Name="VideoMaskPane"
                             Alignment="Left"
                             Id="VideoMaskPane"
-                            Proportion="0.25">
+                            Proportion="0.45">
                             <Tool
                                 x:Name="VideoMaskTool"
                                 Title="Video &amp; Mask"
@@ -105,11 +105,82 @@
                                             ToolTip.Tip="Select input video file" />
                                     </Grid>
 
-                                    <!--  Mask image card  -->
-                                    <controls:SelectImageCard
+                                    <!--  Mask mode + SAM2 settings  -->
+                                    <StackPanel
                                         Grid.Row="1"
-                                        x:CompileBindings="False"
-                                        DataContext="{Binding MaskImageCardViewModel}" />
+                                        Margin="0,0,0,8"
+                                        Spacing="6">
+                                        <ToggleSwitch
+                                            IsChecked="{Binding UseSam2Tracking}"
+                                            OffContent="Manual mask image (same mask on every frame)"
+                                            OnContent="Auto mask: click the object, SAM2 tracks it through the video" />
+
+                                        <StackPanel
+                                            IsVisible="{Binding UseSam2Tracking}"
+                                            Orientation="Horizontal"
+                                            Spacing="8">
+                                            <Button
+                                                Padding="12,6"
+                                                Command="{Binding LoadFrameCommand}"
+                                                Content="Load frame"
+                                                IsEnabled="{Binding !IsLoadingFrame}"
+                                                ToolTip.Tip="Extract the first frame of the video through ComfyUI" />
+                                            <Button
+                                                Padding="12,6"
+                                                Command="{Binding UndoPointCommand}"
+                                                Content="Undo point" />
+                                            <Button
+                                                Padding="12,6"
+                                                Command="{Binding ClearPointsCommand}"
+                                                Content="Clear points" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="#888888"
+                                                Text="Left click = replace this (green), right click = keep this (red)" />
+                                        </StackPanel>
+
+                                        <StackPanel
+                                            IsVisible="{Binding UseSam2Tracking}"
+                                            Orientation="Horizontal"
+                                            Spacing="8">
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                Text="SAM2 model" />
+                                            <ComboBox
+                                                MinWidth="240"
+                                                ItemsSource="{Binding Sam2ModelNames}"
+                                                SelectedItem="{Binding Sam2ModelName}" />
+                                            <TextBlock
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Text="Grow mask (px)"
+                                                ToolTip.Tip="Expands the tracked mask so hair, edges and shadows are replaced too" />
+                                            <NumericUpDown
+                                                Width="120"
+                                                Maximum="128"
+                                                Minimum="0"
+                                                Value="{Binding MaskGrow}" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <Grid Grid.Row="2">
+                                        <!--  Frame preview with click points (SAM2 mode)  -->
+                                        <controls:FramePointPicker
+                                            x:CompileBindings="False"
+                                            IsVisible="{Binding UseSam2Tracking}"
+                                            NegativePoints="{Binding NegativePoints}"
+                                            PointClickedCommand="{Binding AddPointCommand}"
+                                            PositivePoints="{Binding PositivePoints}"
+                                            Source="{Binding FramePreview}" />
+
+                                        <!--  Manual mask image card (static mask)  -->
+                                        <Grid IsVisible="{Binding !UseSam2Tracking}">
+                                            <controls:SelectImageCard
+                                                x:CompileBindings="False"
+                                                DataContext="{Binding MaskImageCardViewModel}" />
+                                        </Grid>
+                                    </Grid>
                                 </Grid>
 
                             </Tool>
@@ -122,7 +193,7 @@
                             x:Name="ReferencePane"
                             Alignment="Left"
                             Id="ReferencePane"
-                            Proportion="0.25">
+                            Proportion="0.2">
                             <Tool
                                 x:Name="ReferenceTool"
                                 Title="Reference Image (Optional)"

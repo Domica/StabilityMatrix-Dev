@@ -644,14 +644,111 @@ public class ComfyNodeBuilder
         public required ConditioningNodeConnection Positive { get; init; }
         public required ConditioningNodeConnection Negative { get; init; }
         public required VAENodeConnection Vae { get; init; }
-        public required VideoNodeConnection ControlVideo { get; init; }
-        public required ImageMaskConnection ControlMasks { get; init; }
-        public required ImageNodeConnection ReferenceImage { get; init; }
         public required int Width { get; init; }
         public required int Height { get; init; }
         public required int Length { get; init; }
         public required int BatchSize { get; init; }
-        public required int Seed { get; init; }
+        public double Strength { get; init; } = 1.0d;
+
+        /// <summary>IMAGE batch (video frames), NOT a VIDEO connection.</summary>
+        public ImageNodeConnection? ControlVideo { get; init; }
+
+        /// <summary>MASK batch, one mask per frame. White = regenerate, black = keep.</summary>
+        public ImageMaskConnection? ControlMasks { get; init; }
+
+        public ImageNodeConnection? ReferenceImage { get; init; }
+    }
+
+    /// <summary>Trims the reference-image latent frames off the sampled latent. trim_amount comes from WanVaceToVideo output 4.</summary>
+    public record TrimVideoLatent : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        public required LatentNodeConnection Samples { get; init; }
+        public required IntNodeConnection TrimAmount { get; init; }
+    }
+
+    /// <summary>Splits a VIDEO into IMAGE frames. Output 1 = images.</summary>
+    public record GetVideoComponents : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required VideoNodeConnection Video { get; init; }
+    }
+
+    public record ImageFromBatch : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageNodeConnection Image { get; init; }
+        public required int BatchIndex { get; init; }
+        public required int Length { get; init; }
+    }
+
+    public record RepeatImageBatch : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageNodeConnection Image { get; init; }
+        public required int Amount { get; init; }
+    }
+
+    public record MaskToImage : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageMaskConnection Mask { get; init; }
+    }
+
+    public record ImageToMask : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        public required ImageNodeConnection Image { get; init; }
+
+        /// <summary>"red", "green", "blue" or "alpha"</summary>
+        public required string Channel { get; init; }
+    }
+
+    public record GrowMask : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        public required ImageMaskConnection Mask { get; init; }
+        public required int Expand { get; init; }
+        public required bool TaperedCorners { get; init; }
+    }
+
+    private const string Sam2Extension = "https://github.com/kijai/ComfyUI-segment-anything-2";
+
+    /// <summary>Kijai ComfyUI-segment-anything-2: loads SAM2 (auto-downloads the checkpoint).</summary>
+    [TypedNodeOptions(Name = "DownloadAndLoadSAM2Model", RequiredExtensions = [Sam2Extension])]
+    public record DownloadAndLoadSam2Model : ComfyTypedNodeBase<Sam2ModelNodeConnection>
+    {
+        /// <summary>e.g. sam2.1_hiera_small.safetensors</summary>
+        public required string Model { get; init; }
+
+        /// <summary>"video" for video tracking</summary>
+        public required string Segmentor { get; init; }
+
+        public required string Device { get; init; }
+        public required string Precision { get; init; }
+    }
+
+    /// <summary>Adds positive/negative click points (pixel coordinates of the original frames) on one frame.</summary>
+    [TypedNodeOptions(Name = "Sam2VideoSegmentationAddPoints", RequiredExtensions = [Sam2Extension])]
+    public record Sam2VideoSegmentationAddPoints
+        : ComfyTypedNodeBase<Sam2ModelNodeConnection, Sam2InferenceStateNodeConnection>
+    {
+        [JsonPropertyName("sam2_model")]
+        public required Sam2ModelNodeConnection Sam2Model { get; init; }
+
+        /// <summary>JSON string: [{"x":12.0,"y":34.0}]</summary>
+        public required string CoordinatesPositive { get; init; }
+
+        public required int FrameIndex { get; init; }
+        public required int ObjectIndex { get; init; }
+        public ImageNodeConnection? Image { get; init; }
+        public string? CoordinatesNegative { get; init; }
+    }
+
+    /// <summary>Propagates the prompted object through all frames. Output = MASK batch (one per frame).</summary>
+    [TypedNodeOptions(Name = "Sam2VideoSegmentation", RequiredExtensions = [Sam2Extension])]
+    public record Sam2VideoSegmentation : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        [JsonPropertyName("sam2_model")]
+        public required Sam2ModelNodeConnection Sam2Model { get; init; }
+
+        [JsonPropertyName("inference_state")]
+        public required Sam2InferenceStateNodeConnection InferenceState { get; init; }
+
+        public required bool KeepModelLoaded { get; init; }
     }
 
     /// <summary>
