@@ -75,16 +75,31 @@
                                     x:CompileBindings="False"
                                     DataContext="{Binding ElementName=Dock, Path=DataContext}"
                                     Opacity="1"
-                                    RowDefinitions="*">
-                                    <!--  Input video path display  -->
-                                    <TextBlock
+                                    RowDefinitions="Auto,Auto,*">
+                                    <!--  Input video selector  -->
+                                    <Grid
+                                        Grid.Row="0"
                                         Margin="0,0,0,8"
-                                        TextWrapping="Wrap"
-                                        Text="{Binding VideoInputPath, FallbackValue='No video selected'}"
-                                        ToolTip.Tip="Input video for inpainting" />
+                                        ColumnDefinitions="*,Auto">
+                                        <TextBlock
+                                            Text="{Binding VideoInputPath, FallbackValue='No video selected'}"
+                                            TextWrapping="Wrap"
+                                            ToolTip.Tip="Input video for inpainting"
+                                            VerticalAlignment="Center" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Margin="8,0,0,0"
+                                            Padding="12,6"
+                                            HorizontalAlignment="Right"
+                                            avalonia:Attached.Icon="fa-solid fa-folder-open"
+                                            Classes="transparent"
+                                            Command="{Binding BrowseVideoCommand}"
+                                            ToolTip.Tip="Select input video file" />
+                                    </Grid>
 
                                     <!--  Mask image card  -->
                                     <controls:SelectImageCard
+                                        Grid.Row="1"
                                         x:CompileBindings="False"
                                         DataContext="{Binding MaskImageCardViewModel}" />
                                 </Grid>

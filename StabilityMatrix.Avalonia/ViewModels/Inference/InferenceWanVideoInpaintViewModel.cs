@@ -6,6 +6,7 @@ using StabilityMatrix.Avalonia.Models.Inference;
 using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.Views.Inference;
+using System.Threading.Tasks;
 using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Services;
@@ -14,6 +15,8 @@ using StabilityMatrix.Avalonia.ViewModels.Settings;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
+using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
 using NLog;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
@@ -30,6 +33,11 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
 
     [JsonPropertyName("VideoInput")]
     public string? VideoInputPath { get; set; }
+
+    /// <summary>
+    /// Command to browse and select an input video file.
+    /// </summary>
+    public IRelayCommand BrowseVideoCommand { get; }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly ISettingsManager settingsManager;
@@ -65,6 +73,41 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
             BatchSizeCardViewModel,
             VideoOutputSettingsCardViewModel
         );
+
+        BrowseVideoCommand = new RelayCommand(async () => await BrowseVideoAsync());
+    }
+
+    private async Task BrowseVideoAsync()
+    {
+        try
+        {
+            var provider = App.StorageProvider;
+            if (provider is null)
+                return;
+
+            var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Select Input Video",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Video Files")
+                    {
+                        Patterns = new[] { "*.mp4", "*.mov", "*.avi", "*.mkv", "*.webm" }
+                    }
+                }
+            });
+
+            if (files.Count > 0 && files[0] is { } file)
+            {
+                VideoInputPath = file.Path.LocalPath;
+                Logger.Info($"Input video selected: {VideoInputPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to select input video");
+        }
     }
 
     /// <inheritdoc />
