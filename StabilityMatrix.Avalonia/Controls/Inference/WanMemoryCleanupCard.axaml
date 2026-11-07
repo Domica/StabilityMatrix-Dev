@@ -1,0 +1,21 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:StabilityMatrix.Avalonia.Controls"
+    xmlns:vmInference="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference"
+    x:DataType="vmInference:WanMemoryCleanupCardViewModel">
+    <Design.PreviewWith>
+        <controls:WanMemoryCleanupCard />
+    </Design.PreviewWith>
+    <Style Selector="controls|WanMemoryCleanupCard">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <controls:Card>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="WAN Memory Cleanup enabled - models and cache will be offloaded after generation" />
+                    </StackPanel>
+                </controls:Card>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
