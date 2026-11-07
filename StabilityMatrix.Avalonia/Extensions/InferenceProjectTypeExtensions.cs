@@ -18,6 +18,7 @@ public static class InferenceProjectTypeExtensions
             InferenceProjectType.FluxTextToImage => typeof(InferenceFluxTextToImageViewModel),
             InferenceProjectType.WanTextToVideo => typeof(InferenceWanTextToVideoViewModel),
             InferenceProjectType.WanImageToVideo => typeof(InferenceWanImageToVideoViewModel),
+            InferenceProjectType.WanVideoInpaint => typeof(InferenceWanVideoInpaintViewModel),
             InferenceProjectType.Unknown => null,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };

@@ -632,6 +632,59 @@ public class ComfyNodeBuilder
         public required int BatchSize { get; init; }
     }
 
+    /// <summary>
+    /// Wan VACE Video Inpainting node.
+    /// outputs: positive, negative, latent, trim_latent
+    /// Requires ComfyUI-WanVideoWrapper extension.
+    /// </summary>
+    [TypedNodeOptions(
+        Name = "WanVaceToVideo",
+        RequiredExtensions = ["https://github.com/kijai/ComfyUI-WanVideoWrapper"]
+    )]
+    public record WanVaceToVideo
+        : ComfyTypedNodeBase<ConditioningNodeConnection, ConditioningNodeConnection, LatentNodeConnection, IntNodeConnection>
+    {
+        public required ConditioningNodeConnection Positive { get; init; }
+        public required ConditioningNodeConnection Negative { get; init; }
+        public required VAENodeConnection Vae { get; init; }
+        public required VideoNodeConnection ControlVideo { get; init; }
+        public required ImageMaskConnection ControlMasks { get; init; }
+        public required ImageNodeConnection ReferenceImage { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+        public required int Length { get; init; }
+        public required int BatchSize { get; init; }
+        public required int Seed { get; init; }
+    }
+
+    /// <summary>
+    /// Load video file node.
+    /// outputs: VIDEO
+    /// Requires ComfyUI-WanVideoWrapper or core video nodes.
+    /// </summary>
+    [TypedNodeOptions(
+        Name = "LoadVideo",
+        RequiredExtensions = ["https://github.com/kijai/ComfyUI-WanVideoWrapper"]
+    )]
+    public record LoadVideo : ComfyTypedNodeBase<VideoNodeConnection>
+    {
+        public required string Video { get; init; }
+    }
+
+    /// <summary>
+    /// Create video from images node.
+    /// outputs: VIDEO
+    /// </summary>
+    [TypedNodeOptions(
+        Name = "CreateVideo",
+        RequiredExtensions = ["https://github.com/kijai/ComfyUI-WanVideoWrapper"]
+    )]
+    public record CreateVideo : ComfyTypedNodeBase<VideoNodeConnection>
+    {
+        public required ImageNodeConnection Images { get; init; }
+        public required double Fps { get; init; }
+    }
+
     [TypedNodeOptions(
         Name = "CheckpointLoaderNF4",
         RequiredExtensions = ["https://github.com/comfyanonymous/ComfyUI_bitsandbytes_NF4"]

@@ -37,3 +37,7 @@ public class SamModelNodeConnection : NodeConnectionBase;
 public class GuiderNodeConnection : NodeConnectionBase;
 
 public class NoiseNodeConnection : NodeConnectionBase;
+
+public class VideoNodeConnection : NodeConnectionBase;
+
+public class IntNodeConnection : NodeConnectionBase;

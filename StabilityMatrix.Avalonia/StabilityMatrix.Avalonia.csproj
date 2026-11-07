@@ -263,6 +263,10 @@
         <DependentUpon>InferenceWanTextToVideoView.axaml</DependentUpon>
         <SubType>Code</SubType>
       </Compile>
+      <Compile Update="Views\Inference\InferenceWanVideoInpaintView.axaml.cs">
+        <DependentUpon>InferenceWanVideoInpaintView.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
       <Compile Update="Controls\Inference\NrsCard.axaml.cs">
         <DependentUpon>NrsCard.axaml</DependentUpon>
         <SubType>Code</SubType>
