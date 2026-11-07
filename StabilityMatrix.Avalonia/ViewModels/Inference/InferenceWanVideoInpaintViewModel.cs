@@ -65,6 +65,7 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
         MaskImageCardViewModel.IsMaskEditorEnabled = true;
 
         ReferenceImageCardViewModel = vmFactory.Get<SelectImageCardViewModel>();
+        ReferenceImageCardViewModel.IsMaskEditorEnabled = true;
 
         StackCardViewModel.AddCards(
             ModelCardViewModel,
