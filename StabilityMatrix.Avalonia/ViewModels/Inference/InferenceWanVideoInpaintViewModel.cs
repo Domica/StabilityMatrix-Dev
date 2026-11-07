@@ -181,7 +181,7 @@ public class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideoViewMode
         }
         else
         {
-            // Use mask image as reference fallback
+            // Use mask image as reference fallback when no reference image provided
             referenceImage = maskImageLoad.Output1;
         }
 

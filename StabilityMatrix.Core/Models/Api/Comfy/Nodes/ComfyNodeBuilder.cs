@@ -637,10 +637,7 @@ public class ComfyNodeBuilder
     /// outputs: positive, negative, latent, trim_latent
     /// Requires ComfyUI-WanVideoWrapper extension.
     /// </summary>
-    [TypedNodeOptions(
-        Name = "WanVaceToVideo",
-        RequiredExtensions = ["https://github.com/kijai/ComfyUI-WanVideoWrapper"]
-    )]
+    [TypedNodeOptions(Name = "WanVaceToVideo")]
     public record WanVaceToVideo
         : ComfyTypedNodeBase<ConditioningNodeConnection, ConditioningNodeConnection, LatentNodeConnection, IntNodeConnection>
     {
@@ -660,12 +657,8 @@ public class ComfyNodeBuilder
     /// <summary>
     /// Load video file node.
     /// outputs: VIDEO
-    /// Requires ComfyUI-WanVideoWrapper or core video nodes.
     /// </summary>
-    [TypedNodeOptions(
-        Name = "LoadVideo",
-        RequiredExtensions = ["https://github.com/kijai/ComfyUI-WanVideoWrapper"]
-    )]
+    [TypedNodeOptions(Name = "LoadVideo")]
     public record LoadVideo : ComfyTypedNodeBase<VideoNodeConnection>
     {
         public required string Video { get; init; }
@@ -675,10 +668,7 @@ public class ComfyNodeBuilder
     /// Create video from images node.
     /// outputs: VIDEO
     /// </summary>
-    [TypedNodeOptions(
-        Name = "CreateVideo",
-        RequiredExtensions = ["https://github.com/kijai/ComfyUI-WanVideoWrapper"]
-    )]
+    [TypedNodeOptions(Name = "CreateVideo")]
     public record CreateVideo : ComfyTypedNodeBase<VideoNodeConnection>
     {
         public required ImageNodeConnection Images { get; init; }
