@@ -81,18 +81,26 @@
                                         Grid.Row="0"
                                         Margin="0,0,0,8"
                                         ColumnDefinitions="*,Auto">
-                                        <TextBlock
-                                            Text="{Binding VideoInputPath, FallbackValue='No video selected'}"
-                                            TextWrapping="Wrap"
-                                            ToolTip.Tip="Input video for inpainting"
-                                            VerticalAlignment="Center" />
+                                        <StackPanel
+                                            VerticalAlignment="Center"
+                                            Spacing="4">
+                                            <TextBlock
+                                                Text="{Binding VideoInputPath, FallbackValue='No video selected'}"
+                                                TextWrapping="Wrap"
+                                                ToolTip.Tip="Input video for inpainting"
+                                                Foreground="#cccccc" />
+                                            <TextBlock
+                                                Text="Input Video"
+                                                FontSize="11"
+                                                Foreground="#888888" />
+                                        </StackPanel>
                                         <Button
                                             Grid.Column="1"
                                             Margin="8,0,0,0"
                                             Padding="12,6"
                                             HorizontalAlignment="Right"
+                                            Classes="accent"
                                             avalonia:Attached.Icon="fa-solid fa-folder-open"
-                                            Classes="transparent"
                                             Command="{Binding BrowseVideoCommand}"
                                             ToolTip.Tip="Select input video file" />
                                     </Grid>
