@@ -201,6 +201,153 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
     }
 
     /// <summary>
+    /// Runs SAM2 tracking to generate and preview the mask for the first, middle, and last frame.
+    /// </summary>
+    [RelayCommand]
+    private async Task PreviewMaskAsync()
+    {
+        if (!UseSam2Tracking)
+        {
+            notifications.Show("Auto mask is off", "Enable Auto mask to preview SAM2 mask", NotificationType.Warning);
+            return;
+        }
+
+        if (PositivePoints.Count == 0)
+        {
+            notifications.Show("No points", "Click on the frame to mark what to replace (left click) or keep (right click)", NotificationType.Warning);
+            return;
+        }
+
+        if (!await CheckClientConnectedWithPrompt() || !ClientManager.IsConnected)
+            return;
+
+        if (ClientManager.Client is not { } client)
+            return;
+
+        try
+        {
+            IsLoadingFrame = true;
+
+            var sanitizedVideoName = GetComfyVideoFileName(VideoInputPath);
+            await client.UploadFileAsync(VideoInputPath, System.IO.Path.Combine("input", sanitizedVideoName));
+
+            var builder = new ComfyNodeBuilder();
+
+            var loadVideo = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.LoadVideo { Name = "PreviewLoadVideo", Video = sanitizedVideoName }
+            );
+            var components = builder.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.GetVideoComponents { Name = "PreviewComponents", Video = loadVideo.Output }
+            );
+
+            // Get first, middle, and last frame
+            var frameCount = SamplerCardViewModel.Length;
+            var middleIndex = frameCount / 2;
+            var lastIndex = frameCount - 1;
+
+            var framesToPreview = new[] { 0, middleIndex, lastIndex }.Distinct().ToArray();
+
+            var maskFrames = new List<Bitmap>();
+
+            foreach (var frameIndex in framesToPreview)
+            {
+                var firstFrame = builder.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.ImageFromBatch
+                    {
+                        Name = $"PreviewFrame_{frameIndex}",
+                        Image = components.Output,
+                        BatchIndex = frameIndex,
+                        Length = 1,
+                    }
+                );
+
+                var sam2Model = builder.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.DownloadAndLoadSam2Model
+                    {
+                        Name = builder.Nodes.GetUniqueName("Sam2Loader"),
+                        Model = Sam2ModelName,
+                        Segmentor = "video",
+                        Device = "cuda",
+                        Precision = "fp16",
+                    }
+                );
+
+                var addPoints = builder.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.Sam2VideoSegmentationAddPoints
+                    {
+                        Name = builder.Nodes.GetUniqueName("Sam2AddPoints"),
+                        Sam2Model = sam2Model.Output,
+                        CoordinatesPositive = ToCoordinateJson(PositivePoints),
+                        CoordinatesNegative = NegativePoints.Count > 0 ? ToCoordinateJson(NegativePoints) : null,
+                        FrameIndex = 0,
+                        ObjectIndex = 0,
+                        Image = firstFrame.Output,
+                    }
+                );
+
+                var sam2Segmentation = builder.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.Sam2VideoSegmentation
+                    {
+                        Name = builder.Nodes.GetUniqueName("Sam2Track"),
+                        Sam2Model = addPoints.Output1,
+                        InferenceState = addPoints.Output2,
+                        KeepModelLoaded = false,
+                    }
+                );
+
+                // Get mask for this frame
+                var frameMask = builder.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.ImageFromBatch
+                    {
+                        Name = $"MaskFrame_{frameIndex}",
+                        Image = sam2Segmentation.Output,
+                        BatchIndex = 0,
+                        Length = 1,
+                    }
+                );
+
+                var preview = builder.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.PreviewImage { Name = $"PreviewMask_{frameIndex}", Images = firstFrame.Output }
+                );
+                builder.Connections.OutputNodes.Add(preview);
+
+                var promptTask = await client.QueuePromptAsync(builder.ToNodeDictionary());
+                await promptTask.Task;
+
+                var outputs = await client.GetImagesForExecutedPromptAsync(promptTask.Id);
+                var frameOutput = outputs.Values.Where(images => images is { Count: > 0 }).Select(images => images![0]).FirstOrDefault();
+
+                if (frame is not null)
+                {
+                    await using var stream = await client.GetImageStreamAsync(frame);
+                    using var memory = new MemoryStream();
+                    await stream.CopyToAsync(memory);
+                    memory.Position = 0;
+
+                    maskFrames.Add(new Bitmap(memory));
+                }
+            }
+
+            // Show the mask frames - for now just show the first frame
+            if (maskFrames.Count > 0)
+            {
+                FramePreview?.Dispose();
+                FramePreview = maskFrames[0];
+                notifications.Show("Mask preview", $"Generated mask preview for {maskFrames.Count} frame(s)", NotificationType.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to preview mask");
+            notifications.Show("Could not preview mask", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsLoadingFrame = false;
+        }
+    }
+
+    /// <summary>
     /// Extracts the first frame of the input video through ComfyUI (no extra tools needed)
     /// and shows it in the point picker.
     /// </summary>
@@ -275,9 +422,36 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
             await using var stream = await client.GetImageStreamAsync(frame);
             using var memory = new MemoryStream();
             await stream.CopyToAsync(memory);
+
+            var header = Convert.ToHexString(memory.ToArray().Take(8).ToArray());
+            Logger.Info(
+                $"Preview frame: file={frame.FileName}, subfolder={frame.SubFolder}, type={frame.Type}, bytes={memory.Length}, header={header}"
+            );
+
+            if (memory.Length == 0)
+            {
+                notifications.Show(
+                    "Could not load frame",
+                    $"ComfyUI returned an empty file ({frame.FileName}, type {frame.Type})",
+                    NotificationType.Error
+                );
+                return;
+            }
+
             memory.Position = 0;
 
-            FramePreview = new Bitmap(memory);
+            try
+            {
+                FramePreview = new Bitmap(memory);
+            }
+            catch (Exception decodeEx)
+            {
+                // A real PNG starts with 89504E47; anything else is an error page or another format
+                throw new InvalidOperationException(
+                    $"{decodeEx.Message} (file {frame.FileName}, type {frame.Type}, {memory.Length} bytes, header {header})",
+                    decodeEx
+                );
+            }
         }
         catch (Exception ex)
         {
@@ -290,22 +464,12 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         }
     }
 
-    private string ToCoordinateJson(IEnumerable<MaskPoint> points)
+    private static string ToCoordinateJson(IEnumerable<MaskPoint> points)
     {
-        // Format expected by Sam2VideoSegmentationAddPoints: [{"x":0.5,"y":0.5}] normalized 0-1
-        if (FramePreview is null)
-        {
-            return JsonSerializer.Serialize(points.Select(p => new { x = p.X, y = p.Y }));
-        }
-        
-        var width = FramePreview.PixelSize.Width;
-        var height = FramePreview.PixelSize.Height;
-        
-        return JsonSerializer.Serialize(points.Select(p => new 
-        { 
-            x = Math.Clamp(p.X / width, 0.0, 1.0), 
-            y = Math.Clamp(p.Y / height, 0.0, 1.0) 
-        }));
+        // Kijai's Sam2VideoSegmentationAddPoints expects pixel coordinates of the ORIGINAL frames,
+        // e.g. [{"x":412.5,"y":133.0}]. SAM2 divides them by the video width/height itself,
+        // so normalized 0-1 values would all land in the top-left corner.
+        return JsonSerializer.Serialize(points.Select(p => new { x = p.X, y = p.Y }));
     }
 
     private async Task BrowseVideoAsync()
@@ -338,8 +502,9 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
                 ClearPoints();
                 FramePreview = null;
 
-                // Show the first frame right away if ComfyUI is already connected
-                await LoadPreviewFrameAsync(promptForConnection: false);
+                // Show the first frame right away if ComfyUI is already connected (only needed for SAM2 points)
+                if (UseSam2Tracking)
+                    await LoadPreviewFrameAsync(promptForConnection: false);
             }
         }
         catch (Exception ex)
@@ -482,17 +647,18 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
                 );
             }
 
-            // Upload mask image to ComfyUI input directory
-            var sanitizedMaskName = $"sm_inpaint_mask_{Guid.NewGuid():N}{System.IO.Path.GetExtension(maskImage.LocalFile?.FullPath ?? ".png")}";
-            var maskDestinationPath = $"input/{sanitizedMaskName}";
-            if (!args.FilesToTransfer.Any(x => x.SourcePath == maskImage.LocalFile?.FullPath))
-                args.FilesToTransfer.Add((maskImage.LocalFile?.FullPath ?? "", maskDestinationPath));
+            // The card either has a mask painted with its mask editor (painted = replace),
+            // or the card image itself is a black/white mask (white = replace).
+            // GetInputImages() returns [image] or [image, rendered mask]; both get uploaded
+            // by the base class into the ComfyUI "input/Inference" folder.
+            var maskCardImages = MaskImageCardViewModel.GetInputImages().ToList();
+            var maskSource = maskCardImages.Count > 1 ? maskCardImages[1] : maskImage;
 
             var maskLoad = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.LoadImageMask
                 {
                     Name = builder.Nodes.GetUniqueName("LoadMaskImage"),
-                    Image = sanitizedMaskName,
+                    Image = maskSource.GetHashGuidFileNameCached("Inference"),
                     Channel = "red",
                 }
             );
@@ -544,17 +710,11 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         ImageNodeConnection? referenceImage = null;
         if (ReferenceImageCardViewModel.ImageSource is { } refImage)
         {
-            // Upload reference image to ComfyUI input directory
-            var sanitizedRefName = $"sm_inpaint_ref_{Guid.NewGuid():N}{System.IO.Path.GetExtension(refImage.LocalFile?.FullPath ?? ".png")}";
-            var refDestinationPath = $"input/{sanitizedRefName}";
-            if (!args.FilesToTransfer.Any(x => x.SourcePath == refImage.LocalFile?.FullPath))
-                args.FilesToTransfer.Add((refImage.LocalFile?.FullPath ?? "", sanitizedRefName));
-
             var refImageLoad = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.LoadImage
                 {
                     Name = builder.Nodes.GetUniqueName("LoadReferenceImage"),
-                    Image = sanitizedRefName,
+                    Image = refImage.GetHashGuidFileNameCached("Inference"),
                 }
             );
             referenceImage = refImageLoad.Output1;
@@ -742,9 +902,12 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
     /// <inheritdoc />
     protected override IEnumerable<ImageSource> GetInputImages()
     {
-        // The static mask image is only used when SAM2 tracking is off
-        if (!UseSam2Tracking && MaskImageCardViewModel.ImageSource is { } maskImage)
-            yield return maskImage;
+        // The static mask (and the rendered mask from its editor) is only used when SAM2 tracking is off
+        if (!UseSam2Tracking)
+        {
+            foreach (var image in MaskImageCardViewModel.GetInputImages())
+                yield return image;
+        }
 
         if (ReferenceImageCardViewModel.ImageSource is { } refImage)
             yield return refImage;

@@ -127,6 +127,12 @@
                                                 ToolTip.Tip="Extract the first frame of the video through ComfyUI" />
                                             <Button
                                                 Padding="12,6"
+                                                Command="{Binding PreviewMaskCommand}"
+                                                Content="Preview mask"
+                                                IsEnabled="{Binding !IsLoadingFrame}"
+                                                ToolTip.Tip="Generate mask preview for first, middle, and last frame using SAM2" />
+                                            <Button
+                                                Padding="12,6"
                                                 Command="{Binding UndoPointCommand}"
                                                 Content="Undo point" />
                                             <Button
