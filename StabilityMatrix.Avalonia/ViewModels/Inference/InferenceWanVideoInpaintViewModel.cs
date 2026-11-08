@@ -290,10 +290,22 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         }
     }
 
-    private static string ToCoordinateJson(IEnumerable<MaskPoint> points)
+    private string ToCoordinateJson(IEnumerable<MaskPoint> points)
     {
-        // Format expected by Sam2VideoSegmentationAddPoints: [{"x":12.0,"y":34.0}]
-        return JsonSerializer.Serialize(points.Select(p => new { x = p.X, y = p.Y }));
+        // Format expected by Sam2VideoSegmentationAddPoints: [{"x":0.5,"y":0.5}] normalized 0-1
+        if (FramePreview is null)
+        {
+            return JsonSerializer.Serialize(points.Select(p => new { x = p.X, y = p.Y }));
+        }
+        
+        var width = FramePreview.PixelSize.Width;
+        var height = FramePreview.PixelSize.Height;
+        
+        return JsonSerializer.Serialize(points.Select(p => new 
+        { 
+            x = Math.Clamp(p.X / width, 0.0, 1.0), 
+            y = Math.Clamp(p.Y / height, 0.0, 1.0) 
+        }));
     }
 
     private async Task BrowseVideoAsync()
@@ -470,11 +482,17 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
                 );
             }
 
+            // Upload mask image to ComfyUI input directory
+            var sanitizedMaskName = $"sm_inpaint_mask_{Guid.NewGuid():N}{System.IO.Path.GetExtension(maskImage.LocalFile?.FullPath ?? ".png")}";
+            var maskDestinationPath = $"input/{sanitizedMaskName}";
+            if (!args.FilesToTransfer.Any(x => x.SourcePath == maskImage.LocalFile?.FullPath))
+                args.FilesToTransfer.Add((maskImage.LocalFile?.FullPath ?? "", maskDestinationPath));
+
             var maskLoad = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.LoadImageMask
                 {
                     Name = builder.Nodes.GetUniqueName("LoadMaskImage"),
-                    Image = maskImage.GetHashGuidFileNameCached("Inference"),
+                    Image = sanitizedMaskName,
                     Channel = "red",
                 }
             );
@@ -526,11 +544,17 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
         ImageNodeConnection? referenceImage = null;
         if (ReferenceImageCardViewModel.ImageSource is { } refImage)
         {
+            // Upload reference image to ComfyUI input directory
+            var sanitizedRefName = $"sm_inpaint_ref_{Guid.NewGuid():N}{System.IO.Path.GetExtension(refImage.LocalFile?.FullPath ?? ".png")}";
+            var refDestinationPath = $"input/{sanitizedRefName}";
+            if (!args.FilesToTransfer.Any(x => x.SourcePath == refImage.LocalFile?.FullPath))
+                args.FilesToTransfer.Add((refImage.LocalFile?.FullPath ?? "", sanitizedRefName));
+
             var refImageLoad = builder.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.LoadImage
                 {
                     Name = builder.Nodes.GetUniqueName("LoadReferenceImage"),
-                    Image = refImage.GetHashGuidFileNameCached("Inference"),
+                    Image = sanitizedRefName,
                 }
             );
             referenceImage = refImageLoad.Output1;
@@ -631,7 +655,14 @@ public partial class InferenceWanVideoInpaintViewModel : InferenceWanTextToVideo
                 Crf = 18,
                 Codec = "libx264",
                 Container = "mp4",
-                Bitrate = VideoOutputSettingsCardViewModel.Bitrate
+                Bitrate = VideoOutputSettingsCardViewModel.Bitrate,
+                // Hidden inputs for metadata
+                Cfg = SamplerCardViewModel.CfgScale,
+                Steps = SamplerCardViewModel.Steps,
+                SamplerName = SamplerCardViewModel.SelectedSampler?.Name ?? "uni_pc",
+                SchedulerName = SamplerCardViewModel.SelectedScheduler?.Name ?? "simple",
+                ModelName = ModelCardViewModel.SelectedModel?.FileName,
+                VaeName = ModelCardViewModel.SelectedVae?.FileName
             }
         );
 
