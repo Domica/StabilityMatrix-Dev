@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
+using System.IO.Compression;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -539,10 +540,16 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
 
                 if (item.TryGetProperty("ref_images", out var refs) && refs.ValueKind == JsonValueKind.Array)
                 {
-                    var first = refs.EnumerateArray().FirstOrDefault();
-                    if (first.ValueKind == JsonValueKind.String)
+                    foreach (var r in refs.EnumerateArray())
                     {
-                        clip.ReferenceImagePath = first.GetString() ?? "";
+                        if (r.ValueKind == JsonValueKind.String)
+                        {
+                            var p = r.GetString();
+                            if (!string.IsNullOrWhiteSpace(p))
+                            {
+                                clip.ReferenceImagePaths.Add(p);
+                            }
+                        }
                     }
                 }
 
@@ -557,6 +564,225 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         catch (Exception ex)
         {
             Logger.Error(ex, "Failed to import Director queue");
+            notifications.Show("Import error", ex.Message, NotificationType.Error);
+        }
+    }
+
+    /// <summary>
+    /// Imports a VENO Director queue ZIP (queue.json + reference images). The ZIP mirrors what
+    /// VENO Director exports: a queue.json array of tasks, each with a "params" object and a set
+    /// of image_refs PNGs. Reference images are extracted next to the ZIP so they persist, and the
+    /// per-clip resolution / steps / seed / fps / duration are mapped onto Director clips.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImportQueueZipAsync()
+    {
+        try
+        {
+            var provider = App.StorageProvider;
+            if (provider is null)
+            {
+                return;
+            }
+
+            var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Import VENO Director queue ZIP",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Queue ZIP") { Patterns = new[] { "*.zip" } },
+                },
+            });
+
+            if (files.Count == 0 || files[0].TryGetLocalPath() is not { } zipPath)
+            {
+                return;
+            }
+
+            var extractDir = Path.Combine(
+                Path.GetDirectoryName(zipPath) ?? Path.GetTempPath(),
+                Path.GetFileNameWithoutExtension(zipPath) + "_extracted"
+            );
+            Directory.CreateDirectory(extractDir);
+
+            using (var archive = ZipFile.OpenRead(zipPath))
+            {
+                foreach (var entry in archive.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Name) && entry.FullName.EndsWith('/'))
+                    {
+                        continue;
+                    }
+
+                    // Guard against path traversal in the archive.
+                    var dest = Path.GetFullPath(Path.Combine(extractDir, entry.FullName));
+                    if (!dest.StartsWith(Path.GetFullPath(extractDir), StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                    entry.ExtractToFile(dest, overwrite: true);
+                }
+            }
+
+            var queueJsonPath = Path.Combine(extractDir, "queue.json");
+            if (!File.Exists(queueJsonPath))
+            {
+                throw new ValidationException("The ZIP does not contain a queue.json file.");
+            }
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(queueJsonPath));
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                throw new ValidationException("queue.json must be a JSON array of tasks.");
+            }
+
+            var imported = 0;
+            var importedWindowSize = 0;
+            var importedOverlap = 0;
+            var importedLora = "";
+
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                // VENO nests everything under "params"; a flat (Director export) layout is also accepted.
+                var source = item.TryGetProperty("params", out var paramsElement)
+                             && paramsElement.ValueKind == JsonValueKind.Object
+                    ? paramsElement
+                    : item;
+
+                var prompt = GetString(source, "prompt");
+                if (string.IsNullOrWhiteSpace(prompt))
+                {
+                    continue;
+                }
+
+                var clip = new MinimaxDirectorClip
+                {
+                    Prompt = prompt,
+                    Seed = GetLong(source, "seed", -1),
+                    Label = GetString(source, "label"),
+                    ContinuityMode = "inherit",
+                };
+
+                // resolution "WxH"
+                var resolution = GetString(source, "resolution");
+                if (!string.IsNullOrWhiteSpace(resolution))
+                {
+                    var parts = resolution.Split('x', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length == 2
+                        && int.TryParse(parts[0], out var rw)
+                        && int.TryParse(parts[1], out var rh))
+                    {
+                        clip.WidthOverride = rw;
+                        clip.HeightOverride = rh;
+                    }
+                }
+
+                if (GetNullableInt(source, "num_inference_steps") is { } steps)
+                {
+                    clip.StepsOverride = steps;
+                }
+
+                var fps = GlobalFps;
+                if (!string.IsNullOrWhiteSpace(GetString(source, "force_fps"))
+                    && double.TryParse(GetString(source, "force_fps"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ffps)
+                    && ffps is > 0 and <= 120)
+                {
+                    clip.FpsOverride = (int)Math.Round(ffps);
+                    fps = (int)Math.Round(ffps);
+                }
+
+                if (GetNullableInt(source, "video_length") is { } frames && frames > 0)
+                {
+                    clip.Seconds = Math.Round(frames / (double)fps, 1);
+                }
+                else
+                {
+                    clip.Seconds = GetDouble(source, "seconds", 6);
+                }
+
+                // Reference images (VENO "image_refs" are filenames relative to the ZIP root).
+                if (source.TryGetProperty("image_refs", out var refs) && refs.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var r in refs.EnumerateArray())
+                    {
+                        if (r.ValueKind != JsonValueKind.String)
+                        {
+                            continue;
+                        }
+
+                        var name = r.GetString();
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            continue;
+                        }
+
+                        var full = Path.Combine(extractDir, name);
+                        if (File.Exists(full))
+                        {
+                            clip.ReferenceImagePaths.Add(full);
+                        }
+                    }
+                }
+
+                Clips.Add(clip);
+                imported++;
+
+                if (imported == 1)
+                {
+                    importedWindowSize = GetNullableInt(source, "sliding_window_size") ?? 0;
+                    importedOverlap = GetNullableInt(source, "sliding_window_overlap") ?? 0;
+                    if (source.TryGetProperty("activated_loras", out var loras)
+                        && loras.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var l in loras.EnumerateArray())
+                        {
+                            if (l.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(l.GetString()))
+                            {
+                                importedLora = l.GetString()!;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (imported == 0)
+            {
+                throw new ValidationException("No usable tasks were found in queue.json.");
+            }
+
+            // Apply the first task's H3 window / LoRA tuning to the session defaults.
+            if (importedWindowSize > 0)
+            {
+                MaxWindowFrames = importedWindowSize;
+            }
+
+            if (importedOverlap > 0)
+            {
+                WindowOverlapFrames = importedOverlap;
+            }
+
+            if (string.IsNullOrWhiteSpace(LoraName) && !string.IsNullOrWhiteSpace(importedLora))
+            {
+                LoraName = importedLora;
+            }
+
+            SelectedClip = Clips.LastOrDefault();
+            UpdatePlanSummary();
+            StatusText = $"Imported {imported} clip(s) from {Path.GetFileName(zipPath)} "
+                         + $"({Clips.Sum(c => c.ReferenceImagePaths.Count)} reference image(s)).";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to import Director queue ZIP");
             notifications.Show("Import error", ex.Message, NotificationType.Error);
         }
     }
@@ -600,9 +826,9 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                 ["fps"] = clip.FpsOverride,
                 ["steps"] = clip.StepsOverride,
                 ["continuity_mode"] = clip.ContinuityMode,
-                ["ref_images"] = string.IsNullOrWhiteSpace(clip.ReferenceImagePath)
+                ["ref_images"] = clip.ReferenceImagePaths.Count == 0
                     ? Array.Empty<string>()
-                    : new[] { clip.ReferenceImagePath },
+                    : clip.ReferenceImagePaths.ToArray(),
             });
 
             await File.WriteAllTextAsync(
@@ -682,9 +908,11 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         StatusText = "Plan refreshed (nothing was generated).";
     }
 
-    /// <summary>Picks the local image used when a clip's continuity mode is "manual".</summary>
+    /// <summary>
+    /// Adds one or more local reference images to the selected clip (H3 reference / character images).
+    /// </summary>
     [RelayCommand]
-    private async Task BrowseReferenceImageAsync()
+    private async Task AddReferenceImageAsync()
     {
         if (SelectedClip is null)
         {
@@ -701,21 +929,30 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
 
             var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Select first-frame reference image",
-                AllowMultiple = false,
+                Title = "Add reference image(s)",
+                AllowMultiple = true,
                 FileTypeFilter = new[]
                 {
                     new FilePickerFileType("Image files")
                     {
-                        Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp" },
+                        Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp" },
                     },
                 },
             });
 
-            if (files.Count > 0 && files[0].TryGetLocalPath() is { } path)
+            var added = 0;
+            foreach (var file in files)
             {
-                SelectedClip.ReferenceImagePath = path;
-                StatusText = $"Reference image: {Path.GetFileName(path)}";
+                if (file.TryGetLocalPath() is { } path)
+                {
+                    SelectedClip.ReferenceImagePaths.Add(path);
+                    added++;
+                }
+            }
+
+            if (added > 0)
+            {
+                StatusText = $"Added {added} reference image(s).";
             }
         }
         catch (Exception ex)
@@ -723,6 +960,23 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
             Logger.Error(ex, "Failed to pick Director reference image");
             notifications.Show("Image error", ex.Message, NotificationType.Error);
         }
+    }
+
+    /// <summary>Removes a single reference image (by path) from the selected clip.</summary>
+    [RelayCommand]
+    private void RemoveReferenceImage(string? path)
+    {
+        if (SelectedClip is not null && path is not null)
+        {
+            SelectedClip.ReferenceImagePaths.Remove(path);
+        }
+    }
+
+    /// <summary>Clears all reference images from the selected clip.</summary>
+    [RelayCommand]
+    private void ClearReferenceImages()
+    {
+        SelectedClip?.ReferenceImagePaths.Clear();
     }
 
     /// <summary>
@@ -970,20 +1224,36 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                     var window = windows[windowIndex];
                     var seed = clip.Seed >= 0 ? clip.Seed + windowIndex : sessionSeed + clipIndex * 1000 + windowIndex;
                     var prefix = $"{OutputPrefix.Trim('/')}_{runId}_c{clipIndex + 1:00}_w{windowIndex + 1:00}";
-                    var relativeFrame = $"minimax_director/{runId}_frame_{promptIndex:000}.png";
                     var files = new List<(string SourcePath, string DestinationRelativePath)>();
 
-                    string? firstFrame = null;
-                    if (effectiveContinuity == "manual" && !string.IsNullOrWhiteSpace(clip.ReferenceImagePath))
+                    // Reference images to inject this window: the previous clip's last frame
+                    // (continuity) plus this clip's own reference images.
+                    var referenceSources = new List<string>();
+                    if (effectiveContinuity == "last_frame" && continuityFrame is not null)
                     {
-                        firstFrame = await PrepareManualFrameAsync(
-                            clip.ReferenceImagePath, workDir, promptIndex, relativeFrame, files, cancellationToken
+                        referenceSources.Add(continuityFrame);
+                    }
+                    if (effectiveContinuity != "none")
+                    {
+                        referenceSources.AddRange(
+                            clip.ReferenceImagePaths
+                                .Where(p => !string.IsNullOrWhiteSpace(p) && File.Exists(p))
                         );
                     }
-                    else if (effectiveContinuity == "last_frame" && continuityFrame is not null)
+
+                    var refRelPaths = new List<string>();
+                    for (var r = 0; r < referenceSources.Count; r++)
                     {
-                        files.Add((continuityFrame, $"input/{relativeFrame}"));
-                        firstFrame = relativeFrame;
+                        var src = referenceSources[r];
+                        var ext = Path.GetExtension(src);
+                        if (string.IsNullOrWhiteSpace(ext))
+                        {
+                            ext = ".png";
+                        }
+
+                        var rel = $"minimax_director/{runId}_ref_{promptIndex:000}_{r}{ext}";
+                        files.Add((src, "input/" + rel));
+                        refRelPaths.Add(rel);
                     }
 
                     var windowWorkflow = workflow.Clone();
@@ -997,7 +1267,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                         Steps = steps,
                         Fps = fps,
                         FilenamePrefix = prefix,
-                        FirstFrameRelativePath = firstFrame,
+                        ReferenceImageRelativePaths = refRelPaths,
                         DisableAudio = DisableAudio,
                         BypassClassTypes = DisableRtxSuperResolution
                             ? new[] { "RTXVideoSuperResolution" }
@@ -1220,29 +1490,6 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
             EventManager.Instance.OnImageFileAdded(filePath);
         });
     }
-
-    private static async Task<string?> PrepareManualFrameAsync(
-        string sourcePath,
-        string workDir,
-        int index,
-        string relativePath,
-        List<(string SourcePath, string DestinationRelativePath)> files,
-        CancellationToken cancellationToken
-    )
-    {
-        if (!File.Exists(sourcePath))
-        {
-            return null;
-        }
-
-        var localCopy = Path.Combine(workDir, $"manual_{index:000}{Path.GetExtension(sourcePath)}");
-        await Task.Run(() => File.Copy(sourcePath, localCopy, true), cancellationToken);
-        files.Add((localCopy, $"input/{relativePath.Replace(".png", Path.GetExtension(sourcePath))}"));
-        return relativeFrameName(relativePath, sourcePath);
-    }
-
-    private static string relativeFrameName(string relativePath, string sourcePath) =>
-        relativePath.Replace(".png", Path.GetExtension(sourcePath));
 
     private string ResolveFfmpeg(ComfyClient client)
     {

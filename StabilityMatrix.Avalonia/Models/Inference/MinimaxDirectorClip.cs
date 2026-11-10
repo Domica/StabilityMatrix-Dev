@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -40,9 +41,14 @@ public partial class MinimaxDirectorClip : ObservableObject
     [ObservableProperty]
     private string continuityMode = "last_frame";
 
-    /// <summary>Local image used when ContinuityMode is "manual".</summary>
+    /// <summary>
+    /// Local reference images. These are fed into the H3 workflow's ref_images slots
+    /// (character / scene references). With ContinuityMode "manual" they are the only
+    /// conditioning; with "last_frame" they are combined with the previous clip's last frame.
+    /// With "none" they are ignored (fully independent clip).
+    /// </summary>
     [ObservableProperty]
-    private string referenceImagePath = "";
+    private ObservableCollection<string> referenceImagePaths = new();
 
     [ObservableProperty]
     [property: JsonIgnore]
@@ -70,6 +76,6 @@ public partial class MinimaxDirectorClip : ObservableObject
             FpsOverride = FpsOverride,
             StepsOverride = StepsOverride,
             ContinuityMode = ContinuityMode,
-            ReferenceImagePath = ReferenceImagePath,
+            ReferenceImagePaths = new ObservableCollection<string>(ReferenceImagePaths),
         };
 }

@@ -9,12 +9,18 @@
     xmlns:mocks="clr-namespace:StabilityMatrix.Avalonia.DesignData"
     xmlns:modelsInference="clr-namespace:StabilityMatrix.Avalonia.Models.Inference"
     xmlns:vmInference="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference"
+    xmlns:converters="clr-namespace:StabilityMatrix.Avalonia.Converters"
     d:DataContext="{x:Static mocks:DesignData.InferenceMinimaxDirectorViewModel}"
     d:DesignHeight="800"
     d:DesignWidth="1200"
     x:DataType="vmInference:InferenceMinimaxDirectorViewModel"
     Focusable="True"
     mc:Ignorable="d">
+
+    <dock:DockUserControlBase.Resources>
+        <converters:PathToImageConverter x:Key="PathToImage" />
+    </dock:DockUserControlBase.Resources>
+
 
     <Grid Margin="2,0,2,8">
         <DockControl
@@ -129,6 +135,10 @@
                                         Command="{Binding ImportQueueCommand}"
                                         Content="Import queue"
                                         ToolTip.Tip="Import a VENO Director queue.json (array of clip objects)" />
+                                    <Button
+                                        Command="{Binding ImportQueueZipCommand}"
+                                        Content="Import queue ZIP"
+                                        ToolTip.Tip="Import a VENO Director queue ZIP (queue.json + reference images)" />
                                     <Button
                                         Command="{Binding ExportQueueCommand}"
                                         Content="Export queue"
@@ -248,64 +258,116 @@
                                                 Text="Mode is applied per clip and overrides the session default." />
                                         </StackPanel>
 
-                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto">
-                                            <TextBlock
-                                                Margin="0,0,8,0"
-                                                VerticalAlignment="Center"
-                                                Text="Reference image" />
-                                            <TextBox
-                                                Grid.Column="1"
-                                                Text="{Binding SelectedClip.ReferenceImagePath}"
-                                                ToolTip.Tip="Used as the first frame when Continuity = manual"
-                                                Watermark="Path to a local image (manual continuity)" />
+                                        <TextBlock
+                                            Margin="0,6,0,2"
+                                            FontSize="11"
+                                            Foreground="#888888"
+                                            Text="Reference images (used by manual / last_frame continuity)" />
+                                        <ItemsControl
+                                            x:CompileBindings="False"
+                                            ItemsSource="{Binding SelectedClip.ReferenceImagePaths}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Margin="3"
+                                                        BorderBrush="#444444"
+                                                        BorderThickness="1"
+                                                        CornerRadius="3">
+                                                        <Grid>
+                                                            <Image
+                                                                Width="92"
+                                                                Height="92"
+                                                                Source="{Binding ., Converter={StaticResource PathToImage}}"
+                                                                Stretch="Uniform" />
+                                                            <Button
+                                                                Margin="1"
+                                                                Padding="5,1"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Top"
+                                                                Background="#CC222222"
+                                                                Command="{Binding $parent[ItemsControl].DataContext.RemoveReferenceImageCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                Content="✕"
+                                                                FontSize="10"
+                                                                ToolTip.Tip="Remove this reference image" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
                                             <Button
-                                                Grid.Column="2"
-                                                Margin="4,0,0,0"
                                                 Padding="10,5"
-                                                Command="{Binding BrowseReferenceImageCommand}"
-                                                Content="Browse" />
-                                        </Grid>
+                                                Command="{Binding AddReferenceImageCommand}"
+                                                Content="Add image(s)"
+                                                ToolTip.Tip="Add one or more local reference images" />
+                                            <Button
+                                                Padding="10,5"
+                                                Command="{Binding ClearReferenceImagesCommand}"
+                                                Content="Clear"
+                                                ToolTip.Tip="Remove all reference images from this clip" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="#8ab4f8"
+                                                Text="{Binding SelectedClip.ReferenceImagePaths.Count, StringFormat='{}{0} image(s)'}" />
+                                        </StackPanel>
 
                                         <TextBlock
                                             Margin="0,4,0,0"
                                             FontSize="12"
                                             FontWeight="SemiBold"
                                             Text="Per-clip overrides (blank = global)" />
-                                        <WrapPanel Orientation="Horizontal">
-                                            <WrapPanel.Styles>
-                                                <Style Selector="TextBlock">
-                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Grid ColumnDefinitions="*,*,*,*" HorizontalAlignment="Stretch">
+                                            <Grid.Styles>
+                                                <Style Selector="StackPanel">
+                                                    <Setter Property="Margin" Value="0,0,10,4" />
+                                                    <Setter Property="Spacing" Value="2" />
                                                 </Style>
                                                 <Style Selector="NumericUpDown">
-                                                    <Setter Property="Margin" Value="4,2,12,2" />
-                                                    <Setter Property="Width" Value="95" />
+                                                    <Setter Property="Width" Value="NaN" />
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
                                                 </Style>
-                                            </WrapPanel.Styles>
-                                            <TextBlock Text="Width" />
-                                            <NumericUpDown
-                                                Increment="16"
-                                                Maximum="2048"
-                                                Minimum="0"
-                                                Value="{Binding SelectedClip.WidthOverride}" />
-                                            <TextBlock Text="Height" />
-                                            <NumericUpDown
-                                                Increment="16"
-                                                Maximum="2048"
-                                                Minimum="0"
-                                                Value="{Binding SelectedClip.HeightOverride}" />
-                                            <TextBlock Text="FPS" />
-                                            <NumericUpDown
-                                                Increment="1"
-                                                Maximum="60"
-                                                Minimum="0"
-                                                Value="{Binding SelectedClip.FpsOverride}" />
-                                            <TextBlock Text="Steps" />
-                                            <NumericUpDown
-                                                Increment="1"
-                                                Maximum="100"
-                                                Minimum="0"
-                                                Value="{Binding SelectedClip.StepsOverride}" />
-                                        </WrapPanel>
+                                            </Grid.Styles>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock FontSize="11" Text="Width" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.WidthOverride}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontSize="11" Text="Height" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.HeightOverride}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock FontSize="11" Text="FPS" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="60"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.FpsOverride}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="3">
+                                                <TextBlock FontSize="11" Text="Steps" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="100"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.StepsOverride}" />
+                                            </StackPanel>
+                                        </Grid>
                                         <TextBlock
                                             FontSize="10"
                                             Foreground="#777777"
@@ -343,48 +405,61 @@
                                             FontSize="13"
                                             FontWeight="SemiBold"
                                             Text="Session defaults" />
-                                        <WrapPanel Orientation="Horizontal">
-                                            <WrapPanel.Styles>
-                                                <Style Selector="TextBlock">
-                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Grid
+                                            ColumnDefinitions="*,*,*,*,*"
+                                            HorizontalAlignment="Stretch">
+                                            <Grid.Styles>
+                                                <Style Selector="StackPanel">
+                                                    <Setter Property="Margin" Value="0,0,10,4" />
+                                                    <Setter Property="Spacing" Value="2" />
                                                 </Style>
                                                 <Style Selector="NumericUpDown">
-                                                    <Setter Property="Margin" Value="4,2,12,2" />
-                                                    <Setter Property="Width" Value="100" />
+                                                    <Setter Property="Width" Value="NaN" />
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
                                                 </Style>
-                                            </WrapPanel.Styles>
-                                            <TextBlock Text="FPS" />
-                                            <NumericUpDown
-                                                Increment="1"
-                                                Maximum="60"
-                                                Minimum="1"
-                                                Value="{Binding GlobalFps}" />
-                                            <TextBlock Text="Width" />
-                                            <NumericUpDown
-                                                Increment="16"
-                                                Maximum="2048"
-                                                Minimum="16"
-                                                Value="{Binding GlobalWidth}" />
-                                            <TextBlock Text="Height" />
-                                            <NumericUpDown
-                                                Increment="16"
-                                                Maximum="2048"
-                                                Minimum="16"
-                                                Value="{Binding GlobalHeight}" />
-                                            <TextBlock Text="Steps" />
-                                            <NumericUpDown
-                                                Increment="1"
-                                                Maximum="100"
-                                                Minimum="1"
-                                                Value="{Binding GlobalSteps}" />
-                                            <TextBlock Text="Session seed" />
-                                            <NumericUpDown
-                                                Increment="1"
-                                                Maximum="999999999"
-                                                Minimum="-1"
-                                                ToolTip.Tip="-1 = new random session seed on every run"
-                                                Value="{Binding GlobalSeed}" />
-                                        </WrapPanel>
+                                            </Grid.Styles>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock FontSize="11" Text="FPS" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="60"
+                                                    Minimum="1"
+                                                    Value="{Binding GlobalFps}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontSize="11" Text="Width" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="16"
+                                                    Value="{Binding GlobalWidth}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock FontSize="11" Text="Height" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="16"
+                                                    Value="{Binding GlobalHeight}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="3">
+                                                <TextBlock FontSize="11" Text="Steps" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="100"
+                                                    Minimum="1"
+                                                    Value="{Binding GlobalSteps}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="4">
+                                                <TextBlock FontSize="11" Text="Session seed" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="999999999"
+                                                    Minimum="-1"
+                                                    ToolTip.Tip="-1 = new random session seed on every run"
+                                                    Value="{Binding GlobalSeed}" />
+                                            </StackPanel>
+                                        </Grid>
 
                                         <TextBlock
                                             Margin="0,2,0,0"
@@ -523,7 +598,8 @@
                                         <!--  ======================= Advanced: Model, Plugins & Memory =======================  -->
                                         <Expander
                                             Margin="0,10,0,0"
-                                            Header="Advanced: Model, Plugins &amp; Memory">
+                                            Header="Advanced: Model, Plugins &amp; Memory"
+                                            IsExpanded="True">
                                             <StackPanel
                                                 x:CompileBindings="False"
                                                 Margin="0,6,0,0"

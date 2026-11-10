@@ -21,8 +21,9 @@ public sealed class MinimaxDirectorInjection
     public double Fps { get; init; }
     public required string FilenamePrefix { get; init; }
 
-    /// <summary>Path relative to ComfyUI's input directory, or null for no first-frame conditioning.</summary>
-    public string? FirstFrameRelativePath { get; init; }
+    /// <summary>Paths (relative to ComfyUI's input directory) of reference images to feed into the
+    /// H3 ref_images slots. Empty = no reference images.</summary>
+    public IReadOnlyList<string> ReferenceImageRelativePaths { get; init; } = Array.Empty<string>();
 
     public bool DisableAudio { get; init; }
     public IReadOnlyList<string> BypassClassTypes { get; init; } = Array.Empty<string>();
@@ -197,9 +198,9 @@ public sealed class MinimaxDirectorWorkflow
             BypassNodesOfType(classType);
         }
 
-        if (!string.IsNullOrWhiteSpace(injection.FirstFrameRelativePath))
+        if (injection.ReferenceImageRelativePaths.Count > 0)
         {
-            InjectFirstFrame(injection.FirstFrameRelativePath);
+            InjectReferenceImages(injection.ReferenceImageRelativePaths);
         }
 
         DetectOutputs();
@@ -770,61 +771,75 @@ public sealed class MinimaxDirectorWorkflow
             .ToList();
     }
 
-    private void InjectFirstFrame(string relativePath)
+    /// <summary>
+    /// Feeds one or more reference images into the H3 workflow. Each image becomes its own
+    /// LoadImage node and is linked to a distinct ref_images.ref_image_N slot on the H3
+    /// ReferenceToVideo node (H3 supports multiple reference / character images).
+    /// </summary>
+    private void InjectReferenceImages(IReadOnlyList<string> relativePaths)
     {
-        const string nodeName = "minimax_director_first_frame";
-
-        Nodes[nodeName] = new ComfyNode
+        if (relativePaths.Count == 0)
         {
-            ClassType = "LoadImage",
-            Inputs = new Dictionary<string, object?> { ["image"] = relativePath },
-        };
-
-        // Only nodes that actually declare a reference-image input should receive the link.
-        // (MiniMaxH3SigmaShift also contains "MiniMaxH3" but has no image input at all -
-        // injecting there would make ComfyUI reject the prompt with an unknown input.)
-        var targetNames = Nodes
-            .Where(x => x.Key != nodeName && x.Value.Inputs.Keys.Any(IsReferenceImageInput))
-            .Select(x => x.Key)
-            .ToList();
-
-        // H3's ref_images.* slots are dynamic and are often absent from a saved API prompt
-        // (the UI workflow had them, but they had no active links). Re-create slot 0 there.
-        if (targetNames.Count == 0)
-        {
-            targetNames = Nodes
-                .Where(x => x.Key != nodeName
-                            && x.Value.ClassType.Contains("ReferenceToVideo", StringComparison.OrdinalIgnoreCase))
-                .Select(x => x.Key)
-                .ToList();
+            return;
         }
 
-        if (targetNames.Count == 0)
+        var refNodeNames = new List<string>();
+        for (var i = 0; i < relativePaths.Count; i++)
         {
-            // Generic fallback: reuse any LoadImage node already in the workflow.
-            var loaders = Nodes
-                .Where(x => x.Key != nodeName && x.Value.ClassType == "LoadImage")
-                .Select(x => x.Value)
-                .ToList();
-
-            foreach (var loader in loaders)
+            var nodeName = $"minimax_director_ref_{i}";
+            Nodes[nodeName] = new ComfyNode
             {
-                loader.Inputs["image"] = relativePath;
-            }
+                ClassType = "LoadImage",
+                Inputs = new Dictionary<string, object?> { ["image"] = relativePaths[i] },
+            };
+            refNodeNames.Add(nodeName);
+        }
 
-            if (loaders.Count == 0)
+        // Prefer a node that already declares a reference-image input. The H3 ReferenceToVideo
+        // node's ref_images.* slots are dynamic and are usually absent from a saved API prompt,
+        // so fall back to the ReferenceToVideo node itself (we create the slots below).
+        var primaryTarget = Nodes
+            .Where(x => !refNodeNames.Contains(x.Key) && x.Value.Inputs.Keys.Any(IsReferenceImageInput))
+            .Select(x => x.Key)
+            .FirstOrDefault();
+
+        if (primaryTarget is null)
+        {
+            primaryTarget = Nodes
+                .Where(x => !refNodeNames.Contains(x.Key)
+                            && x.Value.ClassType.Contains("ReferenceToVideo", StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Key)
+                .FirstOrDefault();
+        }
+
+        if (primaryTarget is not null)
+        {
+            for (var i = 0; i < refNodeNames.Count; i++)
             {
-                Nodes.Remove(nodeName);
+                Nodes[primaryTarget].Inputs[$"ref_images.ref_image_{i}"] =
+                    new object?[] { refNodeNames[i], 0 };
             }
 
             return;
         }
 
-        foreach (var name in targetNames)
+        // Last resort: reuse any LoadImage node already in the workflow (single shared image).
+        var loaders = Nodes
+            .Where(x => !refNodeNames.Contains(x.Key) && x.Value.ClassType == "LoadImage")
+            .Select(x => x.Value)
+            .ToList();
+
+        foreach (var loader in loaders)
         {
-            var inputs = Nodes[name].Inputs;
-            var slot = inputs.Keys.FirstOrDefault(IsReferenceImageInput) ?? "ref_images.ref_image_0";
-            inputs[slot] = new object?[] { nodeName, 0 };
+            loader.Inputs["image"] = relativePaths[0];
+        }
+
+        if (loaders.Count == 0)
+        {
+            foreach (var nodeName in refNodeNames)
+            {
+                Nodes.Remove(nodeName);
+            }
         }
     }
 
