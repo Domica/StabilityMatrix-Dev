@@ -412,7 +412,6 @@ public class ComfyClient : InferenceClientBase
         var dict = new Dictionary<string, List<ComfyImage>?>();
         foreach (var (nodeKey, output) in current.Outputs)
         {
-
             // Loader nodes such as LoadVideo expose their INPUT file as a UI "images" output
             // with type=input. Those are not generated results: downloading them put a
             // byte-identical copy of the source MP4 into the output gallery.
