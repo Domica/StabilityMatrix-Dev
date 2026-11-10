@@ -238,6 +238,26 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
             "sageattention", "torch_impl", "substitute",
         };
 
+    /// <summary>
+    /// Model / VAE / text-encoder / LoRA filenames discovered on the connected ComfyUI.
+    /// Populated by ScanModelsAsync (queries the folders ComfyUI serves for each loader node).
+    /// </summary>
+    [JsonIgnore]
+    public ObservableCollection<string> AvailableModels { get; } = new();
+
+    [JsonIgnore]
+    public ObservableCollection<string> AvailableVaes { get; } = new();
+
+    [JsonIgnore]
+    public ObservableCollection<string> AvailableClips { get; } = new();
+
+    [JsonIgnore]
+    public ObservableCollection<string> AvailableLoras { get; } = new();
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private bool isScanningModels;
+
     public InferenceMinimaxDirectorViewModel(
         IServiceManager<ViewModelBase> vmFactory,
         IInferenceClientManager inferenceClientManager,
@@ -1028,6 +1048,73 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         {
             Logger.Warn(ex, "Director plugin check failed");
             StatusText = "Plugin check failed: " + ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Scans the connected ComfyUI instance for available model / VAE / text-encoder / LoRA files.
+    /// It queries each loader node's option list, which reflects the folders ComfyUI serves
+    /// (checkpoints, unet, vae, text_encoders, clip, loras, ...), so the user can pick from a
+    /// dropdown instead of typing filenames.
+    /// </summary>
+    [RelayCommand]
+    private async Task ScanModelsAsync()
+    {
+        try
+        {
+            if (!ClientManager.IsConnected || ClientManager.Client is not { } client)
+            {
+                StatusText = "Connect to ComfyUI first, then scan models.";
+                return;
+            }
+
+            IsScanningModels = true;
+            StatusText = "Scanning ComfyUI model folders...";
+
+            await PopulateModelListAsync(client, "UNETLoader", "unet_name", AvailableModels, ModelOverride);
+            await PopulateModelListAsync(client, "VAELoader", "vae_name", AvailableVaes, VaeOverride);
+            await PopulateModelListAsync(client, "CLIPLoader", "clip_name", AvailableClips, ClipOverride);
+            await PopulateModelListAsync(client, "LoraLoader", "lora_name", AvailableLoras, LoraName);
+
+            StatusText = $"Scanned: {AvailableModels.Count} model(s), {AvailableVaes.Count} VAE, "
+                         + $"{AvailableClips.Count} text encoder(s), {AvailableLoras.Count} LoRA(s).";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to scan ComfyUI models");
+            notifications.Show("Scan error", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsScanningModels = false;
+        }
+    }
+
+    private static async Task PopulateModelListAsync(
+        ComfyClient client,
+        string node,
+        string input,
+        ObservableCollection<string> target,
+        string current
+    )
+    {
+        var names = await client.GetNodeOptionNamesAsync(node, input, CancellationToken.None);
+        target.Clear();
+
+        if (names is not null)
+        {
+            foreach (var name in names
+                         .Where(n => !string.IsNullOrWhiteSpace(n))
+                         .OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            {
+                target.Add(name);
+            }
+        }
+
+        // Keep a value that was set elsewhere (e.g. by ZIP import) visible in the list too.
+        if (!string.IsNullOrWhiteSpace(current) && !target.Contains(current, StringComparer.OrdinalIgnoreCase))
+        {
+            target.Insert(0, current);
         }
     }
 
