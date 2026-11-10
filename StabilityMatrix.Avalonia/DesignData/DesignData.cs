@@ -983,6 +983,8 @@ The gallery images are often inpainted, but you will get something very similar 
         DialogFactory.Get<InferenceWanImageToVideoViewModel>();
     public static InferenceWanVideoInpaintViewModel InferenceWanVideoInpaintViewModel =>
         DialogFactory.Get<InferenceWanVideoInpaintViewModel>();
+    public static InferenceMinimaxDirectorViewModel InferenceMinimaxDirectorViewModel =>
+        DialogFactory.Get<InferenceMinimaxDirectorViewModel>();
 
     public static PackageImportViewModel PackageImportViewModel =>
         DialogFactory.Get<PackageImportViewModel>();

@@ -96,6 +96,15 @@
                     </ui:CommandBarButton.IconSource>
                 </ui:CommandBarButton>
                 <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
+                    Label="MiniMax Director"
+                    Tag="{x:Static inference:InferenceProjectType.MinimaxDirector}"
+                    ToolTip.Tip="MiniMax H3 multi-clip Director (chained clips, sliding windows, session join)">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="Video" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
                     Click="AddTabMenu_ImgToVideo_OnClick"
                     Label="SVD Image to Video"
                     ToolTip.Tip="SVD Image to Video">

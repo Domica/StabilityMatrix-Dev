@@ -28,6 +28,15 @@ public partial class PaintCanvasViewModel(ILogger<PaintCanvasViewModel> logger) 
 {
     public ConcurrentDictionary<long, PenPath> TemporaryPaths { get; set; } = new();
 
+    /// <summary>
+    /// True when the editor contains something that should become a mask: committed strokes,
+    /// a stroke still in progress, or a mask image loaded with the editor's "Load Mask" button.
+    /// The latter lives in the Images layer, not in <see cref="Paths"/>, so checking only the
+    /// path collections silently drops masks loaded as an image.
+    /// </summary>
+    public bool HasDrawnContent =>
+        Paths.Count > 0 || TemporaryPaths.Count > 0 || ImagesLayer.Bitmaps.Count > 0;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(UndoCommand))]
     private ImmutableList<PenPath> paths = [];
@@ -174,6 +183,76 @@ public partial class PaintCanvasViewModel(ILogger<PaintCanvasViewModel> logger) 
         surface.Canvas.DrawImage(originalImage, originalImage.Info.Rect, paint);
 
         return surface.Snapshot();
+    }
+
+    /// <summary>
+    /// Renders a mask suitable for Wan VACE inpainting: painted pixels are pure white
+    /// (replace) and everything else is opaque black (keep).
+    /// <para>
+    /// Unlike <see cref="RenderToWhiteChannelImage"/>, which inverts the RGB channels and
+    /// keeps alpha (it is meant for the classic latent-noise-mask inpaint path), this keeps
+    /// the VACE convention white = regenerate and produces a fully opaque image so that
+    /// LoadImageMask(channel="red") sees a real binary mask.
+    /// </para>
+    /// </summary>
+    public SKImage? RenderToBinaryMaskImage(out int replacePixels)
+    {
+        using var _ = CodeTimer.StartDebug();
+
+        replacePixels = 0;
+
+        if (CanvasSize == Size.Empty)
+        {
+            logger.LogWarning($"RenderToBinaryMaskImage: {nameof(CanvasSize)} is not set, returning null.");
+            return null;
+        }
+
+        // Draw the Images and Brush layers onto a transparent surface. The Background layer
+        // (the photo shown in the editor) is deliberately skipped by RenderToSurface.
+        using var renderedSurface = SKSurface.Create(
+            new SKImageInfo(CanvasSize.Width, CanvasSize.Height)
+        );
+        RenderToSurface(renderedSurface);
+        using var rendered = renderedSurface.Snapshot();
+        using var source = SKBitmap.FromImage(rendered);
+
+        // Binarise by brightness instead of forcing every non-transparent pixel to white.
+        // Forcing white breaks masks loaded as an image, where black means "keep".
+        var target = new SKBitmap(
+            source.Width,
+            source.Height,
+            SKColorType.Rgba8888,
+            SKAlphaType.Premul
+        );
+
+        for (var y = 0; y < source.Height; y++)
+        {
+            for (var x = 0; x < source.Width; x++)
+            {
+                var c = source.GetPixel(x, y);
+                var brightest = c.Red > c.Green ? c.Red : c.Green;
+                if (c.Blue > brightest)
+                    brightest = c.Blue;
+
+                // Bright painted/loaded pixels = replace; black strokes and transparency = keep.
+                var isReplace = c.Alpha >= 32 && brightest >= 96;
+                if (isReplace)
+                    replacePixels++;
+
+                var v = isReplace ? (byte)255 : (byte)0;
+                target.SetPixel(x, y, new SKColor(v, v, v, 255));
+            }
+        }
+
+        logger.LogInformation(
+            "RenderToBinaryMaskImage: {Width}x{Height}, replace pixels = {ReplacePixels}",
+            source.Width,
+            source.Height,
+            replacePixels
+        );
+
+        // SKImage keeps its own reference to the pixel buffer, so target must not be disposed here.
+        return SKImage.FromBitmap(target);
     }
 
     public SKImage? RenderToImage()
