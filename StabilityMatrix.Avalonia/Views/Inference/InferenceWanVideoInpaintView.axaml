@@ -71,12 +71,16 @@
                                 CanClose="False"
                                 Id="VideoMaskTool">
 
-                                <Grid
-                                    x:CompileBindings="False"
-                                    DataContext="{Binding ElementName=Dock, Path=DataContext}"
-                                    Opacity="1"
-                                    RowDefinitions="Auto,Auto,*">
-                                    <!--  Input video selector  -->
+                                <ScrollViewer
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <Grid
+                                        x:CompileBindings="False"
+                                        Margin="0,0,8,8"
+                                        DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                        Opacity="1"
+                                        RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                        <!--  Input video selector  -->
                                     <Grid
                                         Grid.Row="0"
                                         Margin="0,0,0,8"
@@ -112,8 +116,31 @@
                                         Spacing="6">
                                         <ToggleSwitch
                                             IsChecked="{Binding UseSam2Tracking}"
-                                            OffContent="Manual mask image (same mask on every frame)"
+                                            OffContent="Manual mask (white = replace, same mask on every frame)"
                                             OnContent="Auto mask: click the object, SAM2 tracks it through the video" />
+
+                                        <StackPanel
+                                            IsVisible="{Binding !UseSam2Tracking}"
+                                            Spacing="4">
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="#888888"
+                                                Text="Click 'Edit mask', paint the part to replace in WHITE and press Save, then check 'Preview manual mask'. Alternatively load a black/white mask PNG, or a frame with a solid WHITE area painted over the face. White = replace, black = keep; the same static mask is used on every frame."
+                                                TextWrapping="Wrap" />
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button
+                                                    Padding="12,6"
+                                                    Classes="accent"
+                                                    Command="{Binding EditManualMaskCommand}"
+                                                    Content="Edit mask (paint white)"
+                                                    ToolTip.Tip="Open the mask editor for the loaded frame with masking enabled" />
+                                                <Button
+                                                    Padding="12,6"
+                                                    Command="{Binding PreviewManualMaskCommand}"
+                                                    Content="Preview manual mask"
+                                                    ToolTip.Tip="Show the binary mask that will be uploaded (white = replace)" />
+                                            </StackPanel>
+                                        </StackPanel>
 
                                         <StackPanel
                                             IsVisible="{Binding UseSam2Tracking}"
@@ -142,10 +169,21 @@
                                             <TextBlock
                                                 VerticalAlignment="Center"
                                                 FontSize="11"
-                                                Foreground="#888888"
-                                                Text="Left click = replace this (green), right click = keep this (red)" />
+                                                FontWeight="SemiBold"
+                                                Foreground="#8bc48b"
+                                                Text="{Binding PointStatusText}" />
                                         </StackPanel>
 
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="#888888"
+                                            IsVisible="{Binding UseSam2Tracking}"
+                                            Text="Left click = replace this (green), right click = keep this (red). 3-8 green points inside the face/head are usually enough."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <!--  Advanced settings live below the clickable frame and are reached by scrolling  -->
+                                    <StackPanel Grid.Row="3" Margin="0,0,0,8" Spacing="6">
                                         <StackPanel
                                             IsVisible="{Binding UseSam2Tracking}"
                                             Orientation="Horizontal"
@@ -160,25 +198,185 @@
                                             <TextBlock
                                                 Margin="12,0,0,0"
                                                 VerticalAlignment="Center"
+                                                Text="Precision"
+                                                ToolTip.Tip="fp32 uses the checkpoint filename as-is; fp16 / bf16 make the SAM2 node look for *-fp16.safetensors" />
+                                            <ComboBox
+                                                MinWidth="100"
+                                                ItemsSource="{Binding Sam2Precisions}"
+                                                SelectedItem="{Binding Sam2Precision}" />
+                                            <TextBlock
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center"
                                                 Text="Grow mask (px)"
-                                                ToolTip.Tip="Expands the tracked mask so hair, edges and shadows are replaced too" />
+                                                ToolTip.Tip="Positive expands the erased area (less original motion); negative shrinks the mask and keeps more of the original movement around the outline. Keep at 0 for a sharp outline." />
                                             <NumericUpDown
                                                 Width="120"
                                                 Maximum="128"
-                                                Minimum="0"
+                                                Minimum="-64"
                                                 Value="{Binding MaskGrow}" />
+                                        </StackPanel>
+
+                                        <StackPanel Spacing="4">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <ToggleSwitch
+                                                    IsChecked="{Binding EnableAutoPreserveMovement}"
+                                                    OffContent="Preserve movement: manual (expert slider)"
+                                                    OnContent="Preserve movement: AUTO"
+                                                    ToolTip.Tip="AUTO picks a gentle 'keep original motion' strength (0.10-0.18) so the new face still replaces the old one while following some lip/head movement. The old 0.40 value restored too much of the original face and prevented any swap. The slider below stays as the expert override." />
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    FontSize="11"
+                                                    Foreground="#666666"
+                                                    Text="{Binding MotionPreservationLabel}" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    Text="Keep original motion (expert)"
+                                                    ToolTip.Tip="Feeds a fraction of the ORIGINAL face pixels back into the blanked region. 0 = frozen new face but strongest identity change; 0.10-0.20 = recommended; above ~0.30 VACE tends to reproduce the OLD face, so the swap appears to do nothing. 1 = original face exactly. Disabled while AUTO is on." />
+                                                <NumericUpDown
+                                                    Width="120"
+                                                    FormatString="0.00"
+                                                    Increment="0.05"
+                                                    IsEnabled="{Binding !EnableAutoPreserveMovement}"
+                                                    Maximum="1"
+                                                    Minimum="0"
+                                                    Value="{Binding MotionPreservation}" />
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    FontSize="11"
+                                                    Foreground="#888888"
+                                                    Text="0 = frozen new face | 0.10-0.20 recommended | &gt;0.30 = old face returns (no swap)" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!--  Split base: temporal chunking for videos too long for the GPU  -->
+                                        <StackPanel Margin="0,4,0,0" Spacing="6">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <ToggleSwitch
+                                                    IsChecked="{Binding EnableChunkedProcessing}"
+                                                    OffContent="Split base: OFF (whole video, one prompt)"
+                                                    OnContent="Split base: ON (chunks one by one, then join)" />
+                                                <Button
+                                                    Padding="10,4"
+                                                    Command="{Binding PreviewChunkPlanCommand}"
+                                                    Content="Check plan"
+                                                    ToolTip.Tip="Probe the input video and show the chunk plan without generating anything" />
+                                            </StackPanel>
+
+                                            <StackPanel IsVisible="{Binding EnableChunkedProcessing}" Spacing="6">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="#888888"
+                                                    Text="For videos the GPU cannot process in one go. Each chunk is a separate ComfyUI prompt so peak VRAM stays low; the MP4s are joined with ffmpeg into ONE video with the input's frame count, FPS and duration. Scene-cut protection keeps later scenes unchanged so SAM2 points are never re-seeded onto a different person."
+                                                    TextWrapping="Wrap" />
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <CheckBox
+                                                        VerticalAlignment="Center"
+                                                        Content="Auto size (free VRAM)"
+                                                        IsChecked="{Binding AutoChunkSize}"
+                                                        ToolTip.Tip="Queries ComfyUI /system_stats for free VRAM and derives a safe frames-per-chunk value. Falls back to the manual value when unavailable." />
+                                                    <TextBlock
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Text="Frames / chunk" />
+                                                    <NumericUpDown
+                                                        Width="110"
+                                                        Increment="4"
+                                                        IsEnabled="{Binding !AutoChunkSize}"
+                                                        Maximum="161"
+                                                        Minimum="5"
+                                                        ToolTip.Tip="Wan VACE requires 4n+1 frames (5, 9, 17, 25, 49, 81 ...). The value is snapped down to the nearest valid length."
+                                                        Value="{Binding ChunkFrames}" />
+                                                    <TextBlock
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Text="Overlap"
+                                                        ToolTip.Tip="Frames repeated between neighbouring chunks to hide temporal seams. Repeated frames are discarded before joining. 0 = exact and fastest." />
+                                                    <NumericUpDown
+                                                        Width="90"
+                                                        Increment="4"
+                                                        Maximum="64"
+                                                        Minimum="0"
+                                                        Value="{Binding ChunkOverlapFrames}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <CheckBox
+                                                        VerticalAlignment="Center"
+                                                        Content="Scene-cut protection (SAM2)"
+                                                        IsChecked="{Binding ProtectAgainstSceneCuts}"
+                                                        ToolTip.Tip="Detects hard cuts with ffmpeg. Chunks outside the scene you clicked are generated with an empty mask, so the same green points cannot replace the wrong face after a scene change. Click 'Check plan' to see the detected cut frames." />
+                                                    <TextBlock
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Text="Cut sensitivity"
+                                                        ToolTip.Tip="ffmpeg scene score threshold. Lower = more cuts detected. If real cuts are missed, lower it (e.g. 0.15); if fast motion is mistaken for a cut, raise it (e.g. 0.40)." />
+                                                    <NumericUpDown
+                                                        Width="100"
+                                                        Increment="0.05"
+                                                        IsEnabled="{Binding ProtectAgainstSceneCuts}"
+                                                        Maximum="0.90"
+                                                        Minimum="0.05"
+                                                        Value="{Binding SceneCutThreshold}" />
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="#666666"
+                                                Text="{Binding ChunkPlanSummary}"
+                                                TextWrapping="Wrap" />
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <Grid Grid.Row="2">
+                                    <!--  Fixed height: the point picker must never be squeezed to 0 px
+                                          by the settings above it, otherwise clicks are impossible.  -->
+                                    <Grid
+                                        Grid.Row="2"
+                                        Height="240"
+                                        Margin="0,4,0,8"
+                                        ClipToBounds="True">
                                         <!--  Frame preview with click points (SAM2 mode)  -->
-                                        <controls:FramePointPicker
-                                            x:CompileBindings="False"
-                                            IsVisible="{Binding UseSam2Tracking}"
-                                            NegativePoints="{Binding NegativePoints}"
-                                            PointClickedCommand="{Binding AddPointCommand}"
-                                            PositivePoints="{Binding PositivePoints}"
-                                            Source="{Binding FramePreview}" />
+                                        <Grid IsVisible="{Binding UseSam2Tracking}">
+                                            <Border
+                                                Background="#1e1e1e"
+                                                BorderBrush="#444444"
+                                                BorderThickness="1"
+                                                CornerRadius="4" />
+                                            <controls:FramePointPicker
+                                                x:CompileBindings="False"
+                                                IsHitTestVisible="{Binding !IsFramePreviewMissing}"
+                                                NegativePoints="{Binding NegativePoints}"
+                                                PointClickedCommand="{Binding AddPointCommand}"
+                                                PositivePoints="{Binding PositivePoints}"
+                                                Source="{Binding FramePreview}" />
+                                            <!--  Drawn last so it stays clickable while no frame exists  -->
+                                            <StackPanel
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsVisible="{Binding IsFramePreviewMissing}"
+                                                Spacing="8">
+                                                <TextBlock
+                                                    HorizontalAlignment="Center"
+                                                    FontSize="13"
+                                                    Foreground="#dddddd"
+                                                    Text="No frame loaded" />
+                                                <TextBlock
+                                                    MaxWidth="300"
+                                                    FontSize="11"
+                                                    Foreground="#999999"
+                                                    Text="Click 'Load frame', then LEFT-click 3-8 points inside the face/head you want to replace."
+                                                    TextAlignment="Center"
+                                                    TextWrapping="Wrap" />
+                                                <Button
+                                                    HorizontalAlignment="Center"
+                                                    Padding="12,6"
+                                                    Classes="accent"
+                                                    Command="{Binding LoadFrameCommand}"
+                                                    Content="Load frame"
+                                                    IsEnabled="{Binding !IsLoadingFrame}" />
+                                            </StackPanel>
+                                        </Grid>
 
                                         <!--  Manual mask image card (static mask)  -->
                                         <Grid IsVisible="{Binding !UseSam2Tracking}">
@@ -187,7 +385,55 @@
                                                 DataContext="{Binding MaskImageCardViewModel}" />
                                         </Grid>
                                     </Grid>
-                                </Grid>
+
+                                    <!--  Mask previews. Kept in a separate row so they never replace
+                                          the clickable frame / mask card above.  -->
+                                    <StackPanel
+                                        Grid.Row="4"
+                                        Margin="0,6,0,0"
+                                        Spacing="2">
+                                        <StackPanel IsVisible="{Binding UseSam2Tracking}" Spacing="2">
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="#888888"
+                                                Text="SAM2 mask preview (white = replace, black = keep)" />
+                                            <ScrollViewer
+                                                MaxHeight="130"
+                                                HorizontalScrollBarVisibility="Auto"
+                                                VerticalScrollBarVisibility="Disabled">
+                                                <ItemsControl ItemsSource="{Binding MaskPreviewFrames}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" Spacing="6" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Image
+                                                                Height="110"
+                                                                Margin="4"
+                                                                Source="{Binding}"
+                                                                Stretch="Uniform" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </StackPanel>
+
+                                        <StackPanel IsVisible="{Binding !UseSam2Tracking}" Spacing="2">
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="#888888"
+                                                Text="Manual mask preview (white = replace, black = keep)" />
+                                            <Image
+                                                MaxHeight="150"
+                                                HorizontalAlignment="Left"
+                                                Source="{Binding ManualMaskPreview}"
+                                                Stretch="Uniform" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    </Grid>
+                                </ScrollViewer>
 
                             </Tool>
                         </ToolDock>
