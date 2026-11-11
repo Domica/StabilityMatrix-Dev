@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using StabilityMatrix.Core.Models.Api.Comfy;
-using StabilityMatrix.Core.Models.Inference;
 
+using StabilityMatrix.Core.Models.Inference;
 namespace StabilityMatrix.Core.Models;
 
 [JsonSerializable(typeof(GenerationParameters))]
@@ -31,6 +31,7 @@ public record GenerationParameters
     public string? VideoOutputMethod { get; set; }
     public int? ModelVersionId { get; set; }
     public List<int>? ExtraNetworkModelVersionIds { get; set; }
+
    // --- Outpaint Extensions ---
     public int OutpaintLeft { get; init; }
     public int OutpaintRight { get; init; }
@@ -50,7 +51,6 @@ public record GenerationParameters
     public string? DebugFinalPositive { get; set; }
     public string? DebugFinalNegative { get; set; }
     public string? DebugFinalModelName { get; set; }
-
     // ---------------------------------------------------------
     // MP4 SUPPORT (ADDED)
     // ---------------------------------------------------------

@@ -131,7 +131,6 @@ public static class Program
 
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
-
     }
 
     [DoesNotReturn]

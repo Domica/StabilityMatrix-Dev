@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -29,6 +29,7 @@ public class ComfyClient : InferenceClientBase
     private readonly IComfyApi comfyApi;
     private bool isDisposed;
 
+
     private readonly JsonSerializerOptions jsonSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicies.SnakeCaseLower,
@@ -38,7 +39,6 @@ public class ComfyClient : InferenceClientBase
             new OneOfJsonConverter<string, StringNodeConnection>(),
         },
     };
-
     // ReSharper disable once MemberCanBePrivate.Global
     public string ClientId { get; } = Guid.NewGuid().ToString();
 
@@ -110,12 +110,13 @@ public class ComfyClient : InferenceClientBase
         {
             Scheme = "ws",
             Path = "/ws",
-            Query = $"clientId={ClientId}",
-        }.Uri;
+
+            Query = $"clientId={ClientId}",        }.Uri;
 
         webSocketClient = new WebsocketClient(wsUri)
         {
             Name = nameof(ComfyClient),
+
             ReconnectTimeout = TimeSpan.FromSeconds(30),
         };
 
@@ -123,8 +124,7 @@ public class ComfyClient : InferenceClientBase
             Logger.Info("Websocket Disconnected, ({Type})", info.Type)
         );
         webSocketClient.ReconnectionHappened.Subscribe(info =>
-            Logger.Info("Websocket Reconnected, ({Type})", info.Type)
-        );
+            Logger.Info("Websocket Reconnected, ({Type})", info.Type)        );
 
         webSocketClient.MessageReceived.Subscribe(OnMessageReceived);
     }
@@ -286,8 +286,8 @@ public class ComfyClient : InferenceClientBase
             Array.Reverse(typeBytes);
         }*/
 
-        PreviewImageReceived?.Invoke(this, new ComfyWebSocketImageData { ImageBytes = data[8..] });
-    }
+
+        PreviewImageReceived?.Invoke(this, new ComfyWebSocketImageData { ImageBytes = data[8..] });    }
 
     public override async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
@@ -412,10 +412,19 @@ public class ComfyClient : InferenceClientBase
         var dict = new Dictionary<string, List<ComfyImage>?>();
         foreach (var (nodeKey, output) in current.Outputs)
         {
-            dict[nodeKey] = output.Images;
+
+            // Loader nodes such as LoadVideo expose their INPUT file as a UI "images" output
+            // with type=input. Those are not generated results: downloading them put a
+            // byte-identical copy of the source MP4 into the output gallery.
+            dict[nodeKey] = output.Images?
+                .Where(image =>
+                    !string.Equals(image.Type, "input", StringComparison.OrdinalIgnoreCase)
+                )
+                .ToList();
         }
         return dict;
     }
+
 
     /// <summary>
     /// Returns text outputs (ui "text", e.g. from PreviewAny) per node name for an executed prompt

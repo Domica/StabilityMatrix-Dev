@@ -1,0 +1,1070 @@
+<dock:DockUserControlBase
+    x:Class="StabilityMatrix.Avalonia.Views.Inference.InferenceMinimaxDirectorView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:StabilityMatrix.Avalonia.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dock="clr-namespace:StabilityMatrix.Avalonia.Controls.Dock"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:mocks="clr-namespace:StabilityMatrix.Avalonia.DesignData"
+    xmlns:modelsInference="clr-namespace:StabilityMatrix.Avalonia.Models.Inference"
+    xmlns:vmInference="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference"
+    xmlns:converters="clr-namespace:StabilityMatrix.Avalonia.Converters"
+    d:DataContext="{x:Static mocks:DesignData.InferenceMinimaxDirectorViewModel}"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
+    x:DataType="vmInference:InferenceMinimaxDirectorViewModel"
+    Focusable="True"
+    mc:Ignorable="d">
+
+    <dock:DockUserControlBase.Resources>
+        <converters:PathToImageConverter x:Key="PathToImage" />
+    </dock:DockUserControlBase.Resources>
+
+
+    <Grid Margin="2,0,2,8">
+        <DockControl
+            x:Name="Dock"
+            InitializeFactory="True"
+            InitializeLayout="True">
+            <DockControl.Factory>
+                <Factory />
+            </DockControl.Factory>
+
+            <RootDock
+                x:Name="Root"
+                DefaultDockable="{Binding #MainLayout}"
+                Id="Root"
+                IsCollapsable="False">
+
+                <ProportionalDock
+                    x:Name="MainLayout"
+                    Id="MainLayout"
+                    Orientation="Horizontal">
+
+                    <!--  ======================= 1. Session queue =======================  -->
+                    <ToolDock
+                        x:Name="QueuePane"
+                        Alignment="Left"
+                        Id="QueuePane"
+                        Proportion="0.24">
+                        <Tool
+                            x:Name="QueueTool"
+                            Title="Session Queue"
+                            x:DataType="Tool"
+                            CanClose="False"
+                            Id="QueueTool">
+                            <Grid
+                                x:CompileBindings="False"
+                                Margin="0,0,8,8"
+                                DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                RowDefinitions="Auto,*,Auto,Auto,Auto">
+
+                                <TextBlock
+                                    Grid.Row="0"
+                                    Margin="0,4,0,6"
+                                    FontSize="12"
+                                    Foreground="#888888"
+                                    Text="Clips run top to bottom. Each clip is split into H3 sliding windows and optionally chained to the previous clip's last frame."
+                                    TextWrapping="Wrap" />
+
+                                <ListBox
+                                    Grid.Row="1"
+                                    ItemsSource="{Binding Clips}"
+                                    SelectedItem="{Binding SelectedClip}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:CompileBindings="False">
+                                            <Border
+                                                Margin="2"
+                                                Padding="8,6"
+                                                Background="#22FFFFFF"
+                                                CornerRadius="4">
+                                                <StackPanel Spacing="3">
+                                                    <TextBlock
+                                                        Text="{Binding DisplayTitle}"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        ToolTip.Tip="{Binding Prompt}" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                                        <TextBlock
+                                                            FontSize="10"
+                                                            Foreground="#999999"
+                                                            Text="{Binding Seconds, StringFormat='{}{0:0.0}s'}" />
+                                                        <TextBlock
+                                                            FontSize="10"
+                                                            Foreground="#999999"
+                                                            Text="{Binding Seed, StringFormat='seed {0}'}" />
+                                                        <TextBlock
+                                                            FontSize="10"
+                                                            Foreground="#8ab4f8"
+                                                            Text="{Binding Status}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <!--  Queue editing  -->
+                                <WrapPanel
+                                    Grid.Row="2"
+                                    Margin="0,6,0,0"
+                                    Orientation="Horizontal">
+                                    <WrapPanel.Styles>
+                                        <Style Selector="Button">
+                                            <Setter Property="Margin" Value="0,2,4,2" />
+                                            <Setter Property="Padding" Value="9,5" />
+                                        </Style>
+                                    </WrapPanel.Styles>
+                                    <Button Command="{Binding AddClipCommand}" Content="Add clip" />
+                                    <Button Command="{Binding RemoveClipCommand}" Content="Remove" />
+                                    <Button Command="{Binding MoveClipUpCommand}" Content="Up" />
+                                    <Button Command="{Binding MoveClipDownCommand}" Content="Down" />
+                                    <Button Command="{Binding ClearClipsCommand}" Content="Clear" />
+                                </WrapPanel>
+
+                                <WrapPanel
+                                    Grid.Row="3"
+                                    Margin="0,2,0,0">
+                                    <WrapPanel.Styles>
+                                        <Style Selector="Button">
+                                            <Setter Property="Margin" Value="0,2,4,2" />
+                                            <Setter Property="Padding" Value="9,5" />
+                                        </Style>
+                                    </WrapPanel.Styles>
+                                    <Button
+                                        Command="{Binding ImportQueueCommand}"
+                                        Content="Import queue"
+                                        ToolTip.Tip="Import a VENO Director queue.json (array of clip objects)" />
+                                    <Button
+                                        Command="{Binding ImportQueueZipCommand}"
+                                        Content="Import queue ZIP"
+                                        ToolTip.Tip="Import a VENO Director queue ZIP (queue.json + reference images)" />
+                                    <Button
+                                        Command="{Binding ExportQueueCommand}"
+                                        Content="Export queue"
+                                        ToolTip.Tip="Export the current session as VENO-compatible queue.json" />
+                                    <Button
+                                        Command="{Binding ImportPromptsCommand}"
+                                        Content="Import prompts"
+                                        ToolTip.Tip="Split a .txt / .md file on blank lines, one clip per block" />
+                                </WrapPanel>
+
+                                <TextBlock
+                                    Grid.Row="4"
+                                    Margin="0,6,0,0"
+                                    FontSize="11"
+                                    Foreground="#888888"
+                                    Text="{Binding StatusText}"
+                                    TextWrapping="Wrap" />
+                            </Grid>
+                        </Tool>
+                    </ToolDock>
+
+                    <ProportionalDockSplitter x:Name="Splitter1" Id="Splitter1" />
+
+                    <!--  ======================= 2. Clip editor + global settings =======================  -->
+                    <ProportionalDock
+                        x:Name="EditorLayout"
+                        Id="EditorLayout"
+                        Orientation="Vertical"
+                        Proportion="0.46">
+
+                        <!--  Selected clip  -->
+                        <ToolDock
+                            x:Name="ClipPane"
+                            Alignment="Top"
+                            Id="ClipPane"
+                            Proportion="0.52">
+                            <Tool
+                                x:Name="ClipTool"
+                                Title="Clip Editor"
+                                x:DataType="Tool"
+                                CanClose="False"
+                                Id="ClipTool">
+                                <ScrollViewer
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel
+                                        x:CompileBindings="False"
+                                        Margin="0,0,8,8"
+                                        DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                        Spacing="8">
+
+                                        <TextBlock
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Text="Selected clip" />
+
+                                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto">
+                                            <TextBlock
+                                                Margin="0,0,8,0"
+                                                VerticalAlignment="Center"
+                                                Text="Label" />
+                                            <TextBox
+                                                Grid.Column="1"
+                                                Text="{Binding SelectedClip.Label}"
+                                                Watermark="Optional short name shown in the queue" />
+                                        </Grid>
+
+                                        <TextBlock
+                                            Margin="0,2,0,0"
+                                            FontSize="11"
+                                            Foreground="#888888"
+                                            Text="Prompt" />
+                                        <TextBox
+                                            MinHeight="120"
+                                            AcceptsReturn="True"
+                                            Text="{Binding SelectedClip.Prompt}"
+                                            TextWrapping="Wrap"
+                                            Watermark="Describe the shot for this clip..." />
+
+                                        <WrapPanel Orientation="Horizontal">
+                                            <WrapPanel.Styles>
+                                                <Style Selector="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                </Style>
+                                                <Style Selector="NumericUpDown">
+                                                    <Setter Property="Margin" Value="4,2,12,2" />
+                                                    <Setter Property="Width" Value="110" />
+                                                </Style>
+                                            </WrapPanel.Styles>
+                                            <TextBlock Text="Seconds" />
+                                            <NumericUpDown
+                                                FormatString="0.0"
+                                                Increment="0.5"
+                                                Maximum="600"
+                                                Minimum="0.5"
+                                                Value="{Binding SelectedClip.Seconds}" />
+                                            <TextBlock Text="Seed (-1 = auto)" />
+                                            <NumericUpDown
+                                                Increment="1"
+                                                Maximum="999999999"
+                                                Minimum="-1"
+                                                Value="{Binding SelectedClip.Seed}" />
+                                        </WrapPanel>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock VerticalAlignment="Center" Text="Continuity" />
+                                            <ComboBox
+                                                MinWidth="140"
+                                                ItemsSource="{Binding ClipContinuityModes}"
+                                                SelectedItem="{Binding SelectedClip.ContinuityMode}"
+                                                ToolTip.Tip="inherit = use the session mode. last_frame = feed the previous clip's last frame. none = independent clip. manual = use the reference image below." />
+                                            <TextBlock
+                                                Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="#888888"
+                                                Text="Mode is applied per clip and overrides the session default." />
+                                        </StackPanel>
+
+                                        <TextBlock
+                                            Margin="0,6,0,2"
+                                            FontSize="11"
+                                            Foreground="#888888"
+                                            Text="Reference images (used by manual / last_frame continuity)" />
+                                        <ItemsControl
+                                            x:CompileBindings="False"
+                                            ItemsSource="{Binding SelectedClip.ReferenceImagePaths}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Margin="3"
+                                                        BorderBrush="#444444"
+                                                        BorderThickness="1"
+                                                        CornerRadius="3">
+                                                        <Grid>
+                                                            <Image
+                                                                Width="92"
+                                                                Height="92"
+                                                                Source="{Binding ., Converter={StaticResource PathToImage}}"
+                                                                Stretch="Uniform" />
+                                                            <Button
+                                                                Margin="1"
+                                                                Padding="5,1"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Top"
+                                                                Background="#CC222222"
+                                                                Command="{Binding $parent[ItemsControl].DataContext.RemoveReferenceImageCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                Content="✕"
+                                                                FontSize="10"
+                                                                ToolTip.Tip="Remove this reference image" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Button
+                                                Padding="10,5"
+                                                Command="{Binding AddReferenceImageCommand}"
+                                                Content="Add image(s)"
+                                                ToolTip.Tip="Add one or more local reference images" />
+                                            <Button
+                                                Padding="10,5"
+                                                Command="{Binding ClearReferenceImagesCommand}"
+                                                Content="Clear"
+                                                ToolTip.Tip="Remove all reference images from this clip" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="#8ab4f8"
+                                                Text="{Binding SelectedClip.ReferenceImagePaths.Count, StringFormat='{}{0} image(s)'}" />
+                                        </StackPanel>
+
+                                        <TextBlock
+                                            Margin="0,4,0,0"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="Per-clip overrides (blank = global)" />
+                                        <Grid ColumnDefinitions="*,*,*,*" HorizontalAlignment="Stretch">
+                                            <Grid.Styles>
+                                                <Style Selector="StackPanel">
+                                                    <Setter Property="Margin" Value="0,0,10,4" />
+                                                    <Setter Property="Spacing" Value="2" />
+                                                </Style>
+                                                <Style Selector="NumericUpDown">
+                                                    <Setter Property="Width" Value="NaN" />
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                </Style>
+                                            </Grid.Styles>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock FontSize="11" Text="Width" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.WidthOverride}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontSize="11" Text="Height" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.HeightOverride}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock FontSize="11" Text="FPS" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="60"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.FpsOverride}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="3">
+                                                <TextBlock FontSize="11" Text="Steps" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="100"
+                                                    Minimum="0"
+                                                    Value="{Binding SelectedClip.StepsOverride}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="#777777"
+                                            Text="0 means no override. H3 works best at 512x224, 24 fps, 4 steps."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Tool>
+                        </ToolDock>
+
+                        <ProportionalDockSplitter />
+
+                        <!--  Global H3 settings + workflow  -->
+                        <ToolDock
+                            x:Name="SettingsPane"
+                            Alignment="Bottom"
+                            Id="SettingsPane"
+                            Proportion="0.48">
+                            <Tool
+                                x:Name="SettingsTool"
+                                Title="H3 Session Settings / Workflow"
+                                x:DataType="Tool"
+                                CanClose="False"
+                                Id="SettingsTool">
+                                <ScrollViewer
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel
+                                        x:CompileBindings="False"
+                                        Margin="0,0,8,8"
+                                        DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                        Spacing="8">
+
+                                        <TextBlock
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Text="Session defaults" />
+                                        <Grid
+                                            ColumnDefinitions="*,*,*,*,*"
+                                            HorizontalAlignment="Stretch">
+                                            <Grid.Styles>
+                                                <Style Selector="StackPanel">
+                                                    <Setter Property="Margin" Value="0,0,10,4" />
+                                                    <Setter Property="Spacing" Value="2" />
+                                                </Style>
+                                                <Style Selector="NumericUpDown">
+                                                    <Setter Property="Width" Value="NaN" />
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                </Style>
+                                            </Grid.Styles>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock FontSize="11" Text="FPS" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="60"
+                                                    Minimum="1"
+                                                    Value="{Binding GlobalFps}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontSize="11" Text="Width" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="16"
+                                                    Value="{Binding GlobalWidth}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock FontSize="11" Text="Height" />
+                                                <NumericUpDown
+                                                    Increment="16"
+                                                    Maximum="2048"
+                                                    Minimum="16"
+                                                    Value="{Binding GlobalHeight}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="3">
+                                                <TextBlock FontSize="11" Text="Steps" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="100"
+                                                    Minimum="1"
+                                                    Value="{Binding GlobalSteps}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="4">
+                                                <TextBlock FontSize="11" Text="Session seed" />
+                                                <NumericUpDown
+                                                    Increment="1"
+                                                    Maximum="999999999"
+                                                    Minimum="-1"
+                                                    ToolTip.Tip="-1 = new random session seed on every run"
+                                                    Value="{Binding GlobalSeed}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock
+                                            Margin="0,2,0,0"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="Sliding windows (MiniMax H3 frame grid 5+17k)" />
+                                        <WrapPanel Orientation="Horizontal">
+                                            <WrapPanel.Styles>
+                                                <Style Selector="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                </Style>
+                                                <Style Selector="NumericUpDown">
+                                                    <Setter Property="Margin" Value="4,2,12,2" />
+                                                    <Setter Property="Width" Value="105" />
+                                                </Style>
+                                            </WrapPanel.Styles>
+                                            <CheckBox
+                                                Content="Split long clips into windows"
+                                                IsChecked="{Binding EnableWindowSplitting}" />
+                                            <TextBlock Text="Max frames / window" />
+                                            <NumericUpDown
+                                                Increment="17"
+                                                IsEnabled="{Binding EnableWindowSplitting}"
+                                                Maximum="124"
+                                                Minimum="22"
+                                                ToolTip.Tip="H3 native max is 124 frames. Values are snapped to the 5+17k grid."
+                                                Value="{Binding MaxWindowFrames}" />
+                                            <TextBlock Text="Overlap frames" />
+                                            <NumericUpDown
+                                                Increment="17"
+                                                IsEnabled="{Binding EnableWindowSplitting}"
+                                                Maximum="60"
+                                                Minimum="0"
+                                                ToolTip.Tip="Prefix frames repeated between windows, snapped to the 1+17k grid."
+                                                Value="{Binding WindowOverlapFrames}" />
+                                        </WrapPanel>
+
+                                        <WrapPanel Orientation="Horizontal">
+                                            <WrapPanel.Styles>
+                                                <Style Selector="CheckBox">
+                                                    <Setter Property="Margin" Value="0,2,14,2" />
+                                                </Style>
+                                            </WrapPanel.Styles>
+                                            <CheckBox
+                                                Content="Auto-expand prompt with previous clip"
+                                                IsChecked="{Binding AutoExpandPrompt}"
+                                                ToolTip.Tip="Prepends a continuity anchor from the previous clip's prompt to short prompts." />
+                                            <CheckBox
+                                                Content="Concatenate clips into a session video"
+                                                IsChecked="{Binding ChainSession}" />
+                                            <CheckBox
+                                                Content="Disable audio"
+                                                IsChecked="{Binding DisableAudio}" />
+                                            <CheckBox
+                                                Content="Disable RTX super-resolution"
+                                                IsChecked="{Binding DisableRtxSuperResolution}" />
+                                        </WrapPanel>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock VerticalAlignment="Center" Text="Default continuity" />
+                                            <ComboBox
+                                                MinWidth="130"
+                                                ItemsSource="{Binding ContinuityModes}"
+                                                SelectedItem="{Binding ContinuityMode}" />
+                                            <TextBlock
+                                                Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="#888888"
+                                                Text="last_frame chains clips; none keeps them independent." />
+                                        </StackPanel>
+
+                                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                                            <TextBlock
+                                                Grid.Row="0"
+                                                Margin="0,0,8,6"
+                                                VerticalAlignment="Center"
+                                                Text="ffmpeg path" />
+                                            <TextBox
+                                                Grid.Row="0"
+                                                Grid.Column="1"
+                                                Margin="0,0,0,6"
+                                                Text="{Binding FfmpegPath}"
+                                                ToolTip.Tip="Leave blank to auto-detect from PATH or ComfyUI's bundled imageio_ffmpeg."
+                                                Watermark="Auto-detect (PATH / ComfyUI bundled)" />
+                                            <TextBlock
+                                                Grid.Row="1"
+                                                Margin="0,0,8,0"
+                                                VerticalAlignment="Center"
+                                                Text="Output prefix" />
+                                            <TextBox
+                                                Grid.Row="1"
+                                                Grid.Column="1"
+                                                Text="{Binding OutputPrefix}"
+                                                ToolTip.Tip="Relative to ComfyUI's output folder. A run id and clip/window index are appended."
+                                                Watermark="video/MinimaxDirector" />
+                                        </Grid>
+
+                                        <TextBlock
+                                            Margin="0,4,0,0"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="Workflow template" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Button
+                                                Padding="10,5"
+                                                Command="{Binding LoadWorkflowCommand}"
+                                                Content="Load workflow JSON..."
+                                                ToolTip.Tip="Accepts both ComfyUI API-format and UI-format MiniMax H3 workflows." />
+                                            <Button
+                                                Padding="10,5"
+                                                Command="{Binding UseBuiltInWorkflowCommand}"
+                                                Content="Restore built-in H3" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="#8ab4f8"
+                                                Text="{Binding WorkflowInfo}"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="#777777"
+                                            Text="{Binding WorkflowPath}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <TextBox
+                                            MinHeight="52"
+                                            MaxHeight="110"
+                                            AcceptsReturn="True"
+                                            FontSize="10"
+                                            IsReadOnly="True"
+                                            Text="{Binding MappingSummary}"
+                                            TextWrapping="Wrap"
+                                            ToolTip.Tip="Which workflow nodes/fields the Director injects prompt, seed, dimensions, frame count, steps, fps and filename into." />
+
+                                        <!--  ======================= Advanced: Model, Plugins & Memory =======================  -->
+                                        <Expander
+                                            Margin="0,10,0,0"
+                                            Header="Advanced: Model, Plugins &amp; Memory"
+                                            IsExpanded="True">
+                                            <StackPanel
+                                                x:CompileBindings="False"
+                                                Margin="0,6,0,0"
+                                                DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                                Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock
+                                                        VerticalAlignment="Center"
+                                                        FontSize="12"
+                                                        FontWeight="SemiBold"
+                                                        Text="Model / VAE / Text encoder (blank = workflow default)" />
+                                                    <Button
+                                                        Grid.Column="1"
+                                                        Padding="10,4"
+                                                        Command="{Binding ScanModelsCommand}"
+                                                        Content="Scan ComfyUI models"
+                                                        IsEnabled="{Binding !IsScanningModels}"
+                                                        ToolTip.Tip="Lists model / VAE / text-encoder / LoRA files served by the connected ComfyUI (its model folders)." />
+                                                </Grid>
+                                                <Grid
+                                                    ColumnDefinitions="Auto,*,Auto,*,Auto,*"
+                                                    RowDefinitions="Auto">
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="0"
+                                                        Margin="0,0,6,0"
+                                                        VerticalAlignment="Center"
+                                                        Text="Model" />
+                                                    <AutoCompleteBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="1"
+                                                        MinWidth="120"
+                                                        HorizontalAlignment="Stretch"
+                                                        ItemsSource="{Binding AvailableModels}"
+                                                        Text="{Binding ModelOverride}"
+                                                        Watermark="UNETLoader checkpoint filename" />
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="2"
+                                                        Margin="6,0,6,0"
+                                                        VerticalAlignment="Center"
+                                                        Text="VAE" />
+                                                    <AutoCompleteBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="3"
+                                                        MinWidth="120"
+                                                        HorizontalAlignment="Stretch"
+                                                        ItemsSource="{Binding AvailableVaes}"
+                                                        Text="{Binding VaeOverride}"
+                                                        Watermark="video VAE filename" />
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="4"
+                                                        Margin="6,0,6,0"
+                                                        VerticalAlignment="Center"
+                                                        Text="CLIP" />
+                                                    <AutoCompleteBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="5"
+                                                        MinWidth="120"
+                                                        HorizontalAlignment="Stretch"
+                                                        ItemsSource="{Binding AvailableClips}"
+                                                        Text="{Binding ClipOverride}"
+                                                        Watermark="text encoder filename" />
+                                                </Grid>
+
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock VerticalAlignment="Center" Text="LoRA (plugin)" />
+                                                    <AutoCompleteBox
+                                                        MinWidth="240"
+                                                        ItemsSource="{Binding AvailableLoras}"
+                                                        Text="{Binding LoraName}"
+                                                        Watermark="LoRA filename; enables it and disables the others" />
+                                                    <TextBlock VerticalAlignment="Center" Text="strength" />
+                                                    <NumericUpDown
+                                                        Width="90"
+                                                        Increment="0.05"
+                                                        Maximum="10"
+                                                        Minimum="0"
+                                                        Value="{Binding LoraStrength}" />
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock VerticalAlignment="Center" Text="Attention backend" />
+                                                    <ComboBox
+                                                        MinWidth="170"
+                                                        ItemsSource="{Binding AttentionBackends}"
+                                                        SelectedItem="{Binding AttentionBackend}"
+                                                        ToolTip.Tip="H3's main VRAM/perf lever (sdpa, flash_attn, xformers, sageattention, ...). Blank = workflow default." />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="#888888"
+                                                        Text="sageattention / --lowvram reduce VRAM the most."
+                                                        VerticalAlignment="Center" />
+                                                </StackPanel>
+
+                                                <WrapPanel Orientation="Horizontal">
+                                                    <WrapPanel.Styles>
+                                                        <Style Selector="CheckBox">
+                                                            <Setter Property="Margin" Value="0,2,14,2" />
+                                                        </Style>
+                                                        <Style Selector="NumericUpDown">
+                                                            <Setter Property="Width" Value="90" />
+                                                            <Setter Property="Margin" Value="4,2,4,2" />
+                                                        </Style>
+                                                        <Style Selector="TextBlock">
+                                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                                        </Style>
+                                                    </WrapPanel.Styles>
+                                                    <CheckBox
+                                                        Content="Tiled VAE decode (experimental)"
+                                                        IsChecked="{Binding UseTiledVae}"
+                                                        ToolTip.Tip="Like wan-tiled-VAE: decode in tiles to cut VRAM. The VAE decode node must support tiling." />
+                                                    <TextBlock Text="tile size" />
+                                                    <NumericUpDown
+                                                        Increment="32"
+                                                        IsEnabled="{Binding UseTiledVae}"
+                                                        Maximum="1024"
+                                                        Minimum="64"
+                                                        Value="{Binding VaeTileSize}" />
+                                                    <CheckBox
+                                                        Content="Aggressive memory cleanup"
+                                                        IsChecked="{Binding AggressiveMemoryCleanup}"
+                                                        ToolTip.Tip="GC + working-set trim between windows/clips to avoid host RAM thrashing and page-file use." />
+                                                    <CheckBox
+                                                        Content="Low-VRAM mode"
+                                                        IsChecked="{Binding LowVramMode}"
+                                                        ToolTip.Tip="Forces tiled VAE and a low-VRAM attention backend; also run ComfyUI with --lowvram." />
+                                                    <TextBlock Text="Block cache (experimental)" />
+                                                    <ComboBox
+                                                        MinWidth="150"
+                                                        ItemsSource="{Binding CacheMethods}"
+                                                        SelectedItem="{Binding CacheMethod}"
+                                                        ToolTip.Tip="EasyCache / TeaCache / FirstBlockCache: skip redundant transformer-block recomputation for a large H3 speedup with minimal quality loss. Requires the matching ComfyUI plugin. Blank = off." />
+                                                </WrapPanel>
+
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    Text="Required ComfyUI plugins / custom nodes" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Button
+                                                        Padding="10,5"
+                                                        Command="{Binding CheckRequiredNodesCommand}"
+                                                        Content="Check installed in ComfyUI"
+                                                        ToolTip.Tip="Verifies each custom node the workflow uses is available in the connected ComfyUI." />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="#888888"
+                                                        Text="These nodes must be installed (as plugins) for the workflow to run:"
+                                                        VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBox
+                                                    MinHeight="40"
+                                                    MaxHeight="90"
+                                                    AcceptsReturn="True"
+                                                    FontSize="10"
+                                                    IsReadOnly="True"
+                                                    Text="{Binding RequiredPlugins}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
+
+                                        <!--  ======================= Upscale & Refine (latent) =======================  -->
+                                        <Expander
+                                            Margin="0,10,0,0"
+                                            Header="Upscale &amp; Refine (generate low-res, then upscale the H3 latent)"
+                                            IsExpanded="True">
+                                            <StackPanel
+                                                x:CompileBindings="False"
+                                                Margin="0,6,0,0"
+                                                DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                                Spacing="8">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="#888888"
+                                                    Text="Set a LOW generation resolution in Session defaults, then pick an upscaler here. The upscaler is injected before VAE decode, so generation stays cheap while the output is decoded at the larger size."
+                                                    TextWrapping="Wrap" />
+
+                                                <Grid
+                                                    ColumnDefinitions="Auto,*,Auto,*"
+                                                    RowDefinitions="Auto,Auto">
+                                                    <Grid.Styles>
+                                                        <Style Selector="TextBlock">
+                                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                                        </Style>
+                                                    </Grid.Styles>
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="0"
+                                                        Margin="0,0,6,0"
+                                                        Text="Upscaler (blank = off)" />
+                                                    <ComboBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="1"
+                                                        MinWidth="150"
+                                                        ItemsSource="{Binding UpscaleTypes}"
+                                                        SelectedItem="{Binding UpscaleType}"
+                                                        ToolTip.Tip="2D / 3D = LBH H3 latent upscaler (needs its checkpoint + plugin); CGlide = Glide Upscale Hold; Split = MMH3 Split Upscale (re-samples with the diffusion model)." />
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="2"
+                                                        Margin="8,0,6,0"
+                                                        Text="Scale" />
+                                                    <ComboBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="3"
+                                                        MinWidth="90"
+                                                        ItemsSource="{Binding UpscaleScales}"
+                                                        SelectedItem="{Binding UpscaleScale}" />
+
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        Grid.Column="0"
+                                                        Margin="0,6,6,0"
+                                                        Text="Upscaler checkpoint" />
+                                                    <AutoCompleteBox
+                                                        Grid.Row="1"
+                                                        Grid.Column="1"
+                                                        Margin="0,6,0,0"
+                                                        ItemsSource="{Binding AvailableUpscaleModels}"
+                                                        Text="{Binding UpscaleModelName}"
+                                                        Watermark="LBH 2D/3D model_name (Scan ComfyUI models)" />
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        Grid.Column="2"
+                                                        Margin="8,6,6,0"
+                                                        Text="Sharpness" />
+                                                    <NumericUpDown
+                                                        Grid.Row="1"
+                                                        Grid.Column="3"
+                                                        Margin="0,6,0,0"
+                                                        Increment="1"
+                                                        Maximum="6"
+                                                        Minimum="1"
+                                                        Value="{Binding UpscaleSharpness}" />
+                                                </Grid>
+
+                                                <TextBlock
+                                                    Margin="0,4,0,0"
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    Text="LoRA presets for low-res fast generation + 2K refine" />
+                                                <ItemsControl ItemsSource="{Binding LoraPresets}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border
+                                                                Margin="0,2"
+                                                                Padding="6,4"
+                                                                BorderBrush="#DDDDDD"
+                                                                BorderThickness="1"
+                                                                CornerRadius="3">
+                                                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                                                    <Button
+                                                                        Grid.Column="0"
+                                                                        Padding="8,3"
+                                                                        Command="{Binding DataContext.ApplyLoraPresetCommand, ElementName=Dock}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Use" />
+                                                                    <StackPanel
+                                                                        Grid.Column="1"
+                                                                        Margin="8,0,8,0"
+                                                                        VerticalAlignment="Center">
+                                                                        <TextBlock
+                                                                            FontSize="11"
+                                                                            FontWeight="SemiBold"
+                                                                            Text="{Binding Label}" />
+                                                                        <TextBlock
+                                                                            FontSize="10"
+                                                                            Foreground="#888888"
+                                                                            Text="{Binding Description}"
+                                                                            TextWrapping="Wrap" />
+                                                                        <TextBlock
+                                                                            FontSize="9"
+                                                                            Foreground="#8ab4f8"
+                                                                            Text="{Binding Source}"
+                                                                            TextTrimming="CharacterEllipsis"
+                                                                            ToolTip.Tip="{Binding Source}" />
+                                                                    </StackPanel>
+                                                                    <TextBlock
+                                                                        Grid.Column="2"
+                                                                        VerticalAlignment="Center"
+                                                                        FontSize="10"
+                                                                        Foreground="#888888"
+                                                                        Text="{Binding Match}"
+                                                                        TextTrimming="CharacterEllipsis" />
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!--  The decision aid: projected output + quality tradeoff  -->
+                                                <Border
+                                                    Margin="0,6,0,0"
+                                                    Padding="8"
+                                                    Background="#FFF8E1"
+                                                    BorderBrush="#F0C36D"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="Upscale potential &amp; quality-loss estimate" />
+                                                        <TextBlock
+                                                            FontSize="11"
+                                                            Text="{Binding UpscaleNote}"
+                                                            TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Expander>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Tool>
+                        </ToolDock>
+                    </ProportionalDock>
+
+                    <ProportionalDockSplitter x:Name="Splitter2" Id="Splitter2" />
+
+                    <!--  ======================= 3. Plan / generate / gallery =======================  -->
+                    <ProportionalDock
+                        x:Name="OutputLayout"
+                        Id="OutputLayout"
+                        Orientation="Vertical"
+                        Proportion="0.30">
+
+                        <ToolDock
+                            x:Name="PlanPane"
+                            Alignment="Top"
+                            Id="PlanPane"
+                            Proportion="0.42">
+                            <Tool
+                                x:Name="PlanTool"
+                                Title="Generation Plan"
+                                x:DataType="Tool"
+                                CanClose="False"
+                                Id="PlanTool">
+                                <Grid
+                                    x:CompileBindings="False"
+                                    Margin="0,0,0,8"
+                                    DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                    RowDefinitions="Auto,*,Auto,Auto">
+                                    <StackPanel
+                                        Grid.Row="0"
+                                        Margin="0,4,0,6"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="Window plan" />
+                                        <Button
+                                            Padding="10,4"
+                                            Command="{Binding PreviewPlanCommand}"
+                                            Content="Refresh plan"
+                                            ToolTip.Tip="Recompute the H3 sliding-window plan without generating anything." />
+                                    </StackPanel>
+
+                                    <TextBox
+                                        Grid.Row="1"
+                                        AcceptsReturn="True"
+                                        FontSize="11"
+                                        IsReadOnly="True"
+                                        Text="{Binding PlanSummary}"
+                                        TextWrapping="Wrap" />
+
+                                    <StackPanel
+                                        Grid.Row="2"
+                                        Margin="0,6,0,4"
+                                        DataContext="{Binding OutputProgress}"
+                                        Spacing="4">
+                                        <ProgressBar
+                                            IsIndeterminate="{Binding IsIndeterminate}"
+                                            IsVisible="{Binding IsProgressVisible}"
+                                            Maximum="{Binding Maximum}"
+                                            Value="{Binding Value}" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            IsVisible="{Binding IsTextVisible}"
+                                            Text="{Binding Text}"
+                                            TextAlignment="Center"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <controls:Card Grid.Row="3" Padding="8">
+                                        <Grid
+                                            HorizontalAlignment="Center"
+                                            ColumnDefinitions="*,*"
+                                            RowDefinitions="Auto">
+                                            <Grid.Styles>
+                                                <Style Selector="Button">
+                                                    <Setter Property="MinHeight" Value="34" />
+                                                    <Setter Property="Margin" Value="3,0" />
+                                                </Style>
+                                            </Grid.Styles>
+                                            <Button
+                                                x:Name="GenerateButton"
+                                                Grid.Column="0"
+                                                Width="150"
+                                                Classes="accent"
+                                                Command="{Binding GenerateImageCommand}"
+                                                CommandParameter="{x:Static modelsInference:GenerateFlags.None}"
+                                                Content="Run session"
+                                                HotKey="Ctrl+Enter"
+                                                IsVisible="{Binding !GenerateImageCommand.CanBeCanceled}"
+                                                ToolTip.Tip="Run every queued clip, window by window, then join them." />
+                                            <Button
+                                                x:Name="CancelButton"
+                                                Grid.Column="1"
+                                                Width="150"
+                                                Classes="accent"
+                                                Command="{Binding GenerateImageCancelCommand}"
+                                                Content="Cancel"
+                                                IsVisible="{Binding GenerateImageCommand.CanBeCanceled}" />
+                                        </Grid>
+                                    </controls:Card>
+                                </Grid>
+                            </Tool>
+                        </ToolDock>
+
+                        <ProportionalDockSplitter />
+
+                        <ToolDock
+                            x:Name="GalleryPane"
+                            Alignment="Bottom"
+                            Id="GalleryPane"
+                            Proportion="0.58">
+                            <Tool
+                                x:Name="GalleryTool"
+                                Title="Video Output"
+                                x:DataType="Tool"
+                                CanClose="False"
+                                Id="GalleryTool">
+                                <Grid x:CompileBindings="False" DataContext="{Binding ElementName=Dock, Path=DataContext}">
+                                    <controls:ImageGalleryCard DataContext="{Binding ImageGalleryCardViewModel}" />
+                                </Grid>
+                            </Tool>
+                        </ToolDock>
+                    </ProportionalDock>
+
+                    <ProportionalDockSplitter x:Name="Splitter3" Id="Splitter3" />
+
+                    <!--  Output browser  -->
+                    <ToolDock
+                        x:Name="ImageFolderPane"
+                        Alignment="Right"
+                        Id="ImageFolderPane"
+                        Proportion="0.10">
+                        <Tool
+                            x:Name="ImageFolderTool"
+                            Title="Gallery"
+                            x:DataType="Tool"
+                            CanClose="False"
+                            Id="ImageFolderTool">
+                            <Grid x:CompileBindings="False" DataContext="{Binding ElementName=Dock, Path=DataContext}">
+                                <controls:ImageFolderCard DataContext="{Binding ImageFolderCardViewModel}" />
+                            </Grid>
+                        </Tool>
+                    </ToolDock>
+
+                </ProportionalDock>
+            </RootDock>
+        </DockControl>
+    </Grid>
+</dock:DockUserControlBase>

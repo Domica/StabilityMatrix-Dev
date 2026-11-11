@@ -20,6 +20,9 @@ public static class InferenceProjectTypeExtensions
             InferenceProjectType.WanTextToVideo => typeof(InferenceWanTextToVideoViewModel),
             InferenceProjectType.WanImageToVideo => typeof(InferenceWanImageToVideoViewModel),
             InferenceProjectType.Wan2ImageToVideo => typeof(InferenceWan2ImageToVideoViewModel),
+            InferenceProjectType.WanVideoInpaint => typeof(InferenceWanVideoInpaintViewModel),
+            InferenceProjectType.MinimaxDirector => typeof(InferenceMinimaxDirectorViewModel),
+            InferenceProjectType.VideoUpscale => typeof(InferenceVideoUpscaleViewModel),
             InferenceProjectType.Unknown => null,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };

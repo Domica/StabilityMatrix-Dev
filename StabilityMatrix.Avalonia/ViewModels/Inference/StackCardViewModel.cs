@@ -18,8 +18,8 @@ public class StackCardViewModel : StackViewModelBase
 {
     /// <inheritdoc />
     public StackCardViewModel(IServiceManager<ViewModelBase> vmFactory)
-        : base(vmFactory) 
-    { 
+        : base(vmFactory)
+    {
         // ✅ Debug output za tracking instance creation
         var instanceId = Guid.NewGuid().ToString().Substring(0, 8);
         Console.WriteLine($"🎴 NEW StackCardViewModel created: {instanceId} (hash: {GetHashCode()})");

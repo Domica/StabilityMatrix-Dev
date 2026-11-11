@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace StabilityMatrix.Core.Models.Api;
@@ -150,8 +150,8 @@ public class A3Options
 
     [JsonPropertyName("upscaler_for_img2img")]
     public string? UpscalerForImg2img { get; set; }
-   
-    [JsonPropertyName("face_restoration_model")]
+
+       [JsonPropertyName("face_restoration_model")]
     public string? FaceRestorationModel { get; set; }
 
     [JsonPropertyName("code_former_weight")]

@@ -105,6 +105,32 @@
                     </ui:CommandBarButton.IconSource>
                 </ui:CommandBarButton>
                 <ui:CommandBarButton
+                    Click="AddTabMenu_WanVideoInpaint_OnClick"
+                    Label="Wan Video Inpaint"
+                    ToolTip.Tip="Wan 2.1 VACE Video Inpaint">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="Edit" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
+                    Label="MiniMax Director"
+                    Tag="{x:Static inference:InferenceProjectType.MinimaxDirector}"
+                    ToolTip.Tip="MiniMax H3 multi-clip Director (chained clips, sliding windows, session join)">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="Video" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
+                    Label="Video Upscale"
+                    Tag="{x:Static inference:InferenceProjectType.VideoUpscale}"
+                    ToolTip.Tip="Post-process any video: core Lanczos / RTX VSR, or a loaded RelayVSR / CGlide / 2K-refiner workflow">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="ResizeVideo" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
                     Click="AddTabMenu_ImgToVideo_OnClick"
                     Label="SVD Image to Video"
                     ToolTip.Tip="SVD Image to Video">

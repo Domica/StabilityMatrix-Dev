@@ -88,6 +88,7 @@
                             IsHitTestVisible="False"
                             IsVisible="{Binding ShowModelSwitchHint}" />
 
+
                         <controls:BetterComboBox
                             Grid.Row="0"
                             Grid.Column="1"

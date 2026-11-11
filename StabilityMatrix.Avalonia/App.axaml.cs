@@ -438,10 +438,10 @@ public sealed class App : Application
 
         // Register services by attributes
         services.AddServicesByAttributes();
-        services.AddTransient<InferenceImageOutpaintView>(); 
+        services.AddTransient<InferenceImageOutpaintView>();
         services.AddTransient<OutpaintCardViewModel>();
         services.AddTransient<InferenceImageOutpaintViewModel>();
-        
+
         ConfigurePageViewModels(services);
 
         services.AddServiceManagerWithCurrentCollectionServices<ViewModelBase>(s =>

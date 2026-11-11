@@ -1,0 +1,38 @@
+name: Build SM (Windows) All Features
+
+on:
+  push:
+    branches: [ "all_features", "feature/wan-video-inpaint" ]
+  pull_request:
+    branches: [ "all_features", "feature/wan-video-inpaint" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK 9.x
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore Avalonia project
+      run: dotnet restore StabilityMatrix.Avalonia/StabilityMatrix.Avalonia.csproj
+
+    - name: Build Avalonia project
+      run: dotnet build StabilityMatrix.Avalonia/StabilityMatrix.Avalonia.csproj -c Release --no-restore --no-cache
+
+    - name: Publish Avalonia app (win10-x64)
+      run: dotnet publish StabilityMatrix.Avalonia/StabilityMatrix.Avalonia.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/win10-x64
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: StabilityMatrix-win10-x64-all-features
+        path: ./publish/win10-x64/*
+        compression-level: 6
+        retention-days: 14

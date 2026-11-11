@@ -699,9 +699,65 @@ public abstract partial class InferenceGenerationViewModelBase
             )
         ).ToList();
 
-        var localExtensionsByGitUrl = localExtensions
-            .Where(ext => ext.GitRepositoryUrl is not null)
-            .ToDictionary(ext => ext.GitRepositoryUrl!, ext => ext);
+        // Match by normalized git url (case, trailing ".git" and "/" ignored)
+        static string NormalizeGitUrl(string url)
+        {
+            var value = url.Trim().TrimEnd('/');
+            if (value.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+                value = value[..^4];
+            return value.TrimEnd('/').ToLowerInvariant();
+        }
+
+        static string? GetGitRepoName(string url)
+        {
+            var normalized = NormalizeGitUrl(url);
+            var index = normalized.LastIndexOf('/');
+            return index >= 0 ? normalized[(index + 1)..] : null;
+        }
+
+        var localExtensionsByGitUrl = new Dictionary<string, InstalledPackageExtension>();
+        var localExtensionsByFolderName = new Dictionary<string, InstalledPackageExtension>();
+        foreach (var localExt in localExtensions)
+        {
+            if (localExt.GitRepositoryUrl is { } gitUrl)
+                localExtensionsByGitUrl[NormalizeGitUrl(gitUrl)] = localExt;
+
+            if (localExt.PrimaryPath?.Name is { } folderName)
+                localExtensionsByFolderName[folderName.ToLowerInvariant()] = localExt;
+        }
+
+        // The scan above skips folders without ".git" (e.g. registry zip installs from ComfyUI-Manager),
+        // so also look at the custom_nodes folder names directly
+        if (localPackagePair.InstalledPackage.FullPath is { } packageFullPath)
+        {
+            var customNodesDirectory = new DirectoryPath(packageFullPath, "custom_nodes");
+            if (customNodesDirectory.Exists)
+            {
+                foreach (var directory in customNodesDirectory.EnumerateDirectories())
+                {
+                    localExtensionsByFolderName.TryAdd(
+                        directory.Name.ToLowerInvariant(),
+                        new InstalledPackageExtension { Paths = [directory] }
+                    );
+                }
+            }
+        }
+
+        InstalledPackageExtension? FindLocalExtension(string specifierName)
+        {
+            if (localExtensionsByGitUrl.TryGetValue(NormalizeGitUrl(specifierName), out var byUrl))
+                return byUrl;
+
+            // Extensions installed without git (e.g. registry zip installs through ComfyUI-Manager)
+            // have no remote url, so fall back to the folder name (same as the repository name)
+            if (
+                GetGitRepoName(specifierName) is { } repoName
+                && localExtensionsByFolderName.TryGetValue(repoName, out var byName)
+            )
+                return byName;
+
+            return null;
+        }
 
         var requiredExtensionReferences = requiredExtensionSpecifiers
             .Select(specifier => specifier.Name)
@@ -714,7 +770,7 @@ public abstract partial class InferenceGenerationViewModelBase
         // Check missing extensions and out of date extensions
         foreach (var specifier in requiredExtensionSpecifiers)
         {
-            if (!localExtensionsByGitUrl.TryGetValue(specifier.Name, out var localExtension))
+            if (FindLocalExtension(specifier.Name) is not { } localExtension)
             {
                 missingExtensions.Add(specifier);
                 continue;

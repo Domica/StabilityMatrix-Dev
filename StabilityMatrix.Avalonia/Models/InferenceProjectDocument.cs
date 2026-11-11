@@ -38,7 +38,10 @@ public class InferenceProjectDocument : ICloneable
                 InferenceWanImageToVideoViewModel => InferenceProjectType.WanImageToVideo,
                 InferenceWan2ImageToVideoViewModel => InferenceProjectType.Wan2ImageToVideo,
                 InferenceWanTextToVideoViewModel => InferenceProjectType.WanTextToVideo,
-                InferenceImageOutpaintViewModel => InferenceProjectType.Outpaint
+                InferenceImageOutpaintViewModel => InferenceProjectType.Outpaint,
+                InferenceWanVideoInpaintViewModel => InferenceProjectType.WanVideoInpaint,
+                InferenceMinimaxDirectorViewModel => InferenceProjectType.MinimaxDirector,
+                InferenceVideoUpscaleViewModel => InferenceProjectType.VideoUpscale
             },
             State = loadableModel.SaveStateToJsonObject()
         };

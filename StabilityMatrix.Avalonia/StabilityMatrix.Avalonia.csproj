@@ -151,6 +151,8 @@
         <AvaloniaResource Include="Assets\Icon.ico" />
         <AvaloniaResource Include="Assets\Icon.png" />
         <AvaloniaResource Include="Assets\hf-packages.json" />
+        <AvaloniaResource Include="Assets\Workflows\minimax_h3_director_api.json" />
+        <AvaloniaResource Include="Assets\Workflows\video_upscale_core_api.json" />
         <AvaloniaResource Include="Assets\santahat.png" />
         <AvaloniaResource Include="Assets\markdown.css" />
         <AvaloniaResource Include="Assets\openai-white-logomark.png" />
@@ -263,6 +265,14 @@
         <DependentUpon>InferenceWanTextToVideoView.axaml</DependentUpon>
         <SubType>Code</SubType>
       </Compile>
+      <Compile Update="Views\Inference\InferenceWanVideoInpaintView.axaml.cs">
+        <DependentUpon>InferenceWanVideoInpaintView.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
+      <Compile Update="Views\Inference\InferenceMinimaxDirectorView.axaml.cs">
+        <DependentUpon>InferenceMinimaxDirectorView.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
       <Compile Update="Controls\Inference\NrsCard.axaml.cs">
         <DependentUpon>NrsCard.axaml</DependentUpon>
         <SubType>Code</SubType>
@@ -277,7 +287,6 @@
       <Compile Include="ViewModels/Inference/InferenceImageOutpaintViewModel.cs" />
       <Compile Include="Views/Inference/InferenceImageOutpaintView.axaml.cs" />
       <Page Include="Views/Inference/InferenceImageOutpaintView.axaml" />
->>>>>>> origin/outpaint
     </ItemGroup>
     <ItemGroup>
       <Compile Update="Controls\Inference\OutpaintCard.axaml.cs">
@@ -286,6 +295,7 @@
       </Compile>
   <Page Include="Controls\Inference\OutpaintCard.axaml" />
 </ItemGroup>
+
 
     <!-- set HUSKY to 0 to disable, or opt-in during CI by setting HUSKY to 1 -->
     <Target Name="husky" BeforeTargets="Restore;CollectPackageReferences" Condition="'$(HUSKY)' == 1 Or ('$(HUSKY)' != 0 And '$(CI)' != 'true')">
