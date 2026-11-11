@@ -14,8 +14,11 @@ namespace StabilityMatrix.Avalonia.Models;
 public class InferenceProjectDocument : ICloneable
 {
     [JsonIgnore]
-    private static readonly JsonSerializerOptions SerializerOptions =
-        new() { IgnoreReadOnlyProperties = true, WriteIndented = true, };
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        IgnoreReadOnlyProperties = true,
+        WriteIndented = true,
+    };
 
     public int Version { get; set; } = 2;
 
@@ -37,13 +40,13 @@ public class InferenceProjectDocument : ICloneable
                 InferenceFluxTextToImageViewModel => InferenceProjectType.FluxTextToImage,
                 InferenceWanImageToVideoViewModel => InferenceProjectType.WanImageToVideo,
                 InferenceWan2ImageToVideoViewModel => InferenceProjectType.Wan2ImageToVideo,
+                InferenceWanVideoInpaintViewModel => InferenceProjectType.WanVideoInpaint,
                 InferenceWanTextToVideoViewModel => InferenceProjectType.WanTextToVideo,
                 InferenceImageOutpaintViewModel => InferenceProjectType.Outpaint,
-                InferenceWanVideoInpaintViewModel => InferenceProjectType.WanVideoInpaint,
                 InferenceMinimaxDirectorViewModel => InferenceProjectType.MinimaxDirector,
-                InferenceVideoUpscaleViewModel => InferenceProjectType.VideoUpscale
+                InferenceVideoUpscaleViewModel => InferenceProjectType.VideoUpscale,
             },
-            State = loadableModel.SaveStateToJsonObject()
+            State = loadableModel.SaveStateToJsonObject(),
         };
     }
 

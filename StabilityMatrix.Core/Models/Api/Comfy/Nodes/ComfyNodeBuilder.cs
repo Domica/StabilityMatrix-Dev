@@ -408,6 +408,7 @@ public class ComfyNodeBuilder
         public required int Quality { get; init; }
         public required string Method { get; init; }
     }
+
     public record SaveAnimatedMP4 : ComfyTypedNodeBase
     {
         public required ImageNodeConnection Images { get; init; }
@@ -417,6 +418,7 @@ public class ComfyNodeBuilder
         public required string Codec { get; init; }
         public required string Container { get; init; }
     }
+
     public record SaveAnimatedMP4Advanced : ComfyTypedNodeBase
     {
         public required ImageNodeConnection Images { get; init; }
@@ -468,14 +470,16 @@ public class ComfyNodeBuilder
         /// </summary>
         public required string Type { get; init; }
     }
+
     /// <summary>
     /// CLIP Loader for GGUF format models
     /// </summary>
     public record CLIPLoaderGGUF : ComfyTypedNodeBase<ClipNodeConnection>
-        {
+    {
         public required string ClipName { get; init; }
         public string Type { get; init; } = "sd3";
-        }
+    }
+
     public record TripleCLIPLoader : ComfyTypedNodeBase<ClipNodeConnection>
     {
         public required string ClipName1 { get; init; }
@@ -630,6 +634,179 @@ public class ComfyNodeBuilder
         public required int Height { get; init; }
         public required int Length { get; init; }
         public required int BatchSize { get; init; }
+    }
+
+    /// <summary>
+    /// Wan VACE Video Inpainting node.
+    /// outputs: positive, negative, latent, trim_latent
+    /// Requires ComfyUI-WanVideoWrapper extension.
+    /// </summary>
+    [TypedNodeOptions(Name = "WanVaceToVideo")]
+    public record WanVaceToVideo
+        : ComfyTypedNodeBase<
+            ConditioningNodeConnection,
+            ConditioningNodeConnection,
+            LatentNodeConnection,
+            IntNodeConnection
+        >
+    {
+        public required ConditioningNodeConnection Positive { get; init; }
+        public required ConditioningNodeConnection Negative { get; init; }
+        public required VAENodeConnection Vae { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+        public required int Length { get; init; }
+        public required int BatchSize { get; init; }
+        public double Strength { get; init; } = 1.0d;
+
+        /// <summary>IMAGE batch (video frames), NOT a VIDEO connection.</summary>
+        public ImageNodeConnection? ControlVideo { get; init; }
+
+        /// <summary>MASK batch, one mask per frame. White = regenerate, black = keep.</summary>
+        public ImageMaskConnection? ControlMasks { get; init; }
+
+        public ImageNodeConnection? ReferenceImage { get; init; }
+    }
+
+    /// <summary>Trims the reference-image latent frames off the sampled latent. trim_amount comes from WanVaceToVideo output 4.</summary>
+    public record TrimVideoLatent : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        public required LatentNodeConnection Samples { get; init; }
+        public required IntNodeConnection TrimAmount { get; init; }
+    }
+
+    /// <summary>Splits a VIDEO into IMAGE frames. Output 1 = images.</summary>
+    public record GetVideoComponents : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required VideoNodeConnection Video { get; init; }
+    }
+
+    public record ImageFromBatch : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageNodeConnection Image { get; init; }
+        public required int BatchIndex { get; init; }
+        public required int Length { get; init; }
+    }
+
+    public record RepeatImageBatch : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageNodeConnection Image { get; init; }
+        public required int Amount { get; init; }
+    }
+
+    public record MaskToImage : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageMaskConnection Mask { get; init; }
+    }
+
+    public record InvertMask : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        public required ImageMaskConnection Mask { get; init; }
+    }
+
+    public record ImageCompositeMasked : ComfyTypedNodeBase<ImageNodeConnection>
+    {
+        public required ImageNodeConnection Destination { get; init; }
+        public required ImageNodeConnection Source { get; init; }
+        public required int X { get; init; }
+        public required int Y { get; init; }
+        public required bool ResizeSource { get; init; }
+        public ImageMaskConnection? Mask { get; init; }
+    }
+
+    /// <summary>Constant mask (0..1), used to blend original frames back into control_video.</summary>
+    public record SolidMask : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        public required double Value { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+    }
+
+    public record ImageToMask : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        public required ImageNodeConnection Image { get; init; }
+
+        /// <summary>"red", "green", "blue" or "alpha"</summary>
+        public required string Channel { get; init; }
+    }
+
+    public record GrowMask : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        public required ImageMaskConnection Mask { get; init; }
+        public required int Expand { get; init; }
+        public required bool TaperedCorners { get; init; }
+    }
+
+    private const string Sam2Extension = "https://github.com/kijai/ComfyUI-segment-anything-2";
+
+    /// <summary>Kijai ComfyUI-segment-anything-2: loads SAM2 (auto-downloads the checkpoint).</summary>
+    [TypedNodeOptions(Name = "DownloadAndLoadSAM2Model", RequiredExtensions = [Sam2Extension])]
+    public record DownloadAndLoadSam2Model : ComfyTypedNodeBase<Sam2ModelNodeConnection>
+    {
+        /// <summary>e.g. sam2.1_hiera_small.safetensors</summary>
+        public required string Model { get; init; }
+
+        /// <summary>"video" for video tracking</summary>
+        public required string Segmentor { get; init; }
+
+        public required string Device { get; init; }
+        public required string Precision { get; init; }
+    }
+
+    /// <summary>Adds positive/negative click points (pixel coordinates of the original frames) on one frame.</summary>
+    [TypedNodeOptions(Name = "Sam2VideoSegmentationAddPoints", RequiredExtensions = [Sam2Extension])]
+    public record Sam2VideoSegmentationAddPoints
+        : ComfyTypedNodeBase<Sam2ModelNodeConnection, Sam2InferenceStateNodeConnection>
+    {
+        [JsonPropertyName("sam2_model")]
+        public required Sam2ModelNodeConnection Sam2Model { get; init; }
+
+        /// <summary>JSON string: [{"x":12.0,"y":34.0}]</summary>
+        public required string CoordinatesPositive { get; init; }
+
+        public required int FrameIndex { get; init; }
+        public required int ObjectIndex { get; init; }
+        public ImageNodeConnection? Image { get; init; }
+        public string? CoordinatesNegative { get; init; }
+    }
+
+    /// <summary>Propagates the prompted object through all frames. Output = MASK batch (one per frame).</summary>
+    [TypedNodeOptions(Name = "Sam2VideoSegmentation", RequiredExtensions = [Sam2Extension])]
+    public record Sam2VideoSegmentation : ComfyTypedNodeBase<ImageMaskConnection>
+    {
+        [JsonPropertyName("sam2_model")]
+        public required Sam2ModelNodeConnection Sam2Model { get; init; }
+
+        [JsonPropertyName("inference_state")]
+        public required Sam2InferenceStateNodeConnection InferenceState { get; init; }
+
+        public required bool KeepModelLoaded { get; init; }
+    }
+
+    /// <summary>
+    /// Load video file node.
+    /// outputs: VIDEO
+    /// </summary>
+    [TypedNodeOptions(Name = "LoadVideo")]
+    public record LoadVideo : ComfyTypedNodeBase<VideoNodeConnection>
+    {
+        /// <summary>
+        /// File name relative to the Comfy input directory.
+        /// ComfyUI's LoadVideo node names this input "file" (not "video").
+        /// </summary>
+        [JsonPropertyName("file")]
+        public required string Video { get; init; }
+    }
+
+    /// <summary>
+    /// Create video from images node.
+    /// outputs: VIDEO
+    /// </summary>
+    [TypedNodeOptions(Name = "CreateVideo")]
+    public record CreateVideo : ComfyTypedNodeBase<VideoNodeConnection>
+    {
+        public required ImageNodeConnection Images { get; init; }
+        public required double Fps { get; init; }
     }
 
     [TypedNodeOptions(
