@@ -150,7 +150,7 @@ public class A3Options
 
     [JsonPropertyName("upscaler_for_img2img")]
     public string? UpscalerForImg2img { get; set; }
-
+   
     [JsonPropertyName("face_restoration_model")]
     public string? FaceRestorationModel { get; set; }
 

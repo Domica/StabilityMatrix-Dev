@@ -129,7 +129,9 @@ public static class Program
             ConfigureSentry();
         }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        BuildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
+
     }
 
     [DoesNotReturn]

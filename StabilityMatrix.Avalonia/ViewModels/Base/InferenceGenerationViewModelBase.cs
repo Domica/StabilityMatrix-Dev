@@ -383,6 +383,15 @@ public abstract partial class InferenceGenerationViewModelBase
             // Get output images
             var imageOutputs = await client.GetImagesForExecutedPromptAsync(promptTask.Id, cancellationToken);
 
+            try
+            {
+                await OnPromptExecutedAsync(client, promptTask.Id, cancellationToken);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                Logger.Warn(e, "Error in OnPromptExecutedAsync");
+            }
+
             if (imageOutputs.Values.All(images => images is null or { Count: 0 }))
             {
                 // No images match
@@ -599,6 +608,18 @@ public abstract partial class InferenceGenerationViewModelBase
         }
 
         return outputImages;
+    }
+
+    /// <summary>
+    /// Called after a prompt finished executing and its history is available
+    /// </summary>
+    protected virtual Task OnPromptExecutedAsync(
+        ComfyClient client,
+        string promptId,
+        CancellationToken cancellationToken
+    )
+    {
+        return Task.CompletedTask;
     }
 
     /// <summary>

@@ -49,7 +49,9 @@ using StabilityMatrix.Avalonia.Services;
 using StabilityMatrix.Avalonia.ViewModels;
 using StabilityMatrix.Avalonia.ViewModels.Base;
 using StabilityMatrix.Avalonia.ViewModels.Progress;
+using StabilityMatrix.Avalonia.ViewModels.Inference;
 using StabilityMatrix.Avalonia.Views;
+using StabilityMatrix.Avalonia.Views.Inference;
 using StabilityMatrix.Core.Api;
 using StabilityMatrix.Core.Api.LykosAuthApi;
 using StabilityMatrix.Core.Api.PromptGenApi;
@@ -436,7 +438,10 @@ public sealed class App : Application
 
         // Register services by attributes
         services.AddServicesByAttributes();
-
+        services.AddTransient<InferenceImageOutpaintView>(); 
+        services.AddTransient<OutpaintCardViewModel>();
+        services.AddTransient<InferenceImageOutpaintViewModel>();
+        
         ConfigurePageViewModels(services);
 
         services.AddServiceManagerWithCurrentCollectionServices<ViewModelBase>(s =>

@@ -17,6 +17,7 @@ namespace StabilityMatrix.Avalonia.ViewModels.Base;
 [JsonDerivedType(typeof(SamplerCardViewModel), SamplerCardViewModel.ModuleKey)]
 [JsonDerivedType(typeof(FreeUCardViewModel), FreeUCardViewModel.ModuleKey)]
 [JsonDerivedType(typeof(UpscalerCardViewModel), UpscalerCardViewModel.ModuleKey)]
+[JsonDerivedType(typeof(OutpaintCardViewModel), OutpaintCardViewModel.ModuleKey)]
 [JsonDerivedType(typeof(ControlNetCardViewModel), ControlNetCardViewModel.ModuleKey)]
 [JsonDerivedType(typeof(PromptExpansionCardViewModel), PromptExpansionCardViewModel.ModuleKey)]
 [JsonDerivedType(typeof(ExtraNetworkCardViewModel), ExtraNetworkCardViewModel.ModuleKey)]

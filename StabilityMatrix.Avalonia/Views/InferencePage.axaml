@@ -57,6 +57,15 @@
                     Tag="{x:Static inference:InferenceProjectType.ImageToImage}"
                     ToolTip.Tip="Image to Image" />
                 <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
+                    Label="{x:Static lang:Resources.Label_Outpaint}"
+                    Tag="{x:Static inference:InferenceProjectType.Outpaint}"
+                    ToolTip.Tip="{x:Static lang:Resources.Label_Outpaint}">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="ResizeImage" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
                     IconSource="ImageEdit"
                     IsEnabled="False"
                     IsVisible="False"

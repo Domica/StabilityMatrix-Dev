@@ -1,0 +1,206 @@
+<UserControl
+    x:Class="StabilityMatrix.Avalonia.Views.Inference.InferenceImageOutpaintView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:StabilityMatrix.Avalonia.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:inference="using:StabilityMatrix.Avalonia.ViewModels.Inference"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:DataType="inference:InferenceImageOutpaintViewModel"
+    d:DesignHeight="700"
+    d:DesignWidth="1000"
+    mc:Ignorable="d">
+
+    <Grid ColumnDefinitions="600,*" Margin="12">
+
+        <!-- LEFT PANEL -->
+        <Grid Grid.Column="0" RowDefinitions="400,*" Margin="0,0,12,0">
+
+            <Border 
+                Width="600" 
+                Height="400"
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <ContentControl Content="{Binding StackCardViewModel.Cards[0]}" />
+            </Border>
+
+            <ScrollViewer 
+                Grid.Row="1"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Margin="0,8,0,0">
+                <StackPanel Spacing="8">
+
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[1]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[2]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[3]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[4]}" />
+                    <ContentControl Content="{Binding StackCardViewModel.Cards[5]}" />
+
+                    <!-- SMART OUTPAINT ASSIST -->
+                    <StackPanel Margin="0,12,0,0" Spacing="6">
+                        <CheckBox
+                            Content="Smart Outpaint Assist"
+                            IsChecked="{Binding SmartOutpaintAssistEnabled, Mode=TwoWay}"
+                            FontWeight="Bold"
+                            Foreground="White"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Prompt Injection Strength"
+                                       VerticalAlignment="Center"
+                                       Foreground="White"/>
+                            <Slider
+                                Minimum="0"
+                                Maximum="1"
+                                Value="{Binding SmartOutpaintInjectionStrength, Mode=TwoWay}"
+                                Width="160"/>
+                            <TextBlock
+                                Text="{Binding SmartOutpaintInjectionStrength, StringFormat='{}{0:0.00}'}"
+                                VerticalAlignment="Center"
+                                Foreground="White"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+
+        </Grid>
+
+        <!-- RIGHT PANEL -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" /> <!-- DEBUG OVERLAY ROW -->
+            </Grid.RowDefinitions>
+
+            <!-- IMAGE GALLERY -->
+            <Border 
+                Grid.Row="0"
+                Background="#1E1E1E" 
+                CornerRadius="6" 
+                Padding="8"
+                Margin="0,0,0,8">
+                <controls:ImageGalleryCard 
+                    DataContext="{Binding ImageGalleryCardViewModel}" />
+            </Border>
+
+            <!-- PROGRESS -->
+            <Border
+                Grid.Row="1"
+                Background="Transparent"
+                Padding="0,0,0,8"
+                IsVisible="{Binding IsGenerating}">
+                <StackPanel Spacing="4">
+                    <TextBlock 
+                        Text="{Binding GenerationStatus}"
+                        Foreground="White"
+                        FontSize="12"
+                        HorizontalAlignment="Center"/>
+                    <ProgressBar 
+                        Height="8"
+                        Value="{Binding GenerationProgress}"
+                        Maximum="100"
+                        IsIndeterminate="{Binding IsProgressIndeterminate}"
+                        Background="#2D2D30"
+                        Foreground="#007ACC"
+                        CornerRadius="4"/>
+                </StackPanel>
+            </Border>
+
+            <!-- BUTTONS -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Grid Margin="0,0,4,0">
+                    <Button 
+                        Grid.Column="0"
+                        Grid.ColumnSpan="2"
+                        Height="40"
+                        Content="Generate Image"
+                        Command="{Binding GenerateImageCommand}" 
+                        IsVisible="{Binding !IsGenerating}"
+                        Background="#007ACC"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        CornerRadius="4"/>
+
+                    <Button 
+                        Height="40"
+                        Content="Cancel"
+                        Command="{Binding CancelCommand}"
+                        IsVisible="{Binding IsGenerating}"
+                        Background="#D13438"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        CornerRadius="4"/>
+                </Grid>
+
+                <Button 
+                    Grid.Column="1"
+                    Height="40"
+                    Content="Generate Again"
+                    Command="{Binding GenerateImageCommand}" 
+                    IsVisible="{Binding IsGenerating}"
+                    Background="#107C10"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    CornerRadius="4"
+                    Margin="4,0,0,0"/>
+            </Grid>
+
+            <!-- DEBUG PROMPT OVERLAY -->
+            <StackPanel Grid.Row="3" Margin="0,8,0,0" Spacing="4">
+                <CheckBox
+                    Content="Show Debug Prompt"
+                    IsChecked="{Binding ShowDebugPrompt}"
+                    Foreground="White" />
+
+                <Border
+                    Background="#222"
+                    CornerRadius="4"
+                    Padding="8"
+                    IsVisible="{Binding ShowDebugPrompt}">
+                    <ScrollViewer Height="200">
+                        <StackPanel Spacing="4">
+
+                            <TextBlock
+                                Text="{Binding DebugFinalModelName, StringFormat='Model: {0}'}"
+                                Foreground="#6CC644"
+                                FontWeight="Bold" />
+
+                            <TextBlock
+                                Text="Final Positive Prompt:"
+                                Foreground="#6CC644"
+                                FontWeight="Bold" />
+                            <TextBlock
+                                Text="{Binding DebugFinalPositive}"
+                                TextWrapping="Wrap"
+                                Foreground="White" />
+
+                            <TextBlock
+                                Text="Final Negative Prompt:"
+                                Margin="0,8,0,0"
+                                Foreground="#D13438"
+                                FontWeight="Bold" />
+                            <TextBlock
+                                Text="{Binding DebugFinalNegative}"
+                                TextWrapping="Wrap"
+                                Foreground="White" />
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+
+        </Grid>
+
+    </Grid>
+
+</UserControl>
