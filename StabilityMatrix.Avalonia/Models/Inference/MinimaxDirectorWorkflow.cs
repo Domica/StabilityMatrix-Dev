@@ -63,6 +63,33 @@ public sealed class MinimaxDirectorInjection
     public bool UseTiledVae { get; init; }
 
     public int VaeTileSize { get; init; } = 256;
+
+    // ------------------------------------------------------------------ attention / caching optimizations
+
+    /// <summary>
+    /// Experimental block-caching node class injected on the model path to skip redundant
+    /// transformer-block recomputation (EasyCache / TeaCache / FirstBlockCache). Big H3 speedup
+    /// with minimal quality loss. Blank = no caching. The matching ComfyUI plugin must be installed.
+    /// </summary>
+    public string? CacheMethod { get; init; }
+
+    // ------------------------------------------------------------------ latent upscale (H3 latent-space)
+
+    /// <summary>
+    /// Latent upscale step inserted before VAE decode so a low-res generation is decoded at a
+    /// higher resolution (generate cheap, upscale in latent space). Blank = no upscale.
+    /// Values: "2D" (Minimax H3 Latent Upscaler 2D), "3D", "CGlide", "Split".
+    /// </summary>
+    public string? UpscaleType { get; init; }
+
+    /// <summary>Upscale multiplier applied by the latent upscaler (1.0 - 4.0).</summary>
+    public double UpscaleScale { get; init; } = 2.0;
+
+    /// <summary>Checkpoint filename for the LBH 2D/3D latent upscaler (blank = workflow default).</summary>
+    public string? UpscaleModelName { get; init; }
+
+    /// <summary>Sharpness 1-6 for the LBH 2D/3D latent upscaler.</summary>
+    public int UpscaleSharpness { get; init; } = 3;
 }
 
 /// <summary>
@@ -186,6 +213,20 @@ public sealed class MinimaxDirectorWorkflow
         if (injection.UseTiledVae)
         {
             EnableTiledVae(injection.VaeTileSize);
+        }
+
+        if (!string.IsNullOrWhiteSpace(injection.CacheMethod))
+        {
+            InsertCacheNode(injection.CacheMethod!);
+        }
+
+        if (!string.IsNullOrWhiteSpace(injection.UpscaleType))
+        {
+            InsertLatentUpscale(
+                injection.UpscaleType!,
+                injection.UpscaleScale,
+                injection.UpscaleModelName,
+                injection.UpscaleSharpness);
         }
 
         if (injection.DisableAudio)
@@ -726,6 +767,102 @@ public sealed class MinimaxDirectorWorkflow
         }
     }
 
+    /// <summary>
+    /// Injects a block-caching node (EasyCache / TeaCache / FirstBlockCache) on the first node that
+    /// consumes a "model" link. Caching skips recomputation of transformer blocks for a large H3
+    /// speedup at near-zero quality cost. Experimental: the exact input names vary per pack, so we
+    /// forward only "model" (and a few tolerant TeaCache defaults) and let ComfyUI apply its widget
+    /// defaults for the rest.
+    /// </summary>
+    private void InsertCacheNode(string cacheClass)
+    {
+        foreach (var (consumerName, consumer) in Nodes)
+        {
+            if (!consumer.Inputs.TryGetValue("model", out var modelVal)
+                || modelVal is not object?[] link
+                || link.Length != 2)
+            {
+                continue;
+            }
+
+            var cacheName = "minimax_director_cache";
+            var inputs = new Dictionary<string, object?> { ["model"] = (object?[])link.Clone() };
+
+            if (cacheClass.Contains("TeaCache", StringComparison.OrdinalIgnoreCase))
+            {
+                inputs["start_percent"] = 0.0;
+                inputs["end_percent"] = 1.0;
+                inputs["cache_device"] = "main_memory";
+            }
+
+            Nodes[cacheName] = new ComfyNode
+            {
+                ClassType = cacheClass,
+                Inputs = inputs,
+            };
+
+            consumer.Inputs["model"] = new object?[] { cacheName, 0 };
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Inserts a MiniMax H3 latent upscaler between the sampler's latent output and the VAE decode
+    /// node. The upscaler enlarges the 24-channel H3 latent in latent space (no pixel round-trip),
+    /// so a low-res generation is decoded at a higher resolution. Output is still a LATENT fed
+    /// straight into VAEDecode / VAEDecodeTiled.
+    /// </summary>
+    private void InsertLatentUpscale(string type, double scale, string? modelName, int sharpness)
+    {
+        var decodeEntry = Nodes
+            .FirstOrDefault(x => x.Value.ClassType.Equals("VAEDecode", StringComparison.OrdinalIgnoreCase)
+                                 || x.Value.ClassType.Equals("VAEDecodeTiled", StringComparison.OrdinalIgnoreCase));
+
+        if (decodeEntry.Value is null)
+        {
+            return;
+        }
+
+        var (decodeName, decodeNode) = decodeEntry;
+        var latentKey = decodeNode.Inputs.ContainsKey("samples") ? "samples" : "pixels";
+
+        if (decodeNode.Inputs[latentKey] is not object?[] latentLink || latentLink.Length != 2)
+        {
+            return;
+        }
+
+        var upName = "minimax_director_upscale";
+        var upClass = type.Trim().ToLowerInvariant() switch
+        {
+            "2d" => "Minimax H3 Latent Upscaler (2D)",
+            "3d" => "Minimax H3 Latent Upscaler (3D)",
+            "cglide" => "Glide Upscale Hold",
+            "split" => "MMH3 Split Upscale",
+            _ => "Minimax H3 Latent Upscaler (2D)",
+        };
+
+        var inputs = new Dictionary<string, object?> { ["samples"] = (object?[])latentLink.Clone() };
+
+        // The LBH 2D/3D neural upscalers take a checkpoint + multiplier. Other variants (CGlide,
+        // Split) re-sample with the diffusion model and ignore these widgets.
+        if (type.Trim().Equals("2D", StringComparison.OrdinalIgnoreCase)
+            || type.Trim().Equals("3D", StringComparison.OrdinalIgnoreCase))
+        {
+            inputs["model_name"] = modelName ?? "";
+            inputs["scale"] = Math.Clamp(scale, 1.0, 4.0);
+            inputs["mode"] = "scale by multiplier";
+            inputs["sharpness"] = Math.Clamp(sharpness, 1, 6);
+        }
+
+        Nodes[upName] = new ComfyNode
+        {
+            ClassType = upClass,
+            Inputs = inputs,
+        };
+
+        decodeNode.Inputs[latentKey] = new object?[] { upName, 0 };
+    }
+
     private static string? GetSourceNodeName(NodeDictionary nodes, string targetNode, string inputName)
     {
         if (!nodes.TryGetValue(targetNode, out var node) || !node.Inputs.TryGetValue(inputName, out var v))
@@ -754,6 +891,9 @@ public sealed class MinimaxDirectorWorkflow
         "ImageScale", "ImageScaleBy", "ImageResize", "ImageCrop", "ModelLoader", "CheckpointLoader",
         "CheckpointLoaderSimple", "DiffusersLoader", "LoraLoader", "LoraLoaderModelOnly", "EmptyLatentImage",
         "VAEEncode", "VAEEncodeForInpaint", "ControlNetLoader",
+        // Core ComfyUI video nodes (used by the standalone Video Upscale template and by H3 output).
+        "LoadVideo", "GetVideoComponents", "CreateVideo", "SaveVideo", "SaveAudio", "LoadAudio",
+        "CreateAudio", "EmptyAudio", "VAEDecodeAudio", "SaveAnimatedWEBP", "SaveAnimatedMP4",
     };
 
     /// <summary>

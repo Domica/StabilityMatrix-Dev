@@ -728,6 +728,12 @@
                                                         Content="Low-VRAM mode"
                                                         IsChecked="{Binding LowVramMode}"
                                                         ToolTip.Tip="Forces tiled VAE and a low-VRAM attention backend; also run ComfyUI with --lowvram." />
+                                                    <TextBlock Text="Block cache (experimental)" />
+                                                    <ComboBox
+                                                        MinWidth="150"
+                                                        ItemsSource="{Binding CacheMethods}"
+                                                        SelectedItem="{Binding CacheMethod}"
+                                                        ToolTip.Tip="EasyCache / TeaCache / FirstBlockCache: skip redundant transformer-block recomputation for a large H3 speedup with minimal quality loss. Requires the matching ComfyUI plugin. Blank = off." />
                                                 </WrapPanel>
 
                                                 <TextBlock
@@ -754,6 +760,157 @@
                                                     IsReadOnly="True"
                                                     Text="{Binding RequiredPlugins}"
                                                     TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
+
+                                        <!--  ======================= Upscale & Refine (latent) =======================  -->
+                                        <Expander
+                                            Margin="0,10,0,0"
+                                            Header="Upscale &amp; Refine (generate low-res, then upscale the H3 latent)"
+                                            IsExpanded="True">
+                                            <StackPanel
+                                                x:CompileBindings="False"
+                                                Margin="0,6,0,0"
+                                                DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                                Spacing="8">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="#888888"
+                                                    Text="Set a LOW generation resolution in Session defaults, then pick an upscaler here. The upscaler is injected before VAE decode, so generation stays cheap while the output is decoded at the larger size."
+                                                    TextWrapping="Wrap" />
+
+                                                <Grid
+                                                    ColumnDefinitions="Auto,*,Auto,*"
+                                                    RowDefinitions="Auto,Auto">
+                                                    <Grid.Styles>
+                                                        <Style Selector="TextBlock">
+                                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                                        </Style>
+                                                    </Grid.Styles>
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="0"
+                                                        Margin="0,0,6,0"
+                                                        Text="Upscaler (blank = off)" />
+                                                    <ComboBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="1"
+                                                        MinWidth="150"
+                                                        ItemsSource="{Binding UpscaleTypes}"
+                                                        SelectedItem="{Binding UpscaleType}"
+                                                        ToolTip.Tip="2D / 3D = LBH H3 latent upscaler (needs its checkpoint + plugin); CGlide = Glide Upscale Hold; Split = MMH3 Split Upscale (re-samples with the diffusion model)." />
+                                                    <TextBlock
+                                                        Grid.Row="0"
+                                                        Grid.Column="2"
+                                                        Margin="8,0,6,0"
+                                                        Text="Scale" />
+                                                    <ComboBox
+                                                        Grid.Row="0"
+                                                        Grid.Column="3"
+                                                        MinWidth="90"
+                                                        ItemsSource="{Binding UpscaleScales}"
+                                                        SelectedItem="{Binding UpscaleScale}" />
+
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        Grid.Column="0"
+                                                        Margin="0,6,6,0"
+                                                        Text="Upscaler checkpoint" />
+                                                    <AutoCompleteBox
+                                                        Grid.Row="1"
+                                                        Grid.Column="1"
+                                                        Margin="0,6,0,0"
+                                                        ItemsSource="{Binding AvailableUpscaleModels}"
+                                                        Text="{Binding UpscaleModelName}"
+                                                        Watermark="LBH 2D/3D model_name (Scan ComfyUI models)" />
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        Grid.Column="2"
+                                                        Margin="8,6,6,0"
+                                                        Text="Sharpness" />
+                                                    <NumericUpDown
+                                                        Grid.Row="1"
+                                                        Grid.Column="3"
+                                                        Margin="0,6,0,0"
+                                                        Increment="1"
+                                                        Maximum="6"
+                                                        Minimum="1"
+                                                        Value="{Binding UpscaleSharpness}" />
+                                                </Grid>
+
+                                                <TextBlock
+                                                    Margin="0,4,0,0"
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    Text="LoRA presets for low-res fast generation + 2K refine" />
+                                                <ItemsControl ItemsSource="{Binding LoraPresets}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border
+                                                                Margin="0,2"
+                                                                Padding="6,4"
+                                                                BorderBrush="#DDDDDD"
+                                                                BorderThickness="1"
+                                                                CornerRadius="3">
+                                                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                                                    <Button
+                                                                        Grid.Column="0"
+                                                                        Padding="8,3"
+                                                                        Command="{Binding DataContext.ApplyLoraPresetCommand, ElementName=Dock}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Use" />
+                                                                    <StackPanel
+                                                                        Grid.Column="1"
+                                                                        Margin="8,0,8,0"
+                                                                        VerticalAlignment="Center">
+                                                                        <TextBlock
+                                                                            FontSize="11"
+                                                                            FontWeight="SemiBold"
+                                                                            Text="{Binding Label}" />
+                                                                        <TextBlock
+                                                                            FontSize="10"
+                                                                            Foreground="#888888"
+                                                                            Text="{Binding Description}"
+                                                                            TextWrapping="Wrap" />
+                                                                        <TextBlock
+                                                                            FontSize="9"
+                                                                            Foreground="#8ab4f8"
+                                                                            Text="{Binding Source}"
+                                                                            TextTrimming="CharacterEllipsis"
+                                                                            ToolTip.Tip="{Binding Source}" />
+                                                                    </StackPanel>
+                                                                    <TextBlock
+                                                                        Grid.Column="2"
+                                                                        VerticalAlignment="Center"
+                                                                        FontSize="10"
+                                                                        Foreground="#888888"
+                                                                        Text="{Binding Match}"
+                                                                        TextTrimming="CharacterEllipsis" />
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!--  The decision aid: projected output + quality tradeoff  -->
+                                                <Border
+                                                    Margin="0,6,0,0"
+                                                    Padding="8"
+                                                    Background="#FFF8E1"
+                                                    BorderBrush="#F0C36D"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="Upscale potential &amp; quality-loss estimate" />
+                                                        <TextBlock
+                                                            FontSize="11"
+                                                            Text="{Binding UpscaleNote}"
+                                                            TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
                                             </StackPanel>
                                         </Expander>
                                     </StackPanel>

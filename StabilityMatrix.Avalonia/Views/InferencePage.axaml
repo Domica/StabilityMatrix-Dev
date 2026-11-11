@@ -105,6 +105,15 @@
                     </ui:CommandBarButton.IconSource>
                 </ui:CommandBarButton>
                 <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
+                    Label="Video Upscale"
+                    Tag="{x:Static inference:InferenceProjectType.VideoUpscale}"
+                    ToolTip.Tip="Post-process any video: core Lanczos / RTX VSR, or a loaded RelayVSR / CGlide / 2K-refiner workflow">
+                    <ui:CommandBarButton.IconSource>
+                        <fluentIcons:SymbolIconSource FontSize="10" Symbol="ResizeVideo" />
+                    </ui:CommandBarButton.IconSource>
+                </ui:CommandBarButton>
+                <ui:CommandBarButton
                     Click="AddTabMenu_ImgToVideo_OnClick"
                     Label="SVD Image to Video"
                     ToolTip.Tip="SVD Image to Video">

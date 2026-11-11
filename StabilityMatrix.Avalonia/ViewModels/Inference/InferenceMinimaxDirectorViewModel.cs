@@ -187,6 +187,93 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
     [property: JsonPropertyName("LowVramMode")]
     private bool lowVramMode;
 
+    // ------------------------------------------------------------------ caching / latent upscale
+
+    /// <summary>
+    /// Experimental block-caching node injected on the model path (EasyCache / TeaCache /
+    /// FirstBlockCache). Blank = none. Requires the matching ComfyUI plugin.
+    /// </summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("CacheMethod")]
+    private string cacheMethod = "";
+
+    /// <summary>Blank = no latent upscale. 2D / 3D (LBH), CGlide, Split (MMH3).</summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("UpscaleType")]
+    private string upscaleType = "";
+
+    [ObservableProperty]
+    [property: JsonPropertyName("UpscaleScale")]
+    private double upscaleScale = 2.0;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("UpscaleModelName")]
+    private string upscaleModelName = "";
+
+    [ObservableProperty]
+    [property: JsonPropertyName("UpscaleSharpness")]
+    private int upscaleSharpness = 3;
+
+    /// <summary>LBH upscaler checkpoints discovered on the connected ComfyUI (ScanModelsAsync).</summary>
+    [JsonIgnore]
+    public ObservableCollection<string> AvailableUpscaleModels { get; } = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<string> CacheMethods { get; } =
+        new[] { "", "EasyCache", "TeaCache", "FirstBlockCache", "ComfyUI-EasyCache", "ComfyUI-TeaCache" };
+
+    [JsonIgnore]
+    public IReadOnlyList<string> UpscaleTypes { get; } =
+        new[] { "", "2D", "3D", "CGlide", "Split" };
+
+    [JsonIgnore]
+    public IReadOnlyList<double> UpscaleScales { get; } = new[] { 1.5, 2.0, 2.5, 3.0, 3.5, 4.0 };
+
+    /// <summary>
+    /// Known LoRA filenames / sources for the "generate low-res fast, then upscale" strategy.
+    /// These are matched by substring against the LTX_lora_loader stack (or appended to it).
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<MinimaxDirectorLoraPreset> LoraPresets { get; } = new[]
+    {
+        new MinimaxDirectorLoraPreset(
+            "Turbo LoRA (lightx2v)",
+            "minimax_h3_turbo",
+            1.0,
+            "https://huggingface.co/lightx2v/Minimax-h3-Turbo",
+            "4-step low-res generation; fastest path before a latent upscale."),
+        new MinimaxDirectorLoraPreset(
+            "Kijai experimental LoRAs",
+            "minimax_h3",
+            1.0,
+            "https://huggingface.co/Kijai/MiniMax-H3-experimental/tree/main/loras",
+            "Distilled / experimental H3 LoRAs for low-step generation."),
+        new MinimaxDirectorLoraPreset(
+            "2K Refiner (rank 384, bf16)",
+            "minimax_h3_open_regenerate_2k_refiner_rank_384_bf16.safetensors",
+            1.0,
+            "https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/loras/minimax_h3_open_regenerate_2k_refiner_rank_384_bf16.safetensors",
+            "Open-regenerate 2K refiner: re-samples the upscaled latent for crisp high-res detail."),
+    };
+
+    /// <summary>
+    /// Read-only estimate of the upscale potential + quality tradeoff for the current session
+    /// defaults. Recomputed whenever a relevant setting changes (see the partial hooks below).
+    /// </summary>
+    [JsonIgnore]
+    public string UpscaleNote => MinimaxUpscaleMath.ComputeNote(
+        GlobalWidth,
+        GlobalHeight,
+        UpscaleScale,
+        string.IsNullOrWhiteSpace(UpscaleType) ? "no upscale" : UpscaleType);
+
+    private void RefreshUpscaleNote() => OnPropertyChanged(nameof(UpscaleNote));
+
+    partial void OnGlobalWidthChanged(int value) => RefreshUpscaleNote();
+    partial void OnGlobalHeightChanged(int value) => RefreshUpscaleNote();
+    partial void OnUpscaleScaleChanged(double value) => RefreshUpscaleNote();
+    partial void OnUpscaleTypeChanged(string value) => RefreshUpscaleNote();
+
     /// <summary>The custom ComfyUI node types the loaded workflow needs (read-only, for display).</summary>
     [ObservableProperty]
     [property: JsonIgnore]
@@ -235,7 +322,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         new[]
         {
             "", "sdpa", "flash_attn", "xformers", "comfy kitchen attention",
-            "sageattention", "torch_impl", "substitute",
+            "sageattention", "torch_impl", "substitute", "sol", "radial",
         };
 
     /// <summary>
@@ -1076,8 +1163,12 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
             await PopulateModelListAsync(client, "CLIPLoader", "clip_name", AvailableClips, ClipOverride);
             await PopulateModelListAsync(client, "LoraLoader", "lora_name", AvailableLoras, LoraName);
 
+            // LBH latent-upscaler checkpoints (2D/3D) - the pack registers them under model_name.
+            await TryPopulateUpscaleModelsAsync(client);
+
             StatusText = $"Scanned: {AvailableModels.Count} model(s), {AvailableVaes.Count} VAE, "
-                         + $"{AvailableClips.Count} text encoder(s), {AvailableLoras.Count} LoRA(s).";
+                         + $"{AvailableClips.Count} text encoder(s), {AvailableLoras.Count} LoRA(s), "
+                         + $"{AvailableUpscaleModels.Count} H3 upscaler checkpoint(s).";
         }
         catch (Exception ex)
         {
@@ -1116,6 +1207,61 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         {
             target.Insert(0, current);
         }
+    }
+
+    /// <summary>
+    /// The LBH H3 latent upscaler pack is optional, so its checkpoint list is only queried on a
+    /// best-effort basis (a missing pack must not fail the whole scan).
+    /// </summary>
+    private async Task TryPopulateUpscaleModelsAsync(ComfyClient client)
+    {
+        AvailableUpscaleModels.Clear();
+
+        foreach (var node in new[] { "Minimax H3 Latent Upscaler (2D)", "Minimax H3 Latent Upscaler (3D)" })
+        {
+            try
+            {
+                var names = await client.GetNodeOptionNamesAsync(node, "model_name", CancellationToken.None);
+                if (names is null)
+                {
+                    continue;
+                }
+
+                foreach (var name in names.Where(n =>
+                             !string.IsNullOrWhiteSpace(n)
+                             && !AvailableUpscaleModels.Contains(n, StringComparer.OrdinalIgnoreCase)))
+                {
+                    AvailableUpscaleModels.Add(name);
+                }
+            }
+            catch
+            {
+                // Pack not installed / node not registered - expected, ignore.
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(UpscaleModelName)
+            && !AvailableUpscaleModels.Contains(UpscaleModelName, StringComparer.OrdinalIgnoreCase))
+        {
+            AvailableUpscaleModels.Insert(0, UpscaleModelName);
+        }
+    }
+
+    /// <summary>
+    /// Applies one of the known low-res/upscale LoRA presets to the LoRA field + strength and
+    /// shows its source link, so the user can grab the checkpoint from Hugging Face.
+    /// </summary>
+    [RelayCommand]
+    private void ApplyLoraPreset(MinimaxDirectorLoraPreset? preset)
+    {
+        if (preset is null)
+        {
+            return;
+        }
+
+        LoraName = preset.Match;
+        LoraStrength = preset.Strength;
+        StatusText = $"{preset.Label}: {preset.Description} Source: {preset.Source}";
     }
 
     private void UpdatePlanSummary()
@@ -1369,6 +1515,11 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                             : (LowVramMode ? "sageattention" : null),
                         UseTiledVae = UseTiledVae || LowVramMode,
                         VaeTileSize = VaeTileSize,
+                        CacheMethod = CacheMethod.Trim(),
+                        UpscaleType = UpscaleType.Trim(),
+                        UpscaleScale = UpscaleScale,
+                        UpscaleModelName = UpscaleModelName.Trim(),
+                        UpscaleSharpness = UpscaleSharpness,
                     });
 
                     promptIndex++;

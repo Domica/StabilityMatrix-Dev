@@ -38,6 +38,7 @@ public class InferenceProjectDocument : ICloneable
                 InferenceWanImageToVideoViewModel => InferenceProjectType.WanImageToVideo,
                 InferenceWanVideoInpaintViewModel => InferenceProjectType.WanVideoInpaint,
                 InferenceMinimaxDirectorViewModel => InferenceProjectType.MinimaxDirector,
+                InferenceVideoUpscaleViewModel => InferenceProjectType.VideoUpscale,
                 InferenceWanTextToVideoViewModel => InferenceProjectType.WanTextToVideo,
                 _ => InferenceProjectType.Unknown
             },

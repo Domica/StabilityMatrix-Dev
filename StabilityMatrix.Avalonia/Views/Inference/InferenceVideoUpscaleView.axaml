@@ -1,0 +1,356 @@
+<dock:DockUserControlBase
+    x:Class="StabilityMatrix.Avalonia.Views.Inference.InferenceVideoUpscaleView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:StabilityMatrix.Avalonia.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dock="clr-namespace:StabilityMatrix.Avalonia.Controls.Dock"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:mocks="clr-namespace:StabilityMatrix.Avalonia.DesignData"
+    xmlns:modelsInference="clr-namespace:StabilityMatrix.Avalonia.Models.Inference"
+    xmlns:vmInference="clr-namespace:StabilityMatrix.Avalonia.ViewModels.Inference"
+    d:DataContext="{x:Static mocks:DesignData.InferenceVideoUpscaleViewModel}"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
+    x:DataType="vmInference:InferenceVideoUpscaleViewModel"
+    Focusable="True"
+    mc:Ignorable="d">
+
+    <Grid Margin="2,0,2,8">
+        <DockControl
+            x:Name="Dock"
+            InitializeFactory="True"
+            InitializeLayout="True">
+            <DockControl.Factory>
+                <Factory />
+            </DockControl.Factory>
+
+            <RootDock
+                x:Name="Root"
+                DefaultDockable="{Binding #MainLayout}"
+                Id="Root"
+                IsCollapsable="False">
+
+                <ProportionalDock
+                    x:Name="MainLayout"
+                    Id="MainLayout"
+                    Orientation="Horizontal">
+
+                    <!--  ======================= 1. Upscale settings =======================  -->
+                    <ToolDock
+                        x:Name="ConfigPane"
+                        Alignment="Left"
+                        Id="ConfigPane"
+                        Proportion="0.46">
+                        <Tool
+                            x:Name="ConfigTool"
+                            Title="Video Upscale"
+                            x:DataType="Tool"
+                            CanClose="False"
+                            Id="ConfigTool">
+                            <ScrollViewer
+                                HorizontalScrollBarVisibility="Disabled"
+                                VerticalScrollBarVisibility="Auto">
+                                <StackPanel
+                                    x:CompileBindings="False"
+                                    Margin="4,4,12,8"
+                                    DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                    Spacing="10">
+
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="#888888"
+                                        Text="Post-process any rendered video. The Director upscales the H3 latent DURING generation; this screen upscales a finished video AFTERWARDS. Both share the same quality ceiling - see the estimate on the right."
+                                        TextWrapping="Wrap" />
+
+                                    <!--  Input video  -->
+                                    <TextBlock FontSize="13" FontWeight="SemiBold" Text="Input video" />
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBox
+                                            Grid.Column="0"
+                                            Text="{Binding InputVideoPath}"
+                                            Watermark="Path to the source video (mp4 / webm / mkv / mov)"
+                                            IsReadOnly="True" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Margin="6,0,0,0"
+                                            Padding="10,4"
+                                            Command="{Binding PickInputVideoCommand}"
+                                            Content="Browse..." />
+                                    </Grid>
+                                    <TextBlock
+                                        FontSize="10"
+                                        Foreground="#888888"
+                                        Text="Picking a file auto-detects resolution / fps / frame count with ffprobe when available. Otherwise enter them below - the estimate needs them."
+                                        TextWrapping="Wrap" />
+
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto">
+                                        <Grid.Styles>
+                                            <Style Selector="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </Grid.Styles>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,6,0" Text="Width" />
+                                        <NumericUpDown
+                                            Grid.Row="0" Grid.Column="1"
+                                            Increment="2" Minimum="0" Maximum="8192"
+                                            Value="{Binding SourceWidth}" />
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Margin="8,0,6,0" Text="Height" />
+                                        <NumericUpDown
+                                            Grid.Row="0" Grid.Column="3"
+                                            Increment="2" Minimum="0" Maximum="8192"
+                                            Value="{Binding SourceHeight}" />
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,6,6,0" Text="FPS" />
+                                        <NumericUpDown
+                                            Grid.Row="1" Grid.Column="1" Margin="0,6,0,0"
+                                            Increment="1" Minimum="0" Maximum="120" FormatString="0.###"
+                                            Value="{Binding SourceFps}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="2" Margin="8,6,6,0" Text="Frames" />
+                                        <NumericUpDown
+                                            Grid.Row="1" Grid.Column="3" Margin="0,6,0,0"
+                                            Increment="1" Minimum="0" Maximum="1000000"
+                                            Value="{Binding SourceFrames}" />
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,6,6,0" Text="Output prefix" />
+                                        <TextBox
+                                            Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3"
+                                            Margin="0,6,0,0"
+                                            Text="{Binding OutputPrefix}"
+                                            ToolTip.Tip="ComfyUI filename_prefix. A run id is appended automatically." />
+                                    </Grid>
+
+                                    <!--  Upscaler  -->
+                                    <TextBlock Margin="0,6,0,0" FontSize="13" FontWeight="SemiBold" Text="Upscaler" />
+                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <Grid.Styles>
+                                            <Style Selector="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </Grid.Styles>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,8,0" Text="Method" />
+                                        <ComboBox
+                                            Grid.Row="0" Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            ItemsSource="{Binding UpscaleModes}"
+                                            SelectedItem="{Binding UpscaleMode}"
+                                            ToolTip.Tip="Core ImageScaleBy = no plugins needed. RTX VSR = NVIDIA core node. Custom workflow = load an exported RelayVSR / CGlide / LBH 2K refiner JSON below." />
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,6,8,0" Text="Scale" />
+                                        <ComboBox
+                                            Grid.Row="1" Grid.Column="1" Margin="0,6,0,0"
+                                            MinWidth="100"
+                                            ItemsSource="{Binding UpscaleScales}"
+                                            SelectedItem="{Binding Scale}" />
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,6,8,0" Text="Interpolation" />
+                                        <ComboBox
+                                            Grid.Row="2" Grid.Column="1" Margin="0,6,0,0"
+                                            MinWidth="140"
+                                            ItemsSource="{Binding InterpolationMethods}"
+                                            SelectedItem="{Binding InterpolationMethod}"
+                                            ToolTip.Tip="Used by the core ImageScaleBy mode. Lanczos is sharpest, bicubic is softer/safer for noisy sources." />
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,6,8,0" Text="RTX quality" />
+                                        <ComboBox
+                                            Grid.Row="3" Grid.Column="1" Margin="0,6,0,0"
+                                            MinWidth="140"
+                                            ItemsSource="{Binding RtxQualities}"
+                                            SelectedItem="{Binding RtxQuality}" />
+                                    </Grid>
+
+                                    <CheckBox
+                                        Content="Preserve source audio (bundled core template only)"
+                                        IsChecked="{Binding PreserveAudio}"
+                                        ToolTip.Tip="Wires GetVideoComponents.audio into CreateVideo. Requires the source to actually contain an audio stream." />
+
+                                    <!--  Workflow  -->
+                                    <TextBlock Margin="0,8,0,0" FontSize="13" FontWeight="SemiBold" Text="Workflow" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button
+                                            Margin="0,0,6,4"
+                                            Padding="10,4"
+                                            Command="{Binding LoadWorkflowCommand}"
+                                            Content="Load workflow JSON..."
+                                            ToolTip.Tip="Load an exported ComfyUI API/UI workflow for RelayVSR, CGlide, the LBH 2K refiner or any other video upscaler." />
+                                        <Button
+                                            Margin="0,0,6,4"
+                                            Padding="10,4"
+                                            Command="{Binding UseBuiltInWorkflowCommand}"
+                                            Content="Use built-in core template" />
+                                        <Button
+                                            Margin="0,0,6,4"
+                                            Padding="10,4"
+                                            Command="{Binding CheckRequiredNodesCommand}"
+                                            Content="Check required plugins" />
+                                    </WrapPanel>
+                                    <TextBlock
+                                        FontSize="10"
+                                        Foreground="#888888"
+                                        Text="{Binding WorkflowInfo}"
+                                        TextWrapping="Wrap" />
+
+                                    <TextBlock
+                                        Margin="0,6,0,0"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="Third-party upscaler packs" />
+                                    <TextBlock
+                                        FontSize="10"
+                                        Foreground="#888888"
+                                        Text="RelayVSR (x2/x4 pixel VSR), CGlide (Glide Upscale Hold / Regen 2K), LBH MiniMax H3 latent upscaler and Kijai's 2K refiner all ship their own ComfyUI nodes. Export their workflow as API JSON and load it above - this screen injects the input video, prefix, fps and scale widgets, and reports which injection points it found."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Tool>
+                    </ToolDock>
+
+                    <ProportionalDockSplitter x:Name="Splitter1" Id="Splitter1" />
+
+                    <!--  ======================= 2. Estimate + output =======================  -->
+                    <ProportionalDock
+                        x:Name="OutputLayout"
+                        Id="OutputLayout"
+                        Orientation="Vertical"
+                        Proportion="0.54">
+
+                        <ToolDock
+                            x:Name="EstimatePane"
+                            Alignment="Top"
+                            Id="EstimatePane"
+                            Proportion="0.46">
+                            <Tool
+                                x:Name="EstimateTool"
+                                Title="Upscale potential &amp; quality loss"
+                                x:DataType="Tool"
+                                CanClose="False"
+                                Id="EstimateTool">
+                                <ScrollViewer
+                                    VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel
+                                        x:CompileBindings="False"
+                                        Margin="4,4,8,8"
+                                        DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                        Spacing="8">
+                                        <Border
+                                            Padding="10"
+                                            Background="#FFF8E1"
+                                            BorderBrush="#F0C36D"
+                                            BorderThickness="1"
+                                            CornerRadius="4">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    Text="Upscale potential &amp; quality-loss estimate" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Text="{Binding UpscaleNote}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <TextBlock
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
+                                            Text="Workflow injection report" />
+                                        <TextBox
+                                            AcceptsReturn="True"
+                                            FontSize="10"
+                                            IsReadOnly="True"
+                                            MinHeight="90"
+                                            Text="{Binding MappingSummary}"
+                                            TextWrapping="Wrap"
+                                            Watermark="Run once to see which nodes were injected." />
+                                        <TextBlock
+                                            FontSize="11"
+                                            Text="{Binding StatusText}"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Tool>
+                        </ToolDock>
+
+                        <ProportionalDockSplitter x:Name="Splitter2" Id="Splitter2" />
+
+                        <ToolDock
+                            x:Name="RunPane"
+                            Alignment="Bottom"
+                            Id="RunPane"
+                            Proportion="0.54">
+                            <Tool
+                                x:Name="RunTool"
+                                Title="Run / Output"
+                                x:DataType="Tool"
+                                CanClose="False"
+                                Id="RunTool">
+                                <Grid
+                                    x:CompileBindings="False"
+                                    Margin="4,4,8,8"
+                                    DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                    RowDefinitions="Auto,Auto,*">
+                                    <StackPanel
+                                        Grid.Row="0"
+                                        Margin="0,0,0,6"
+                                        DataContext="{Binding OutputProgress}"
+                                        Spacing="4">
+                                        <ProgressBar
+                                            IsIndeterminate="{Binding IsIndeterminate}"
+                                            IsVisible="{Binding IsProgressVisible}"
+                                            Maximum="{Binding Maximum}"
+                                            Value="{Binding Value}" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            IsVisible="{Binding IsTextVisible}"
+                                            Text="{Binding Text}"
+                                            TextAlignment="Center"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <controls:Card Grid.Row="1" Padding="8">
+                                        <Grid
+                                            HorizontalAlignment="Center"
+                                            ColumnDefinitions="*,*"
+                                            RowDefinitions="Auto">
+                                            <Grid.Styles>
+                                                <Style Selector="Button">
+                                                    <Setter Property="MinHeight" Value="34" />
+                                                    <Setter Property="Margin" Value="3,0" />
+                                                </Style>
+                                            </Grid.Styles>
+                                            <Button
+                                                x:Name="GenerateButton"
+                                                Grid.Column="0"
+                                                Width="170"
+                                                Classes="accent"
+                                                Command="{Binding GenerateImageCommand}"
+                                                CommandParameter="{x:Static modelsInference:GenerateFlags.None}"
+                                                Content="Upscale video"
+                                                HotKey="Ctrl+Enter"
+                                                IsVisible="{Binding !GenerateImageCommand.CanBeCanceled}"
+                                                ToolTip.Tip="Upload the video to ComfyUI's input folder, inject the upscaler settings and queue one prompt." />
+                                            <Button
+                                                x:Name="CancelButton"
+                                                Grid.Column="1"
+                                                Width="170"
+                                                Classes="accent"
+                                                Command="{Binding GenerateImageCancelCommand}"
+                                                Content="Cancel"
+                                                IsVisible="{Binding GenerateImageCommand.CanBeCanceled}" />
+                                        </Grid>
+                                    </controls:Card>
+
+                                    <controls:ImageGalleryCard
+                                        Grid.Row="2"
+                                        Margin="0,8,0,0"
+                                        DataContext="{Binding ImageGalleryCardViewModel}" />
+                                </Grid>
+                            </Tool>
+                        </ToolDock>
+                    </ProportionalDock>
+                </ProportionalDock>
+            </RootDock>
+        </DockControl>
+    </Grid>
+</dock:DockUserControlBase>

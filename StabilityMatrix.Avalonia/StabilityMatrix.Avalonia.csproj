@@ -152,6 +152,7 @@
         <AvaloniaResource Include="Assets\Icon.png" />
         <AvaloniaResource Include="Assets\hf-packages.json" />
         <AvaloniaResource Include="Assets\Workflows\minimax_h3_director_api.json" />
+        <AvaloniaResource Include="Assets\Workflows\video_upscale_core_api.json" />
         <AvaloniaResource Include="Assets\santahat.png" />
         <AvaloniaResource Include="Assets\markdown.css" />
         <AvaloniaResource Include="Assets\openai-white-logomark.png" />

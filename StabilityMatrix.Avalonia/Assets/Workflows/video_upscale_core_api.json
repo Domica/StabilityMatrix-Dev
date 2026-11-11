@@ -1,0 +1,38 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "video_upscale/input.mp4"
+    }
+  },
+  "2": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "ImageScaleBy",
+    "inputs": {
+      "image": ["2", 0],
+      "upscale_method": "lanczos",
+      "scale_by": 2.0
+    }
+  },
+  "4": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": ["3", 0],
+      "fps": 24
+    }
+  },
+  "5": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": ["4", 0],
+      "filename_prefix": "video/VideoUpscale",
+      "format": "auto",
+      "codec": "auto"
+    }
+  }
+}
