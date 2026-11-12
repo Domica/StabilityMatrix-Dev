@@ -639,6 +639,27 @@ public class ComfyNodeBuilder
     }
 
     /// <summary>
+    /// Wan 2.2 TI2V (5B) latent. Unlike <see cref="WanImageToVideo"/> this node does not
+    /// attach concat conditioning. It encodes <c>start_image</c> directly into the first
+    /// latent frames and returns a LATENT dictionary containing:
+    /// <list type="bullet">
+    /// <item><description><c>samples</c>: 48 channels, spatial downscale 16 (latent_formats.Wan22)</description></item>
+    /// <item><description><c>noise_mask</c>: protects the encoded first frames during sampling</description></item>
+    /// </list>
+    /// Positive/negative conditioning must be connected to the sampler unchanged; TI2V models
+    /// do not consume <c>concat_latent_image</c>, <c>concat_mask</c> or CLIP Vision embeds.
+    /// </summary>
+    public record Wan22ImageToVideoLatent : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        public required VAENodeConnection Vae { get; init; }
+        public ImageNodeConnection? StartImage { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+        public required int Length { get; init; }
+        public required int BatchSize { get; init; }
+    }
+
+    /// <summary>
     /// Wan VACE Video Inpainting node.
     /// outputs: positive, negative, latent, trim_latent
     /// Requires ComfyUI-WanVideoWrapper extension.

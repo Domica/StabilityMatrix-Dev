@@ -10,6 +10,7 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Extensions;
 using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
+using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
 using StabilityMatrix.Core.Services;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
@@ -33,6 +34,19 @@ public class WanSamplerCardViewModel : SamplerCardViewModel
         SelectedScheduler = ComfyScheduler.Simple;
         Length = 33;
     }
+
+    /// <summary>
+    /// When true, builds a Wan 2.2 TI2V (5B) graph: <c>Wan22ImageToVideoLatent</c> (48-channel,
+    /// /16 latents with a <c>noise_mask</c> holding the encoded start image) and connects the
+    /// prompt conditioning directly to the sampler.
+    /// <para>
+    /// When false, builds the Wan 2.1 I2V graph: <c>WanImageToVideo</c> (16-channel, /8 latents
+    /// with <c>concat_latent_image</c> / <c>concat_mask</c> conditioning and optional CLIP Vision).
+    /// </para>
+    /// TI2V models such as Wan2.2-TI2V-5B-Q4_K_S do not read the Wan 2.1 concat conditioning,
+    /// so using the Wan 2.1 graph makes them silently ignore the reference image.
+    /// </summary>
+    public bool UseWan22Ti2V { get; set; }
 
     public override void ApplyStep(ModuleApplyStepEventArgs e)
     {
@@ -64,39 +78,74 @@ public class WanSamplerCardViewModel : SamplerCardViewModel
 
         if (isImgToVid)
         {
-            // CLIP Vision is optional: Wan 2.2 I2V (and other setups) do not require clip embeds.
-            // Only build the CLIPVisionEncode node when a CLIP Vision model was actually loaded;
-            // otherwise WanImageToVideo is built without the clip_embeds input.
-            var baseClipVision = e.Builder.Connections.BaseClipVision;
-            ComfyNodeBuilder.CLIPVisionEncode? clipVisionEncode = null;
-            if (baseClipVision is not null)
+            ConditioningNodeConnection positive;
+            ConditioningNodeConnection negative;
+            LatentNodeConnection latentImage;
+
+            if (UseWan22Ti2V)
             {
-                clipVisionEncode = e.Nodes.AddTypedNode(
-                    new ComfyNodeBuilder.CLIPVisionEncode
+                // Wan 2.2 TI2V 5B: the reference image must become an actual latent sample.
+                // Wan22ImageToVideoLatent VAE-encodes it into the first latent frames and emits
+                // a noise_mask so the sampler cannot overwrite those frames. No CLIP Vision and
+                // no concat conditioning are involved - the prompt conditioning goes straight
+                // into the sampler.
+                var ti2vLatent = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.Wan22ImageToVideoLatent
                     {
-                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPVisionEncode)),
-                        ClipVision = baseClipVision,
-                        Image = e.Builder.GetPrimaryAsImage(),
-                        Crop = "none",
+                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.Wan22ImageToVideoLatent)),
+                        Vae = e.Builder.Connections.GetDefaultVAE(),
+                        StartImage = e.Builder.GetPrimaryAsImage(),
+                        Width = Width,
+                        Height = Height,
+                        Length = Length,
+                        BatchSize = e.Builder.Connections.BatchSize,
                     }
                 );
-            }
 
-            var wanImageToVideo = e.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.WanImageToVideo
+                positive = conditioning.Positive;
+                negative = conditioning.Negative;
+                latentImage = ti2vLatent.Output;
+            }
+            else
+            {
+                // Wan 2.1 I2V: CLIP Vision is optional. Only build CLIPVisionEncode when a
+                // CLIP Vision model was actually loaded, otherwise WanImageToVideo is built
+                // without the clip_vision_output input.
+                var baseClipVision = e.Builder.Connections.BaseClipVision;
+                ComfyNodeBuilder.CLIPVisionEncode? clipVisionEncode = null;
+                if (baseClipVision is not null)
                 {
-                    Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.WanImageToVideo)),
-                    Positive = conditioning.Positive,
-                    Negative = conditioning.Negative,
-                    Vae = e.Builder.Connections.GetDefaultVAE(),
-                    ClipVisionOutput = clipVisionEncode?.Output,
-                    StartImage = e.Builder.GetPrimaryAsImage(),
-                    Width = Width,
-                    Height = Height,
-                    Length = Length,
-                    BatchSize = e.Builder.Connections.BatchSize,
+                    clipVisionEncode = e.Nodes.AddTypedNode(
+                        new ComfyNodeBuilder.CLIPVisionEncode
+                        {
+                            Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPVisionEncode)),
+                            ClipVision = baseClipVision,
+                            Image = e.Builder.GetPrimaryAsImage(),
+                            Crop = "none",
+                        }
+                    );
                 }
-            );
+
+                var wanImageToVideo = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.WanImageToVideo
+                    {
+                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.WanImageToVideo)),
+                        Positive = conditioning.Positive,
+                        Negative = conditioning.Negative,
+                        Vae = e.Builder.Connections.GetDefaultVAE(),
+                        ClipVisionOutput = clipVisionEncode?.Output,
+                        StartImage = e.Builder.GetPrimaryAsImage(),
+                        Width = Width,
+                        Height = Height,
+                        Length = Length,
+                        BatchSize = e.Builder.Connections.BatchSize,
+                    }
+                );
+
+                positive = wanImageToVideo.Output1;
+                negative = wanImageToVideo.Output2;
+                latentImage = wanImageToVideo.Output3;
+            }
 
             var kSampler = e.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.KSampler
@@ -108,9 +157,9 @@ public class WanSamplerCardViewModel : SamplerCardViewModel
                     Scheduler = primaryScheduler.Name,
                     Steps = Steps,
                     Cfg = CfgScale,
-                    Positive = wanImageToVideo.Output1,
-                    Negative = wanImageToVideo.Output2,
-                    LatentImage = wanImageToVideo.Output3,
+                    Positive = positive,
+                    Negative = negative,
+                    LatentImage = latentImage,
                     Denoise = DenoiseStrength,
                 }
             );

@@ -30,6 +30,12 @@ public class InferenceWan2ImageToVideoViewModel : InferenceWanTextToVideoViewMod
         SamplerCardViewModel.Width = 512;
         SamplerCardViewModel.Height = 512;
 
+        // Wan 2.2 TI2V 5B (e.g. Wan2.2-TI2V-5B-Q4_K_S) is a WAN22_T2V model: 48-channel
+        // latents at 1/16 spatial scale. It must use Wan22ImageToVideoLatent, which encodes the
+        // reference image into the first latent frames and emits a noise_mask. Building the Wan
+        // 2.1 WanImageToVideo node here makes the model ignore the input image entirely.
+        ((WanSamplerCardViewModel)SamplerCardViewModel).UseWan22Ti2V = true;
+
         // Wan 2.2 GGUF (5B/TI2V) does not need CLIP Vision; enable manually for Wan 2.1 if needed
         ModelCardViewModel.IsClipVisionEnabled = false;
     }
