@@ -628,7 +628,9 @@ public class ComfyNodeBuilder
         public required ConditioningNodeConnection Positive { get; init; }
         public required ConditioningNodeConnection Negative { get; init; }
         public required VAENodeConnection Vae { get; init; }
-        public required ClipVisionOutputNodeConnection ClipVisionOutput { get; init; }
+        // CLIP Vision is optional: Wan 2.2 I2V (and other setups) do not require clip embeds.
+        // When null, the node is built without the clip_embeds input.
+        public ClipVisionOutputNodeConnection? ClipVisionOutput { get; init; }
         public required ImageNodeConnection StartImage { get; init; }
         public required int Width { get; init; }
         public required int Height { get; init; }

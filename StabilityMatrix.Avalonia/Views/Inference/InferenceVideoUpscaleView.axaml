@@ -164,6 +164,48 @@
                                         IsChecked="{Binding PreserveAudio}"
                                         ToolTip.Tip="Wires GetVideoComponents.audio into CreateVideo. Requires the source to actually contain an audio stream." />
 
+                                    <!--  Memory & performance  -->
+                                    <TextBlock Margin="0,8,0,0" FontSize="13" FontWeight="SemiBold" Text="Memory &amp; performance" />
+                                    <CheckBox
+                                        Content="WAN Memory Cleanup (offload models + cache to CPU between steps)"
+                                        IsChecked="{Binding UseWanMemoryCleanup}"
+                                        ToolTip.Tip="Adds a WANMemoryCleanupNode so ComfyUI frees VRAM between steps. Requires the WanVideo custom nodes (bundled in this build). Helps avoid OOM on 16 GB cards." />
+                                    <CheckBox
+                                        Content="Tiled VAE decode (lower VRAM peak)"
+                                        IsChecked="{Binding UseTiledVae}"
+                                        ToolTip.Tip="Replaces every VAEDecode with VAEDecodeTiled in the loaded workflow. Only matters when the workflow actually decodes a VAE (third-party upscaler packs). The bundled core template has no VAE step, so it is a no-op there." />
+                                    <Grid
+                                        IsVisible="{Binding UseTiledVae}"
+                                        ColumnDefinitions="Auto,*,Auto,*"
+                                        Margin="0,4,0,0"
+                                        RowDefinitions="Auto,Auto">
+                                        <Grid.Styles>
+                                            <Style Selector="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </Grid.Styles>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,6,0" Text="Tile size" />
+                                        <NumericUpDown
+                                            Grid.Row="0" Grid.Column="1"
+                                            Increment="64" Minimum="64" Maximum="4096"
+                                            Value="{Binding TiledVaeTileSize}" />
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Margin="8,0,6,0" Text="Overlap" />
+                                        <NumericUpDown
+                                            Grid.Row="0" Grid.Column="3"
+                                            Increment="8" Minimum="0" Maximum="4096"
+                                            Value="{Binding TiledVaeOverlap}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,6,6,0" Text="Temporal size" />
+                                        <NumericUpDown
+                                            Grid.Row="1" Grid.Column="1" Margin="0,6,0,0"
+                                            Increment="8" Minimum="8" Maximum="4096"
+                                            Value="{Binding TiledVaeTemporalSize}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="2" Margin="8,6,6,0" Text="Temporal overlap" />
+                                        <NumericUpDown
+                                            Grid.Row="1" Grid.Column="3" Margin="0,6,0,0"
+                                            Increment="4" Minimum="4" Maximum="4096"
+                                            Value="{Binding TiledVaeTemporalOverlap}" />
+                                    </Grid>
+
                                     <!--  Workflow  -->
                                     <TextBlock Margin="0,8,0,0" FontSize="13" FontWeight="SemiBold" Text="Workflow" />
                                     <WrapPanel Orientation="Horizontal">

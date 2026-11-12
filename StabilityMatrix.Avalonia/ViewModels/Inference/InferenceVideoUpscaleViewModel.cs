@@ -88,6 +88,32 @@ public partial class InferenceVideoUpscaleViewModel : InferenceGenerationViewMod
     [property: JsonPropertyName("PreserveAudio")]
     private bool preserveAudio;
 
+    /// <summary>Offload Wan models + KV cache to CPU between steps (WANMemoryCleanupNode). Helps 16 GB cards avoid OOM.</summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("UseWanMemoryCleanup")]
+    private bool useWanMemoryCleanup = true;
+
+    /// <summary>Swap VAEDecode for VAEDecodeTiled in the loaded workflow. Only affects workflows that decode a VAE.</summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("UseTiledVae")]
+    private bool useTiledVae;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("TiledVaeTileSize")]
+    private int tiledVaeTileSize = 512;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("TiledVaeOverlap")]
+    private int tiledVaeOverlap = 64;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("TiledVaeTemporalSize")]
+    private int tiledVaeTemporalSize = 64;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("TiledVaeTemporalOverlap")]
+    private int tiledVaeTemporalOverlap = 8;
+
     [ObservableProperty]
     [property: JsonPropertyName("OutputPrefix")]
     private string outputPrefix = "video/VideoUpscale";
@@ -607,6 +633,12 @@ public partial class InferenceVideoUpscaleViewModel : InferenceGenerationViewMod
             Fps = SourceFps > 0 ? SourceFps : 0,
             PreserveAudio = PreserveAudio,
             IsBuiltInTemplate = !IsCustomWorkflow,
+            UseWanMemoryCleanup = UseWanMemoryCleanup,
+            UseTiledVae = UseTiledVae,
+            TiledVaeTileSize = TiledVaeTileSize,
+            TiledVaeOverlap = TiledVaeOverlap,
+            TiledVaeTemporalSize = TiledVaeTemporalSize,
+            TiledVaeTemporalOverlap = TiledVaeTemporalOverlap,
         });
 
         MappingSummary = result.Summary;

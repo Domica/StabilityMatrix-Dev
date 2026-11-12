@@ -64,17 +64,23 @@ public class WanSamplerCardViewModel : SamplerCardViewModel
 
         if (isImgToVid)
         {
-            var clipVisionEncode = e.Nodes.AddTypedNode(
-                new ComfyNodeBuilder.CLIPVisionEncode
-                {
-                    Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPVisionEncode)),
-                    ClipVision =
-                        e.Builder.Connections.BaseClipVision
-                        ?? throw new ValidationException("BaseClipVision not set"),
-                    Image = e.Builder.GetPrimaryAsImage(),
-                    Crop = "none",
-                }
-            );
+            // CLIP Vision is optional: Wan 2.2 I2V (and other setups) do not require clip embeds.
+            // Only build the CLIPVisionEncode node when a CLIP Vision model was actually loaded;
+            // otherwise WanImageToVideo is built without the clip_embeds input.
+            var baseClipVision = e.Builder.Connections.BaseClipVision;
+            ComfyNodeBuilder.CLIPVisionEncode? clipVisionEncode = null;
+            if (baseClipVision is not null)
+            {
+                clipVisionEncode = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.CLIPVisionEncode
+                    {
+                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPVisionEncode)),
+                        ClipVision = baseClipVision,
+                        Image = e.Builder.GetPrimaryAsImage(),
+                        Crop = "none",
+                    }
+                );
+            }
 
             var wanImageToVideo = e.Nodes.AddTypedNode(
                 new ComfyNodeBuilder.WanImageToVideo
@@ -83,7 +89,7 @@ public class WanSamplerCardViewModel : SamplerCardViewModel
                     Positive = conditioning.Positive,
                     Negative = conditioning.Negative,
                     Vae = e.Builder.Connections.GetDefaultVAE(),
-                    ClipVisionOutput = clipVisionEncode.Output,
+                    ClipVisionOutput = clipVisionEncode?.Output,
                     StartImage = e.Builder.GetPrimaryAsImage(),
                     Width = Width,
                     Height = Height,

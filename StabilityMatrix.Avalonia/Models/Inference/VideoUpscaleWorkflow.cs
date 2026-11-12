@@ -34,6 +34,27 @@ public sealed record VideoUpscaleInjection
 
     /// <summary>True when the workflow is the bundled core template (safe to rewrite node classes).</summary>
     public bool IsBuiltInTemplate { get; init; } = true;
+
+    /// <summary>
+    /// Add a WANMemoryCleanupNode so ComfyUI offloads Wan models + KV cache to CPU between
+    /// steps. Helps avoid OOM on low-VRAM cards (e.g. 16 GB). Requires the WanVideo custom nodes.
+    /// </summary>
+    public bool UseWanMemoryCleanup { get; init; }
+
+    /// <summary>
+    /// Replace every VAEDecode node in the graph with VAEDecodeTiled. Only meaningful for
+    /// workflows that actually decode a VAE (the third-party upscaler packs). The bundled core
+    /// template has no VAE step, so this is a no-op there.
+    /// </summary>
+    public bool UseTiledVae { get; init; }
+
+    public int TiledVaeTileSize { get; init; } = 512;
+
+    public int TiledVaeOverlap { get; init; } = 64;
+
+    public int TiledVaeTemporalSize { get; init; } = 64;
+
+    public int TiledVaeTemporalOverlap { get; init; } = 8;
 }
 
 public sealed record VideoUpscaleApplyResult(
@@ -213,6 +234,60 @@ public static class VideoUpscaleWorkflow
             }
         }
 
+        // 7. WAN Memory Cleanup - a standalone node that offloads Wan models + KV cache to CPU
+        //    between steps. It is not wired into the data flow, so it works for any workflow.
+        var cleanupNodes = 0;
+        if (injection.UseWanMemoryCleanup)
+        {
+            var cleanupName = GetUniqueName(nodes, "WANMemoryCleanup");
+            nodes[cleanupName] = new ComfyNode
+            {
+                ClassType = "WANMemoryCleanupNode",
+                Inputs = new Dictionary<string, object?>
+                {
+                    ["anything"] = null,
+                    ["offload_wan_models"] = true,
+                    ["offload_cache"] = true,
+                },
+            };
+            cleanupNodes++;
+        }
+
+        // 8. Tiled VAE decode - replace each VAEDecode (in place, keeping the same node key so all
+        //    downstream links stay valid) with VAEDecodeTiled. Carries the latent + vae links over
+        //    and applies the tile / temporal settings. No-op when the workflow has no VAEDecode node.
+        var tiledVaeNodes = 0;
+        if (injection.UseTiledVae)
+        {
+            var vaeKeys = nodes
+                .Where(x => x.Value.ClassType.Equals("VAEDecode", StringComparison.OrdinalIgnoreCase)
+                            || x.Value.ClassType.Equals("VAEDecodeTiled", StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Key)
+                .ToList();
+
+            foreach (var key in vaeKeys)
+            {
+                var original = nodes[key];
+                original.Inputs.TryGetValue("samples", out var samples);
+                original.Inputs.TryGetValue("vae", out var vae);
+
+                nodes[key] = new ComfyNode
+                {
+                    ClassType = "VAEDecodeTiled",
+                    Inputs = new Dictionary<string, object?>
+                    {
+                        ["samples"] = samples,
+                        ["vae"] = vae,
+                        ["tile_size"] = injection.TiledVaeTileSize,
+                        ["overlap"] = injection.TiledVaeOverlap,
+                        ["temporal_size"] = injection.TiledVaeTemporalSize,
+                        ["temporal_overlap"] = injection.TiledVaeTemporalOverlap,
+                    },
+                };
+                tiledVaeNodes++;
+            }
+        }
+
         var sb = new StringBuilder();
         sb.AppendLine($"Input video node(s): {inputTargets} | Output prefix node(s): {prefixTargets} | "
                       + $"Scale widget(s): {scaleTargets} | FPS widget(s): {fpsTargets}");
@@ -222,6 +297,20 @@ public static class VideoUpscaleWorkflow
         sb.AppendLine(injection.IsBuiltInTemplate
             ? "Template: bundled core video nodes (no custom plugins required for the Lanczos/Bicubic path)."
             : "Template: custom workflow JSON (RelayVSR / CGlide / refiner packs are used as-is).");
+
+        if (injection.UseWanMemoryCleanup)
+        {
+            sb.AppendLine($"WAN Memory Cleanup: {cleanupNodes} node added (offload models + cache).");
+        }
+
+        if (injection.UseTiledVae)
+        {
+            sb.AppendLine(tiledVaeNodes > 0
+                ? $"Tiled VAE: {tiledVaeNodes} VAEDecode node(s) swapped to VAEDecodeTiled "
+                  + $"(tile {injection.TiledVaeTileSize}, overlap {injection.TiledVaeOverlap}, "
+                  + $"temporal {injection.TiledVaeTemporalSize}/{injection.TiledVaeTemporalOverlap})."
+                : "Tiled VAE requested, but no VAEDecode node was found in this workflow (no-op).");
+        }
 
         if (inputTargets == 0)
         {
@@ -233,6 +322,22 @@ public static class VideoUpscaleWorkflow
         }
 
         return new VideoUpscaleApplyResult(inputTargets, prefixTargets, scaleTargets, fpsTargets, sb.ToString().TrimEnd());
+    }
+
+    private static string GetUniqueName(NodeDictionary nodes, string baseName)
+    {
+        if (!nodes.ContainsKey(baseName))
+        {
+            return baseName;
+        }
+
+        var i = 1;
+        while (nodes.ContainsKey($"{baseName}_{i}"))
+        {
+            i++;
+        }
+
+        return $"{baseName}_{i}";
     }
 
     private static object?[] CloneLink(object? value)
