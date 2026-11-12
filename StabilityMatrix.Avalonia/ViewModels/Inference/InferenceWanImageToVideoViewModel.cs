@@ -71,6 +71,11 @@ public class InferenceWanImageToVideoViewModel : InferenceWanTextToVideoViewMode
 
         PromptCardViewModel.ApplyStep(applyArgs);
 
+        // Optional Florence2 auto-prompt: when the positive prompt is blank, caption the reference
+        // image with Florence2 and feed that caption into the positive CLIPTextEncode. Only the
+        // prompt text changes; the Wan 2.1 I2V latent conditioning from start_image stays intact.
+        ApplyFlorence2AutoPromptIfEnabled(builder, imageLoad);
+
         SamplerCardViewModel.ApplyStep(applyArgs);
 
         applyArgs.InvokeAllPreOutputActions();

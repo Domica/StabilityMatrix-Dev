@@ -51,7 +51,16 @@
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <controls:StackCard DataContext="{ReflectionBinding ElementName=Dock, Path=DataContext.StackCardViewModel}" Opacity="1" />
-                                    <CheckBox Content="Enable CLIP Vision (Wan 2.1)" IsChecked="{Binding DataContext.ModelCardViewModel.IsClipVisionEnabled, ElementName=Dock, Mode=TwoWay}" Margin="4,4,4,4"/>
+                                    <CheckBox
+                                        Margin="4,4,4,4"
+                                        Content="Enable CLIP Vision (Wan 2.1)"
+                                        IsChecked="{Binding DataContext.ModelCardViewModel.IsClipVisionEnabled, ElementName=Dock, Mode=TwoWay}" />
+                                    <CheckBox
+                                        Margin="4,6,4,4"
+                                        x:CompileBindings="False"
+                                        Content="Auto-prompt from image (Florence2)"
+                                        IsChecked="{Binding DataContext.UseFlorence2AutoPrompt, ElementName=Dock, Mode=TwoWay}"
+                                        ToolTip.Tip="When the positive prompt is empty, runs Florence2 on the reference image and uses its caption as the positive prompt. Requires the Florence2 custom node pack in ComfyUI. Does not replace the image's latent conditioning." />
                                 </StackPanel>
                             </ScrollViewer>
                         </Tool>
