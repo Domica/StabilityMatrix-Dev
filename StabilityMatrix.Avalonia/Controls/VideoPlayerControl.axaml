@@ -1,0 +1,44 @@
+<UserControl
+    x:Class="StabilityMatrix.Avalonia.Controls.VideoPlayerControl"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:StabilityMatrix.Avalonia.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:icons="clr-namespace:Projektanker.Icons.Avalonia;assembly=Projektanker.Icons.Avalonia"
+    xmlns:libvlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:DataType="controls:VideoPlayerControl"
+    mc:Ignorable="d">
+    <Grid>
+        <libvlc:VideoView
+            x:Name="VideoView"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch" />
+
+        <!--  Fallback shown when the native LibVLC libraries are unavailable  -->
+        <Border
+            x:Name="FallbackBorder"
+            IsVisible="False"
+            Background="{DynamicResource SystemChromeLowColor}">
+            <TextBlock
+                x:Name="FallbackText"
+                MaxWidth="320"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Text="Video preview is not available on this platform."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+        </Border>
+
+        <!--  Play / Pause overlay  -->
+        <Button
+            x:Name="PlayPauseButton"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            icons:Attached.Icon="fa-solid fa-play"
+            Classes="transparent-full"
+            CornerRadius="32"
+            Padding="16"
+            Click="PlayPauseButton_OnClick" />
+    </Grid>
+</UserControl>

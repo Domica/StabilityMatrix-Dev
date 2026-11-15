@@ -74,6 +74,12 @@
                         <gif:GifImage SourceUri="{Binding LocalFile.FullPath}" Stretch="Uniform" />
                     </DataTemplate>
 
+                    <DataTemplate x:Key="{x:Static models:ImageSourceTemplateType.Video}" DataType="models:ImageSource">
+                        <controls:VideoPlayerControl
+                            AutoPlay="True"
+                            Source="{Binding LocalFile.FullPath}" />
+                    </DataTemplate>
+
                     <DataTemplate x:Key="{x:Static models:ImageSourceTemplateType.Image}" DataType="models:ImageSource">
                         <controls:AdvancedImageBox
                             Name="ImageBox"

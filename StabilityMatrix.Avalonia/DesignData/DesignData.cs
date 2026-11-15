@@ -974,6 +974,9 @@ The gallery images are often inpainted, but you will get something very similar 
     public static InferenceImageToImageViewModel InferenceImageToImageViewModel =>
         DialogFactory.Get<InferenceImageToImageViewModel>();
 
+    public static InferenceMultiImageToImageViewModel InferenceMultiImageToImageViewModel =>
+        DialogFactory.Get<InferenceMultiImageToImageViewModel>();
+
     public static InferenceImageUpscaleViewModel InferenceImageUpscaleViewModel =>
         DialogFactory.Get<InferenceImageUpscaleViewModel>();
 

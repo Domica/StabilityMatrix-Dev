@@ -274,6 +274,15 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
     partial void OnUpscaleScaleChanged(double value) => RefreshUpscaleNote();
     partial void OnUpscaleTypeChanged(string value) => RefreshUpscaleNote();
 
+    // Window planning depends on these; keep the timeline and the text plan in sync.
+    partial void OnGlobalFpsChanged(int value) => UpdatePlanSummary();
+    partial void OnEnableWindowSplittingChanged(bool value) => UpdatePlanSummary();
+    partial void OnMaxWindowFramesChanged(int value) => UpdatePlanSummary();
+    partial void OnWindowOverlapFramesChanged(int value) => UpdatePlanSummary();
+
+    partial void OnResumeFromClipChanged(int value) => RefreshTimeline();
+    partial void OnRetryFailedOnlyChanged(bool value) => RefreshTimeline();
+
     /// <summary>The custom ComfyUI node types the loaded workflow needs (read-only, for display).</summary>
     [ObservableProperty]
     [property: JsonIgnore]
@@ -303,6 +312,67 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
     [ObservableProperty]
     [property: JsonIgnore]
     private string workflowInfo = "Loading template...";
+
+    // ------------------------------------------------------------------ timeline / resume / preflight
+
+    /// <summary>1-based clip number the next run starts from. 1 = run the whole queue.</summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("ResumeFromClip")]
+    private int resumeFromClip = 1;
+
+    /// <summary>When true, clips already marked "Done" are kept instead of regenerated.</summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("RetryFailedOnly")]
+    private bool retryFailedOnly;
+
+    /// <summary>
+    /// Reuses the last frame extracted by the previous run as the continuity seed when a run
+    /// resumes from a clip other than #1. Without this, a resumed clip starts a fresh chain.
+    /// </summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("ReuseContinuityFrame")]
+    private bool reuseContinuityFrame = true;
+
+    /// <summary>Whether a shot-list CSV import replaces the queue instead of appending to it.</summary>
+    [ObservableProperty]
+    [property: JsonPropertyName("CsvReplacesQueue")]
+    private bool csvReplacesQueue;
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private string timelineSummary = "";
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private string resumeSummary = "";
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private int maxStartClip = 1;
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private string preflightSummary = "Preflight has not been run yet.";
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private bool preflightHasErrors;
+
+    [ObservableProperty]
+    [property: JsonIgnore]
+    private bool preflightHasResult;
+
+    [JsonIgnore]
+    public ObservableCollection<MinimaxDirectorTimelineSegment> TimelineSegments { get; } = new();
+
+    [JsonIgnore]
+    public ObservableCollection<MinimaxDirectorPreflightCheck> PreflightChecks { get; } = new();
+
+    /// <summary>Clip videos produced by the most recent run, keyed by 0-based clip index.</summary>
+    private readonly Dictionary<int, string> lastRunClipVideos = new();
+
+    /// <summary>Last extracted continuity frame from the most recent run (used on resume).</summary>
+    private string? lastContinuityFramePath;
 
     public override string TabTitle => ProjectFile?.NameWithoutExtension ?? "MiniMax Director";
 
@@ -1008,6 +1078,586 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         }
     }
 
+    /// <summary>
+    /// Imports a shot list from a CSV / TSV file: one row per clip, with optional per-clip
+    /// duration, seed, resolution, fps, steps, continuity and reference images. Relative
+    /// reference-image paths are resolved against the folder the CSV lives in.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImportShotListCsvAsync()
+    {
+        try
+        {
+            var provider = App.StorageProvider;
+            if (provider is null)
+            {
+                return;
+            }
+
+            var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Import shot-list CSV (one row per clip)",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Shot list")
+                    {
+                        Patterns = new[] { "*.csv", "*.tsv", "*.txt" },
+                    },
+                },
+            });
+
+            if (files.Count == 0 || files[0].TryGetLocalPath() is not { } path)
+            {
+                return;
+            }
+
+            var rows = MinimaxDirectorShotListCsv.Parse(await File.ReadAllTextAsync(path));
+            if (rows.Count == 0)
+            {
+                throw new ValidationException(
+                    "No usable shot rows found. Provide a CSV with a 'prompt' column, "
+                    + "or a plain text file with the prompt in the first column."
+                );
+            }
+
+            var baseDir = Path.GetDirectoryName(path) ?? "";
+            if (CsvReplacesQueue)
+            {
+                Clips.Clear();
+            }
+
+            foreach (var row in rows)
+            {
+                var clip = new MinimaxDirectorClip
+                {
+                    Label = row.Label,
+                    Prompt = row.Prompt,
+                    Seconds = row.Seconds,
+                    Seed = row.Seed,
+                    WidthOverride = row.Width,
+                    HeightOverride = row.Height,
+                    FpsOverride = row.Fps,
+                    StepsOverride = row.Steps,
+                    ContinuityMode = row.ContinuityMode,
+                };
+
+                foreach (var reference in row.ReferenceImages)
+                {
+                    var resolved = Path.IsPathRooted(reference)
+                        ? reference
+                        : Path.GetFullPath(Path.Combine(baseDir, reference));
+                    clip.ReferenceImagePaths.Add(resolved);
+                }
+
+                Clips.Add(clip);
+            }
+
+            ResumeFromClip = 1;
+            SelectedClip = Clips.LastOrDefault();
+            UpdatePlanSummary();
+            StatusText = $"Imported {rows.Count} shot(s) from {Path.GetFileName(path)}"
+                         + (CsvReplacesQueue ? " (queue replaced)." : " (appended).");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to import Director shot list");
+            notifications.Show("Import error", ex.Message, NotificationType.Error);
+        }
+    }
+
+    /// <summary>Exports the current queue as a CSV that <see cref="ImportShotListCsvAsync"/> can read back.</summary>
+    [RelayCommand]
+    private async Task ExportShotListCsvAsync()
+    {
+        try
+        {
+            var provider = App.StorageProvider;
+            if (provider is null)
+            {
+                return;
+            }
+
+            var file = await provider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export shot list CSV",
+                SuggestedFileName = "shotlist.csv",
+                DefaultExtension = "csv",
+                ShowOverwritePrompt = true,
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("CSV") { Patterns = new[] { "*.csv" } },
+                },
+            });
+
+            if (file?.TryGetLocalPath() is not { } path)
+            {
+                return;
+            }
+
+            await File.WriteAllTextAsync(path, MinimaxDirectorShotListCsv.Serialize(Clips));
+            StatusText = $"Exported {Clips.Count} shot(s) to {Path.GetFileName(path)}.";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to export Director shot list");
+            notifications.Show("Export error", ex.Message, NotificationType.Error);
+        }
+    }
+
+    /// <summary>Runs the preflight checklist manually (it is also run automatically before a session).</summary>
+    [RelayCommand]
+    private async Task RunPreflightAsync()
+    {
+        var client = ClientManager.Client;
+        var outputRoot = client?.OutputImagesDir?.FullPath;
+        var ok = await RunPreflightCoreAsync(client, outputRoot);
+        StatusText = PreflightSummary;
+        notifications.Show(
+            "Director preflight",
+            PreflightSummary,
+            ok ? NotificationType.Success : NotificationType.Error
+        );
+    }
+
+    /// <summary>
+    /// Validates everything that can fail a long session while it is still cheap to fix.
+    /// Errors mirror conditions that already abort generation; everything else is advisory.
+    /// </summary>
+    private async Task<bool> RunPreflightCoreAsync(ComfyClient? client, string? outputRoot)
+    {
+        var checks = new List<MinimaxDirectorPreflightCheck>();
+
+        void Add(string label, string detail, PreflightSeverity severity = PreflightSeverity.Ok) =>
+            checks.Add(new MinimaxDirectorPreflightCheck
+            {
+                Label = label,
+                Detail = detail,
+                Severity = severity,
+            });
+
+        void CheckOverride(string label, string value, ObservableCollection<string> available)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Add(label, "Not set (workflow default).");
+            }
+            else if (available.Count == 0)
+            {
+                Add(label, $"\"{value}\" - not verified. Run 'Scan ComfyUI models' to confirm.", PreflightSeverity.Warning);
+            }
+            else if (available.Contains(value, StringComparer.OrdinalIgnoreCase))
+            {
+                Add(label, $"\"{value}\" found in the scanned list.");
+            }
+            else
+            {
+                Add(label, $"\"{value}\" is NOT in the scanned list (typo or missing file?).", PreflightSeverity.Warning);
+            }
+        }
+
+        // 1. Connection
+        var connected = ClientManager.IsConnected && client is not null;
+        Add(
+            "ComfyUI connection",
+            connected ? "Connected." : "Not connected - start ComfyUI before running.",
+            connected ? PreflightSeverity.Ok : PreflightSeverity.Error
+        );
+
+        // 2. Output folder (also verifies it is writable)
+        if (string.IsNullOrWhiteSpace(outputRoot) || !Directory.Exists(outputRoot))
+        {
+            Add("Output folder", "ComfyUI's output folder is unavailable.", PreflightSeverity.Error);
+        }
+        else
+        {
+            var writable = false;
+            try
+            {
+                var probe = Path.Combine(outputRoot, ".sm_director_preflight");
+                File.WriteAllText(probe, "ok");
+                File.Delete(probe);
+                writable = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug(ex, "Director preflight: output folder write probe failed");
+            }
+
+            Add(
+                "Output folder",
+                writable ? $"{outputRoot} (writable)" : $"{outputRoot} (NOT writable)",
+                writable ? PreflightSeverity.Ok : PreflightSeverity.Error
+            );
+        }
+
+        // 3. Workflow
+        if (workflow is null || string.IsNullOrWhiteSpace(WorkflowJson))
+        {
+            Add("Workflow", "No workflow loaded.", PreflightSeverity.Error);
+        }
+        else if (workflow.OutputNodeNames.Count == 0)
+        {
+            Add("Workflow", "No SaveVideo / SaveImage output node was found.", PreflightSeverity.Error);
+        }
+        else
+        {
+            Add(
+                "Workflow",
+                $"{workflow.SourceLabel}: {workflow.Nodes.Count} node(s), "
+                + $"{workflow.OutputNodeNames.Count} output node(s)."
+            );
+        }
+
+        // 4. ffmpeg (absence degrades gracefully, but is worth flagging)
+        var ffmpeg = client is not null ? ResolveFfmpeg(client) : "";
+        var ffmpegResolved = IsFfmpegResolvable(ffmpeg);
+        var ffmpegNeeded = ChainSession
+                           || EnableWindowSplitting
+                           || ContinuityMode == "last_frame"
+                           || Clips.Any(c => c.ContinuityMode == "last_frame");
+        Add(
+            "ffmpeg",
+            ffmpegResolved
+                ? $"Found: {ffmpeg}"
+                : $"Not found ({ffmpeg}). Window joins, session concat and last-frame continuity will be skipped.",
+            ffmpegResolved || !ffmpegNeeded ? PreflightSeverity.Ok : PreflightSeverity.Warning
+        );
+
+        // 5. Queue
+        Add(
+            "Clip queue",
+            Clips.Count == 0 ? "Queue is empty." : $"{Clips.Count} clip(s) queued.",
+            Clips.Count == 0 ? PreflightSeverity.Error : PreflightSeverity.Ok
+        );
+
+        // 6. Prompts
+        var blankPrompts = Enumerable.Range(0, Clips.Count)
+            .Where(i => string.IsNullOrWhiteSpace(Clips[i].Prompt))
+            .Select(i => i + 1)
+            .ToList();
+        Add(
+            "Prompts",
+            blankPrompts.Count == 0
+                ? "Every clip has a prompt."
+                : $"Empty prompt on clip(s): {string.Join(", ", blankPrompts)}",
+            blankPrompts.Count == 0 ? PreflightSeverity.Ok : PreflightSeverity.Warning
+        );
+
+        // 7. Work estimate
+        var totalWindows = 0;
+        var totalSeconds = 0d;
+        var suspicious = new List<string>();
+        for (var i = 0; i < Clips.Count; i++)
+        {
+            var clip = Clips[i];
+            var fps = Math.Clamp(clip.FpsOverride ?? GlobalFps, 1, 60);
+            var windows = BuildWindowPlan(clip.Seconds, fps).Count;
+            totalWindows += windows;
+            totalSeconds += clip.Seconds;
+            if (windows == 0 || windows > 200)
+            {
+                suspicious.Add($"#{i + 1} ({windows})");
+            }
+        }
+
+        Add(
+            "Work estimate",
+            $"{totalWindows} ComfyUI prompt(s) for {totalSeconds:0.#}s of video. "
+            + (suspicious.Count == 0
+                ? "Window counts look sane."
+                : "Suspicious window counts: " + string.Join(", ", suspicious)),
+            suspicious.Count == 0 ? PreflightSeverity.Ok : PreflightSeverity.Warning
+        );
+
+        // 8. Resume range - the one genuinely new blocking condition
+        var startIndex = Math.Clamp(ResumeFromClip - 1, 0, Math.Max(0, Clips.Count - 1));
+        var planned = Enumerable.Range(0, Clips.Count)
+            .Where(i => !ShouldSkipClip(i, Clips[i]))
+            .ToList();
+        Add(
+            "Resume range",
+            planned.Count == 0
+                ? "No clips would run - all are skipped by the current start-clip / retry settings."
+                : $"Clips #{planned.Min() + 1}..#{planned.Max() + 1} will run "
+                  + $"({planned.Count} of {Clips.Count}); earlier clips are kept.",
+            planned.Count == 0 ? PreflightSeverity.Error : PreflightSeverity.Ok
+        );
+
+        // 9. Reference image paths
+        var missingRefs = new List<string>();
+        var totalRefs = 0;
+        for (var i = 0; i < Clips.Count; i++)
+        {
+            foreach (var reference in Clips[i].ReferenceImagePaths)
+            {
+                if (string.IsNullOrWhiteSpace(reference))
+                {
+                    continue;
+                }
+
+                totalRefs++;
+                if (!File.Exists(reference))
+                {
+                    missingRefs.Add($"#{i + 1}: {Path.GetFileName(reference)}");
+                }
+            }
+        }
+
+        Add(
+            "Reference images",
+            missingRefs.Count == 0
+                ? $"All {totalRefs} reference image(s) exist."
+                : $"Missing: {string.Join("; ", missingRefs.Take(8))}"
+                  + (missingRefs.Count > 8 ? $" (+{missingRefs.Count - 8} more)" : ""),
+            missingRefs.Count == 0 ? PreflightSeverity.Ok : PreflightSeverity.Warning
+        );
+
+        // 10. Overrides
+        CheckOverride("Model override", ModelOverride, AvailableModels);
+        CheckOverride("VAE override", VaeOverride, AvailableVaes);
+        CheckOverride("Text encoder override", ClipOverride, AvailableClips);
+        CheckOverride("LoRA override", LoraName, AvailableLoras);
+
+        // 11. Upscaler consistency
+        if (UpscaleType is "2D" or "3D" && string.IsNullOrWhiteSpace(UpscaleModelName))
+        {
+            Add("Latent upscaler", $"{UpscaleType} is enabled but no checkpoint is set.", PreflightSeverity.Warning);
+        }
+        else
+        {
+            Add(
+                "Latent upscaler",
+                string.IsNullOrWhiteSpace(UpscaleType)
+                    ? "Off."
+                    : $"{UpscaleType} at {UpscaleScale:0.#}x."
+            );
+        }
+
+        // 12. Custom node plugins (best-effort; a false positive must not block a run)
+        if (client is not null && workflow is not null)
+        {
+            var custom = workflow.GetCustomNodeTypes();
+            if (custom.Count == 0)
+            {
+                Add("Custom nodes", "Workflow uses only core ComfyUI nodes.");
+            }
+            else
+            {
+                var missing = new List<string>();
+                foreach (var type in custom)
+                {
+                    try
+                    {
+                        await client.GetNodeOptionNamesAsync(type, "anything", CancellationToken.None);
+                    }
+                    catch
+                    {
+                        missing.Add(type);
+                    }
+                }
+
+                Add(
+                    "Custom nodes",
+                    missing.Count == 0
+                        ? $"All {custom.Count} plugin node type(s) are installed."
+                        : "Possibly missing: " + string.Join(", ", missing),
+                    missing.Count == 0 ? PreflightSeverity.Ok : PreflightSeverity.Warning
+                );
+            }
+        }
+        else
+        {
+            Add("Custom nodes", "Skipped (no connected ComfyUI or no workflow).", PreflightSeverity.Warning);
+        }
+
+        var errors = checks.Count(c => c.Severity == PreflightSeverity.Error);
+        var warnings = checks.Count(c => c.Severity == PreflightSeverity.Warning);
+        var ok = checks.Count(c => c.Severity == PreflightSeverity.Ok);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            PreflightChecks.Clear();
+            foreach (var check in checks)
+            {
+                PreflightChecks.Add(check);
+            }
+
+            PreflightHasErrors = errors > 0;
+            PreflightHasResult = true;
+            PreflightSummary = $"{checks.Count} checks - {ok} OK, {warnings} warning(s), {errors} error(s). "
+                               + (errors > 0
+                                   ? "Fix the errors before running."
+                                   : warnings > 0
+                                       ? "Ready to run, but review the warnings."
+                                       : "Ready to run.");
+        });
+
+        return errors == 0;
+    }
+
+    private static bool IsFfmpegResolvable(string ffmpeg)
+    {
+        if (string.IsNullOrWhiteSpace(ffmpeg))
+        {
+            return false;
+        }
+
+        if (ffmpeg.Contains(Path.DirectorySeparatorChar) || ffmpeg.Contains(Path.AltDirectorySeparatorChar))
+        {
+            return File.Exists(ffmpeg);
+        }
+
+        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
+        return pathEnv.Split(Path.PathSeparator)
+            .Any(dir => !string.IsNullOrWhiteSpace(dir)
+                        && File.Exists(Path.Combine(dir.Trim('"'), ffmpeg)));
+    }
+
+    [RelayCommand]
+    private void ResetClipStatuses()
+    {
+        foreach (var clip in Clips)
+        {
+            clip.Status = "Queued";
+            clip.IsRunning = false;
+        }
+
+        RefreshTimeline();
+        StatusText = "All clip statuses reset to Queued.";
+    }
+
+    /// <summary>Sets the start clip to the currently selected one without starting a run.</summary>
+    [RelayCommand]
+    private void ResumeFromSelectedClip()
+    {
+        if (SelectedClip is null)
+        {
+            return;
+        }
+
+        var index = Clips.IndexOf(SelectedClip);
+        if (index < 0)
+        {
+            return;
+        }
+
+        ResumeFromClip = index + 1;
+        RetryFailedOnly = false;
+        RefreshTimeline();
+        StatusText = $"Next run will start at clip {ResumeFromClip}. Press 'Run session' when ready.";
+    }
+
+    /// <summary>One-click retry: start at the first clip that is not Done/Kept and keep finished clips.</summary>
+    [RelayCommand]
+    private void RetryFromFirstUnfinished()
+    {
+        if (Clips.Count == 0)
+        {
+            return;
+        }
+
+        var target = Clips.Count - 1;
+        for (var i = 0; i < Clips.Count; i++)
+        {
+            if (!Clips[i].Status.StartsWith("Done", StringComparison.OrdinalIgnoreCase)
+                && !Clips[i].Status.StartsWith("Kept", StringComparison.OrdinalIgnoreCase))
+            {
+                target = i;
+                break;
+            }
+        }
+
+        ResumeFromClip = target + 1;
+        RetryFailedOnly = true;
+        RefreshTimeline();
+        StatusText = $"Retrying from clip {ResumeFromClip}...";
+
+        // Reuse the exact same command as the Run session button (including cancellation).
+        ((System.Windows.Input.ICommand)GenerateImageCommand).Execute(GenerateFlags.None);
+    }
+
+    private bool ShouldSkipClip(int index, MinimaxDirectorClip clip)
+    {
+        var startIndex = Math.Clamp(ResumeFromClip - 1, 0, Math.Max(0, Clips.Count - 1));
+        if (index < startIndex)
+        {
+            return true;
+        }
+
+        if (RetryFailedOnly
+            && (clip.Status.StartsWith("Done", StringComparison.OrdinalIgnoreCase)
+                || clip.Status.StartsWith("Kept", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Rebuilds the proportional visual timeline from the current queue + resume settings.</summary>
+    private void RefreshTimeline()
+    {
+        void Build()
+        {
+            TimelineSegments.Clear();
+            MaxStartClip = Math.Max(1, Clips.Count);
+
+            if (Clips.Count == 0)
+            {
+                TimelineSummary = "No clips queued.";
+                ResumeSummary = "Add clips to the queue first.";
+                return;
+            }
+
+            var totalSeconds = Math.Max(0.1, Clips.Sum(c => Math.Max(0.1, c.Seconds)));
+            const double available = 900.0;
+            var startIndex = Math.Clamp(ResumeFromClip - 1, 0, Clips.Count - 1);
+            var totalWindows = 0;
+            var planned = 0;
+
+            for (var i = 0; i < Clips.Count; i++)
+            {
+                var clip = Clips[i];
+                var fps = Math.Clamp(clip.FpsOverride ?? GlobalFps, 1, 60);
+                var windows = BuildWindowPlan(clip.Seconds, fps).Count;
+                totalWindows += windows;
+                var skipped = ShouldSkipClip(i, clip);
+                if (!skipped)
+                {
+                    planned++;
+                }
+
+                TimelineSegments.Add(new MinimaxDirectorTimelineSegment
+                {
+                    Index = i + 1,
+                    Title = clip.DisplayTitle,
+                    Seconds = clip.Seconds,
+                    WindowCount = windows,
+                    Status = clip.Status,
+                    Width = Math.Max(78, Math.Max(0.1, clip.Seconds) / totalSeconds * available),
+                    IsResumeStart = i == startIndex && startIndex > 0,
+                    IsSkipped = skipped,
+                });
+            }
+
+            TimelineSummary = $"{Clips.Count} clip(s) · {totalSeconds:0.#}s · {totalWindows} prompt(s)";
+            ResumeSummary = planned == 0
+                ? "Nothing would run - all clips are skipped."
+                : $"Next run: {planned} of {Clips.Count} clip(s), starting at #{startIndex + 1}. "
+                  + (RetryFailedOnly ? "Finished clips are kept." : "Earlier clips are kept.");
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Build();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(Build);
+        }
+    }
+
     [RelayCommand]
     private void PreviewPlan()
     {
@@ -1269,6 +1919,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
         if (Clips.Count == 0)
         {
             PlanSummary = "No clips queued.";
+            RefreshTimeline();
             return;
         }
 
@@ -1291,6 +1942,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
 
         builder.AppendLine($"Total: {Clips.Count} clip(s), {totalSeconds:0.#}s, {totalWindows} ComfyUI prompt(s)");
         PlanSummary = builder.ToString().TrimEnd();
+        RefreshTimeline();
     }
 
     // ------------------------------------------------------------------ H3 window planning
@@ -1399,6 +2051,15 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
             return;
         }
 
+        // Preflight before committing to a potentially very long session. Errors are conditions
+        // that would abort the run anyway (plus "nothing would run"), so this adds no new failure mode.
+        if (!await RunPreflightCoreAsync(client, outputRoot))
+        {
+            notifications.Show("Preflight failed", PreflightSummary, NotificationType.Error);
+            StatusText = PreflightSummary;
+            return;
+        }
+
         var ffmpeg = ResolveFfmpeg(client);
         var runId = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)
                     + "_" + Guid.NewGuid().ToString("N")[..6];
@@ -1409,11 +2070,28 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
             ? GlobalSeed
             : Random.Shared.NextInt64(0, int.MaxValue);
 
+        var startIndex = Math.Clamp(ResumeFromClip - 1, 0, Math.Max(0, Clips.Count - 1));
+        var plannedClips = Enumerable.Range(0, Clips.Count)
+            .Where(i => !ShouldSkipClip(i, Clips[i]))
+            .ToList();
+        var totalWindows = plannedClips.Sum(
+            i => BuildWindowPlan(Clips[i].Seconds, Clips[i].FpsOverride ?? GlobalFps).Count
+        );
+
+        // lastRunClipVideos is intentionally NOT cleared: videos from a previous run in this
+        // session are what let "retry failed only" / resume keep already-finished clips.
+
         var sessionVideos = new List<string>();
         var promptIndex = 0;
         string? previousClipPrompt = null;
-        string? continuityFrame = null;
-        var totalWindows = Clips.Sum(c => BuildWindowPlan(c.Seconds, c.FpsOverride ?? GlobalFps).Count);
+
+        // On a resume, seed continuity with the last frame the previous run managed to extract.
+        var continuityFrame = startIndex > 0
+                              && ReuseContinuityFrame
+                              && !string.IsNullOrEmpty(lastContinuityFramePath)
+                              && File.Exists(lastContinuityFramePath)
+            ? lastContinuityFramePath
+            : null;
 
         try
         {
@@ -1424,9 +2102,30 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var clip = Clips[clipIndex];
+
+                // Resume / retry: keep already-generated clips instead of regenerating them.
+                if (ShouldSkipClip(clipIndex, clip))
+                {
+                    if (lastRunClipVideos.TryGetValue(clipIndex, out var keptVideo) && File.Exists(keptVideo))
+                    {
+                        sessionVideos.Add(keptVideo);
+                        clip.Status = "Kept (reused)";
+                    }
+                    else
+                    {
+                        clip.Status = "Kept (skipped)";
+                    }
+
+                    clip.IsRunning = false;
+                    previousClipPrompt = clip.Prompt;
+                    RefreshTimeline();
+                    continue;
+                }
+
                 clip.IsRunning = true;
                 clip.Status = "Running";
                 OnPropertyChanged(nameof(Clips));
+                RefreshTimeline();
 
                 var fps = Math.Clamp(clip.FpsOverride ?? GlobalFps, 1, 60);
                 var width = AlignDimension(clip.WidthOverride ?? GlobalWidth);
@@ -1533,6 +2232,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                     {
                         Logger.Warn("Director: no video found for prefix {Prefix} under {Dir}", prefix, outputRoot);
                         clip.Status = $"Window {windowIndex + 1}: no output video";
+                        RefreshTimeline();
                         continue;
                     }
 
@@ -1545,6 +2245,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                         if (await ExtractLastFrameAsync(ffmpeg, video, frame, cancellationToken))
                         {
                             continuityFrame = frame;
+                            lastContinuityFramePath = frame;
                         }
                     }
 
@@ -1561,6 +2262,7 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                     clip.Status = "Failed (no output)";
                     clip.IsRunning = false;
                     previousClipPrompt = clip.Prompt;
+                    RefreshTimeline();
                     continue;
                 }
 
@@ -1589,10 +2291,12 @@ public partial class InferenceMinimaxDirectorViewModel : InferenceGenerationView
                 }
 
                 sessionVideos.Add(clipVideo);
+                lastRunClipVideos[clipIndex] = clipVideo;
                 clip.Status = $"Done ({clipVideos.Count} window(s))";
                 clip.IsRunning = false;
                 previousClipPrompt = clip.Prompt;
                 StatusText = $"Clip {clipIndex + 1}/{Clips.Count} done.";
+                RefreshTimeline();
 
                 if (AggressiveMemoryCleanup)
                 {

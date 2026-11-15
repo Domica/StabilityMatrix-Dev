@@ -30,12 +30,75 @@ public static class ZImageModelExtensions
     /// <summary>
     /// Patterns that identify Z-Image related files
     /// </summary>
-    private static readonly string[] ZImagePatterns = 
+    private static readonly string[] ZImagePatterns =
     {
         "z_image",
         "zimage",
         "z-image"
     };
+
+    /// <summary>
+    /// Cached architecture detection results, keyed by absolute file path.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool>
+        ArchitectureCache = new();
+
+    /// <summary>
+    /// Detects whether a safetensors file uses the Z-Image (Lumina2) architecture
+    /// by inspecting the tensor names in the safetensors header.
+    /// <para>
+    /// Z-Image weights are keyed as <c>model.diffusion_model.layers.*</c> and carry the
+    /// Z-Image specific <c>noise_refiner</c> / <c>context_refiner</c> / <c>t_embedder</c> /
+    /// <c>cap_embedder</c> sub-modules. Wan models instead use
+    /// <c>model.diffusion_model.blocks.*</c>. Checking the architecture (instead of only the
+    /// file name) means renamed or fine-tuned Z-Image files are recognized as well.
+    /// </para>
+    /// </summary>
+    public static bool IsZImageArchitecture(this string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return false;
+
+        if (!filePath.EndsWith(".safetensors", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return ArchitectureCache.GetOrAdd(filePath, static path =>
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return false;
+
+                using var stream = File.OpenRead(path);
+
+                // 8 bytes: little-endian uint64 with the length of the JSON header
+                Span<byte> lengthBuffer = stackalloc byte[8];
+                stream.ReadExactly(lengthBuffer);
+                var jsonLength = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(
+                    lengthBuffer
+                );
+
+                const ulong MAX_ALLOWED_JSON_LENGTH = 100 * 1024 * 1024;
+                if (jsonLength is 0 or > MAX_ALLOWED_JSON_LENGTH)
+                    return false;
+
+                var jsonBytes = new byte[(int)jsonLength];
+                stream.ReadExactly(jsonBytes);
+                var header = System.Text.Encoding.UTF8.GetString(jsonBytes);
+
+                // "layers" is the Z-Image/Lumina2 block name, "blocks" is used by Wan.
+                return header.Contains("\"model.diffusion_model.layers.", StringComparison.Ordinal)
+                    && header.Contains(
+                        "\"model.diffusion_model.cap_embedder.",
+                        StringComparison.Ordinal
+                    );
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
 
     /// <summary>
     /// Checks if a file is a Z-Image model component

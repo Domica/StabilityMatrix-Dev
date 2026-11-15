@@ -183,8 +183,22 @@ public partial class ImageFolderCardViewModel : DisposableViewModelBase
 
         var image = new ImageSource(imageFile);
 
-        // Preload
-        await image.GetBitmapAsync();
+        // Resolve the template (Image / Video / ...) before the dialog is shown,
+        // otherwise a video would be rendered with the plain image template.
+        await image.GetOrRefreshTemplateKeyAsync();
+
+        // Preload - images only. Videos are played back, never decoded as a bitmap.
+        if (image.TemplateKey != ImageSourceTemplateType.Video)
+        {
+            try
+            {
+                await image.GetBitmapAsync();
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning(e, "Failed to preload image at {Path}", imageFile);
+            }
+        }
 
         var vm = vmFactory.Get<ImageViewerViewModel>();
         vm.ImageSource = image;
@@ -210,8 +224,19 @@ public partial class ImageFolderCardViewModel : DisposableViewModelBase
                             var newImageSource = new ImageSource(newImage.AbsolutePath);
 
                             // Preload
-                            await newImageSource.GetBitmapAsync();
                             await newImageSource.GetOrRefreshTemplateKeyAsync();
+
+                            if (newImageSource.TemplateKey != ImageSourceTemplateType.Video)
+                            {
+                                try
+                                {
+                                    await newImageSource.GetBitmapAsync();
+                                }
+                                catch (Exception e)
+                                {
+                                    logger.LogWarning(e, "Failed to preload image at {Path}", newImage.AbsolutePath);
+                                }
+                            }
 
                             // var oldImageSource = sender.ImageSource;
 

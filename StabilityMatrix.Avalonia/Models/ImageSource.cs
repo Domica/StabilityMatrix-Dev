@@ -21,6 +21,18 @@ public record ImageSource : IDisposable, ITemplateKey<ImageSourceTemplateType>
     private Hash? contentHashBlake3;
 
     /// <summary>
+    /// Extensions that are played back as video instead of being loaded as bitmaps.
+    /// </summary>
+    internal static readonly HashSet<string> VideoExtensions =
+    [
+        ".mp4",
+        ".webm",
+        ".mkv",
+        ".mov",
+        ".avi",
+    ];
+
+    /// <summary>
     /// Local file path
     /// </summary>
     public FilePath? LocalFile { get; init; }
@@ -121,6 +133,12 @@ public record ImageSource : IDisposable, ITemplateKey<ImageSourceTemplateType>
         if (extension.Equals(".gif", StringComparison.OrdinalIgnoreCase))
         {
             TemplateKey = ImageSourceTemplateType.WebpAnimation;
+            return true;
+        }
+
+        if (VideoExtensions.Contains(extension))
+        {
+            TemplateKey = ImageSourceTemplateType.Video;
             return true;
         }
 

@@ -64,6 +64,15 @@ public record LocalModelFile
     public required SharedFolderType SharedFolderType { get; set; }
 
     /// <summary>
+    /// True when the model file uses the Z-Image (Lumina2) architecture.
+    /// <para>
+    /// Detected from the safetensors tensor names instead of the file name, so that
+    /// renamed or fine-tuned Z-Image files are recognized as well.
+    /// </para>
+    /// </summary>
+    public bool IsZImageArchitecture { get; set; }
+
+    /// <summary>
     /// Optional connected model information.
     /// </summary>
     public ConnectedModelInfo? ConnectedModelInfo { get; set; }

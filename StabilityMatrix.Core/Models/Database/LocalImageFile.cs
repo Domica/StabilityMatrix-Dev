@@ -42,6 +42,12 @@ public record LocalImageFile
     public Size? ImageSize { get; init; }
 
     /// <summary>
+    /// Path of the generated poster-frame thumbnail for video files.
+    /// <c>null</c> for images, and for videos whose thumbnail has not been created yet.
+    /// </summary>
+    public string? ThumbnailPath { get; init; }
+
+    /// <summary>
     /// File name of the relative path.
     /// </summary>
     public string FileName => Path.GetFileName(AbsolutePath);
@@ -164,6 +170,23 @@ public record LocalImageFile
             };
         }
 
+        if (SupportedVideoExtensions.Contains(filePath.Extension))
+        {
+            filePath.Info.Refresh();
+
+            return new LocalImageFile
+            {
+                AbsolutePath = filePath,
+                ImageType = imageType,
+                CreatedAt = filePath.Info.CreationTimeUtc,
+                LastModifiedAt = filePath.Info.LastWriteTimeUtc,
+                // Video files have no embedded image size; leave it unset.
+                ImageSize = null,
+                // Poster frame extracted with ffmpeg, if it has been generated already.
+                ThumbnailPath = VideoThumbnailHelper.GetExistingThumbnailPath(filePath),
+            };
+        }
+
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
         using var ms = new SKManagedStream(fs);
         var codec = SKCodec.Create(ms);
@@ -185,5 +208,24 @@ public record LocalImageFile
         ".jpeg",
         ".gif",
         ".webp",
+        // Video extensions are indexed so they appear in the outputs gallery
+        // and can be previewed with the internal media viewer.
+        ".mp4",
+        ".webm",
+        ".mkv",
+        ".mov",
+        ".avi",
+    ];
+
+    /// <summary>
+    /// Extensions that are played back as video rather than loaded as images.
+    /// </summary>
+    public static readonly HashSet<string> SupportedVideoExtensions =
+    [
+        ".mp4",
+        ".webm",
+        ".mkv",
+        ".mov",
+        ".avi",
     ];
 }

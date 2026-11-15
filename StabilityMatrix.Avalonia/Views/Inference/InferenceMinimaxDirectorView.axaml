@@ -147,6 +147,20 @@
                                         Command="{Binding ImportPromptsCommand}"
                                         Content="Import prompts"
                                         ToolTip.Tip="Split a .txt / .md file on blank lines, one clip per block" />
+                                    <Button
+                                        Command="{Binding ImportShotListCsvCommand}"
+                                        Content="Import CSV"
+                                        ToolTip.Tip="Import a shot-list CSV. Columns: label, prompt, seconds, seed, width, height, fps, steps, continuity, ref_images. A header row is optional." />
+                                    <Button
+                                        Command="{Binding ExportShotListCsvCommand}"
+                                        Content="Export CSV"
+                                        ToolTip.Tip="Export this queue as a shot-list CSV that can be imported again." />
+                                    <CheckBox
+                                        Margin="0,2,4,2"
+                                        VerticalAlignment="Center"
+                                        Content="CSV replaces queue"
+                                        IsChecked="{Binding CsvReplacesQueue}"
+                                        ToolTip.Tip="When checked, a CSV import clears the existing queue first instead of appending." />
                                 </WrapPanel>
 
                                 <TextBlock
@@ -763,6 +777,74 @@
                                             </StackPanel>
                                         </Expander>
 
+                                        <!--  ======================= Preflight =======================  -->
+                                        <Expander
+                                            Margin="0,10,0,0"
+                                            Header="Preflight - validate before a long run"
+                                            IsExpanded="True">
+                                            <StackPanel
+                                                x:CompileBindings="False"
+                                                Margin="0,6,0,0"
+                                                DataContext="{Binding ElementName=Dock, Path=DataContext}"
+                                                Spacing="8">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="#888888"
+                                                    Text="Checks ffmpeg, workflow output nodes, models, reference paths and clip settings. Also runs automatically before every session; errors block the run."
+                                                    TextWrapping="Wrap" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Button
+                                                        Padding="10,5"
+                                                        Command="{Binding RunPreflightCommand}"
+                                                        Content="Run preflight check"
+                                                        ToolTip.Tip="Validate the current session setup without generating anything." />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="#B3261E"
+                                                        IsVisible="{Binding PreflightHasResult}"
+                                                        Text="{Binding PreflightSummary}"
+                                                        TextWrapping="Wrap"
+                                                        VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <ItemsControl ItemsSource="{Binding PreflightChecks}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="28,*,Auto" Margin="0,2">
+                                                                <Border
+                                                                    Grid.Column="0"
+                                                                    Width="22"
+                                                                    Height="18"
+                                                                    HorizontalAlignment="Center"
+                                                                    VerticalAlignment="Center"
+                                                                    Background="{Binding BadgeBrush}"
+                                                                    CornerRadius="3">
+                                                                    <TextBlock
+                                                                        HorizontalAlignment="Center"
+                                                                        VerticalAlignment="Center"
+                                                                        FontSize="9"
+                                                                        FontWeight="Bold"
+                                                                        Foreground="White"
+                                                                        Text="{Binding Glyph}" />
+                                                                </Border>
+                                                                <TextBlock
+                                                                    Grid.Column="1"
+                                                                    Margin="6,0,0,0"
+                                                                    FontSize="10"
+                                                                    Text="{Binding Detail}"
+                                                                    TextWrapping="Wrap" />
+                                                                <TextBlock
+                                                                    Grid.Column="2"
+                                                                    Margin="6,0,0,0"
+                                                                    FontSize="10"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="{Binding Label}" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Expander>
+
                                         <!--  ======================= Upscale & Refine (latent) =======================  -->
                                         <Expander
                                             Margin="0,10,0,0"
@@ -943,7 +1025,7 @@
                                     x:CompileBindings="False"
                                     Margin="0,0,0,8"
                                     DataContext="{Binding ElementName=Dock, Path=DataContext}"
-                                    RowDefinitions="Auto,*,Auto,Auto">
+                                    RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                                     <StackPanel
                                         Grid.Row="0"
                                         Margin="0,4,0,6"
@@ -969,8 +1051,124 @@
                                         Text="{Binding PlanSummary}"
                                         TextWrapping="Wrap" />
 
+                                    <!--  Visual timeline: one proportional block per clip  -->
                                     <StackPanel
                                         Grid.Row="2"
+                                        Margin="0,4,0,0"
+                                        Spacing="4">
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="#888888"
+                                            Text="{Binding TimelineSummary}" />
+                                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                            <ItemsControl ItemsSource="{Binding TimelineSegments}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border
+                                                            Width="{Binding Width}"
+                                                            MinHeight="46"
+                                                            Margin="1,0"
+                                                            Padding="4,3"
+                                                            Background="{Binding Fill}"
+                                                            CornerRadius="3"
+                                                            ToolTip.Tip="{Binding ToolTip}">
+                                                            <StackPanel Spacing="1">
+                                                                <TextBlock
+                                                                    FontSize="10"
+                                                                    FontWeight="Bold"
+                                                                    Foreground="White"
+                                                                    Text="{Binding IndexLabel}" />
+                                                                <TextBlock
+                                                                    FontSize="9"
+                                                                    Foreground="#EEEEEE"
+                                                                    Text="{Binding Title}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    ToolTip.Tip="{Binding Title}" />
+                                                                <TextBlock
+                                                                    FontSize="9"
+                                                                    Foreground="#DDDDDD"
+                                                                    Text="{Binding Detail}" />
+                                                                <TextBlock
+                                                                    FontSize="9"
+                                                                    Foreground="#FFE082"
+                                                                    IsVisible="{Binding IsResumeStart}"
+                                                                    Text="▶ START" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </StackPanel>
+
+                                    <!--  Resume / retry controls  -->
+                                    <StackPanel
+                                        Grid.Row="3"
+                                        Margin="0,6,0,4"
+                                        Spacing="4">
+                                        <WrapPanel Orientation="Horizontal">
+                                            <WrapPanel.Styles>
+                                                <Style Selector="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                </Style>
+                                                <Style Selector="Button">
+                                                    <Setter Property="Margin" Value="0,2,4,2" />
+                                                    <Setter Property="Padding" Value="9,4" />
+                                                </Style>
+                                            </WrapPanel.Styles>
+                                            <TextBlock
+                                                Margin="0,0,5,0"
+                                                FontSize="11"
+                                                Text="Start at clip" />
+                                            <NumericUpDown
+                                                Width="80"
+                                                Margin="0,0,8,0"
+                                                Increment="1"
+                                                Maximum="{Binding MaxStartClip}"
+                                                Minimum="1"
+                                                Value="{Binding ResumeFromClip}" />
+                                            <Button
+                                                Command="{Binding ResumeFromSelectedClipCommand}"
+                                                Content="From selected"
+                                                ToolTip.Tip="Set the start clip to the currently selected clip (does not run)." />
+                                            <Button
+                                                Command="{Binding RetryFromFirstUnfinishedCommand}"
+                                                Content="Retry unfinished"
+                                                ToolTip.Tip="Keep Done/Kept clips, start at the first unfinished clip, and run immediately." />
+                                            <Button
+                                                Command="{Binding ResetClipStatusesCommand}"
+                                                Content="Reset statuses"
+                                                ToolTip.Tip="Mark every clip as Queued again." />
+                                        </WrapPanel>
+                                        <WrapPanel Orientation="Horizontal">
+                                            <WrapPanel.Styles>
+                                                <Style Selector="CheckBox">
+                                                    <Setter Property="Margin" Value="0,2,14,2" />
+                                                </Style>
+                                            </WrapPanel.Styles>
+                                            <CheckBox
+                                                Content="Retry failed only (keep finished clips)"
+                                                IsChecked="{Binding RetryFailedOnly}"
+                                                ToolTip.Tip="Skip clips already marked Done or Kept when resuming." />
+                                            <CheckBox
+                                                Content="Reuse last continuity frame"
+                                                IsChecked="{Binding ReuseContinuityFrame}"
+                                                ToolTip.Tip="When resuming, seed the first clip with the last frame extracted by the previous run." />
+                                        </WrapPanel>
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="#8ab4f8"
+                                            Text="{Binding ResumeSummary}"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        Grid.Row="4"
                                         Margin="0,6,0,4"
                                         DataContext="{Binding OutputProgress}"
                                         Spacing="4">
@@ -987,7 +1185,7 @@
                                             TextWrapping="Wrap" />
                                     </StackPanel>
 
-                                    <controls:Card Grid.Row="3" Padding="8">
+                                    <controls:Card Grid.Row="5" Padding="8">
                                         <Grid
                                             HorizontalAlignment="Center"
                                             ColumnDefinitions="*,*"

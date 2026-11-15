@@ -58,6 +58,12 @@
                     ToolTip.Tip="Image to Image" />
                 <ui:CommandBarButton
                     Click="AddTabMenu_OnClick"
+                    IconSource="ImageCopy"
+                    Label="Multi Image to Image"
+                    Tag="{x:Static inference:InferenceProjectType.MultiImageToImage}"
+                    ToolTip.Tip="Load 1-10 reference images, write one prompt, generate one shared image" />
+                <ui:CommandBarButton
+                    Click="AddTabMenu_OnClick"
                     Label="{x:Static lang:Resources.Label_Outpaint}"
                     Tag="{x:Static inference:InferenceProjectType.Outpaint}"
                     ToolTip.Tip="{x:Static lang:Resources.Label_Outpaint}">

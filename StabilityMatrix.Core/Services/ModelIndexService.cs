@@ -431,6 +431,14 @@ public partial class ModelIndexService : IModelIndexService
                     SharedFolderType = sharedFolderType,
                 };
 
+                // Detect the Z-Image (Lumina2) architecture from the safetensors tensor
+                // names. The file name cannot be relied on - Z-Image fine-tunes are often
+                // renamed and would otherwise be hidden from the model lists.
+                if (sharedFolderType is SharedFolderType.DiffusionModels)
+                {
+                    localModel.IsZImageArchitecture = path.IsZImageArchitecture();
+                }
+
                 // Try to find a connected model info
                 var fileDirectory = new DirectoryPath(Path.GetDirectoryName(path)!);
                 var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);

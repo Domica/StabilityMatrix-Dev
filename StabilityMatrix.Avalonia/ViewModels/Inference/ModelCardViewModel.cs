@@ -244,7 +244,7 @@ public partial class ModelCardViewModel(
         {
         // Auto-detect Z-Image and switch to Unet loader
         if (SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels &&
-            SelectedModel.RelativePath.IsZImageModel())
+            (SelectedModel.Local.IsZImageArchitecture || SelectedModel.RelativePath.IsZImageModel()))
         {
             SelectedModelLoader = ModelLoader.Unet;
             SelectedUnetModel = SelectedModel;

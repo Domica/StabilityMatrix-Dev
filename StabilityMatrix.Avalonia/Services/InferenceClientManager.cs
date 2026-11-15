@@ -26,7 +26,7 @@ using StabilityMatrix.Core.Models.Api.Comfy;
 using StabilityMatrix.Core.Models.FileInterfaces;
 using StabilityMatrix.Core.Models.Packages;
 using StabilityMatrix.Core.Services;
-using StabilityMatrix.Core.Models.FileInterfaces;
+using StabilityMatrix.Core.Models.Database;
 
 namespace StabilityMatrix.Avalonia.Services;
 
@@ -363,7 +363,7 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
             // Get current local Z-Image models
             var localZImageModels = modelIndexService
                 .FindByModelType(SharedFolderType.DiffusionModels)
-                .Where(m => m.RelativePath.IsZImageModel())
+                .Where(IsZImageModel)
                 .Select(HybridModelFile.FromLocal);
     
             // Merge remote checkpoints with local Z-Image models
@@ -529,21 +529,48 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
         }
     }
 
-        /// <summary>
-        /// Clears shared properties and sets them to local defaults
-        /// </summary>
+    /// <summary>
+    /// Checks whether a locally indexed model is a Z-Image model.
+    /// <para>
+    /// Uses the architecture flag detected during indexing, falls back to the file name
+    /// heuristic and finally inspects the safetensors architecture directly. The file name
+    /// alone is not reliable - Z-Image fine-tunes are often renamed (e.g.
+    /// "zEpicrealism_turboV1Fp8.safetensors") and would be hidden from the model lists.
+    /// </para>
+    /// </summary>
+    private bool IsZImageModel(LocalModelFile model)
+    {
+        if (model.IsZImageArchitecture)
+            return true;
+
+        if (model.RelativePath.IsZImageModel())
+            return true;
+
+        try
+        {
+            return model.GetFullPath(settingsManager.ModelsDirectory).IsZImageArchitecture();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Clears shared properties and sets them to local defaults
+    /// </summary>
         protected void ResetSharedProperties()
         {
         // Load local models (SD checkpoints + Z-Image diffusion models)
         modelsSource.EditDiff(
             modelIndexService
                 .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
-                .Where(m => 
+                .Where(m =>
                     // Include all StableDiffusion checkpoints
                     m.SharedFolderType == SharedFolderType.StableDiffusion ||
                     // For DiffusionModels, only include Z-Image (filter out Wan models)
-                    (m.SharedFolderType == SharedFolderType.DiffusionModels && 
-                     m.RelativePath.IsZImageModel()))
+                    (m.SharedFolderType == SharedFolderType.DiffusionModels &&
+                     IsZImageModel(m)))
                 .Select(HybridModelFile.FromLocal),
             HybridModelFile.Comparer
         );

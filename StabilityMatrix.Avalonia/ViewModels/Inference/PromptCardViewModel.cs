@@ -340,7 +340,9 @@ public partial class PromptCardViewModel
                 {
                     Name = $"PositiveCLIP_{modelConnections.Name}",
                     Clip = e.Builder.Connections.Base.Clip!,
-                    Text = e.Builder.Connections.PositivePrompt,
+                    Text =
+                        e.Builder.Connections.RuntimePositivePrompt
+                        ?? e.Builder.Connections.PositivePrompt,
                 }
             );
             var negativeClip = e.Nodes.AddTypedNode(

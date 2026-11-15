@@ -16,4 +16,5 @@ public enum InferenceProjectType
     WanVideoInpaint,
     MinimaxDirector,
     VideoUpscale,
+    MultiImageToImage,
 }

@@ -722,6 +722,9 @@ public partial class InferenceViewModel : PageViewModelBase, IAsyncDisposable
             InferenceProjectType.Upscale => scope.ServiceManager.Get<InferenceImageUpscaleViewModel>(),
             InferenceProjectType.FluxTextToImage
                 => scope.ServiceManager.Get<InferenceFluxTextToImageViewModel>(),
+            InferenceProjectType.MultiImageToImage
+                => scope.ServiceManager.Get<InferenceMultiImageToImageViewModel>(),
+            _ => scope.ServiceManager.Get<InferenceTextToImageViewModel>(),
         };
 
         switch (vm)

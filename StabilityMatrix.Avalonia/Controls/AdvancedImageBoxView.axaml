@@ -27,6 +27,30 @@
                             Stretch="Uniform"
                             SourceUri="{Binding LocalFile.FullPath}"/>
                     </DataTemplate>
+
+                    <DataTemplate x:Key="{x:Static models:ImageSourceTemplateType.Video}" DataType="models:ImageSource">
+                        <!--  Lightweight poster for grid/preview usage. Mounting a native
+                              VideoView here would create one surface per tile and can exhaust
+                              GDI/handle resources. Full playback happens in the viewer dialog.  -->
+                        <Grid Background="{DynamicResource SystemChromeLowColor}">
+                            <Path
+                                Data="M 0 0 L 0 40 L 28 20 Z"
+                                Fill="{DynamicResource SystemAccentColor}"
+                                Stretch="Uniform"
+                                Width="48"
+                                Height="48"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                            <TextBlock
+                                Margin="4"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                FontSize="11"
+                                Foreground="{DynamicResource SystemBaseMediumColor}"
+                                Text="{Binding LocalFile.Name}"
+                                TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </DataTemplate>
                     
                     <DataTemplate x:Key="{x:Static models:ImageSourceTemplateType.Image}" DataType="models:ImageSource">
                         <controls:AdvancedImageBox

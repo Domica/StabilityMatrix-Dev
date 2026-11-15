@@ -27,7 +27,11 @@ public class ImageIndexService : IImageIndexService
 
         InferenceImages = new IndexCollection<LocalImageFile, string>(this, file => file.AbsolutePath)
         {
-            RelativePath = "Inference"
+            // Empty relative path = index the whole Images directory, not just
+            // "Images\Inference". This way outputs generated into sibling folders
+            // (Text2Img, Img2Img, Img2Vid, ...) - including .mp4/.webm videos -
+            // also show up in the gallery panes of the inference screens.
+            RelativePath = ""
         };
 
         EventManager.Instance.ImageFileAdded += OnImageFileAdded;
@@ -40,11 +44,17 @@ public class ImageIndexService : IImageIndexService
 
     public async Task RefreshIndex(IndexCollection<LocalImageFile, string> indexCollection)
     {
-        if (indexCollection.RelativePath is not { } subPath)
+        var relativePath = indexCollection.RelativePath;
+        if (relativePath is null)
             return;
 
         var imagesDir = settingsManager.ImagesDirectory;
-        var searchDir = imagesDir.JoinDir(indexCollection.RelativePath);
+
+        // An empty relative path means "index the whole Images directory".
+        var searchDir = string.IsNullOrEmpty(relativePath)
+            ? imagesDir
+            : imagesDir.JoinDir(relativePath);
+
         if (!searchDir.Exists)
         {
             return;
@@ -69,6 +79,13 @@ public class ImageIndexService : IImageIndexService
                     {
                         try
                         {
+                            // Videos cannot be decoded by the image loaders, so extract a
+                            // poster frame once and use it as the gallery thumbnail.
+                            if (LocalImageFile.SupportedVideoExtensions.Contains(f.Extension))
+                            {
+                                VideoThumbnailHelper.EnsureThumbnail(f.FullPath);
+                            }
+
                             toAdd.Add(LocalImageFile.FromPath(f));
                         }
                         catch (Exception e)
@@ -95,7 +112,7 @@ public class ImageIndexService : IImageIndexService
 
         logger.LogInformation(
             "Image index updated for {Prefix} with ({Added}/{Total}) files, took {IndexDuration:F1}ms ({EditDuration:F1}ms edit)",
-            subPath,
+            searchDir.ToString(),
             toAdd.Count,
             toAdd.Count + errors,
             indexElapsed.TotalMilliseconds,
@@ -105,9 +122,16 @@ public class ImageIndexService : IImageIndexService
 
     private void OnImageFileAdded(object? sender, FilePath filePath)
     {
-        var imagesFolder = settingsManager.ImagesDirectory.JoinDir(InferenceImages.RelativePath!);
+        var imagesFolder = settingsManager.ImagesDirectory;
 
-        if (string.IsNullOrEmpty(Path.GetRelativePath(imagesFolder, filePath)))
+        if (!string.IsNullOrEmpty(InferenceImages.RelativePath))
+        {
+            imagesFolder = imagesFolder.JoinDir(InferenceImages.RelativePath);
+        }
+
+        // Skip files that live outside of the indexed directory.
+        var relativePath = Path.GetRelativePath(imagesFolder, filePath);
+        if (relativePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
         {
             logger.LogWarning(
                 "Image file {Path} added outside of relative directory {DirPath}, skipping",

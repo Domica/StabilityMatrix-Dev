@@ -1803,6 +1803,14 @@ public class ComfyNodeBuilder
         public OneOf<string, StringNodeConnection> PositivePrompt { get; set; }
         public OneOf<string, StringNodeConnection> NegativePrompt { get; set; }
 
+        /// <summary>
+        /// Optional runtime STRING connection that overrides the text of the positive
+        /// CLIPTextEncode, while <see cref="PositivePrompt"/> stays available for
+        /// LoRA / style processing. Used by screens that assemble the prompt inside
+        /// the graph (e.g. multi-reference caption fusion).
+        /// </summary>
+        public OneOf<string, StringNodeConnection>? RuntimePositivePrompt { get; set; }
+
         public ClipNodeConnection? BaseClip { get; set; }
         public ClipVisionNodeConnection? BaseClipVision { get; set; }
 

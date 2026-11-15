@@ -34,6 +34,7 @@ public class InferenceProjectDocument : ICloneable
             ProjectType = loadableModel switch
             {
                 InferenceImageToImageViewModel => InferenceProjectType.ImageToImage,
+                InferenceMultiImageToImageViewModel => InferenceProjectType.MultiImageToImage,
                 InferenceTextToImageViewModel => InferenceProjectType.TextToImage,
                 InferenceImageUpscaleViewModel => InferenceProjectType.Upscale,
                 InferenceImageToVideoViewModel => InferenceProjectType.ImageToVideo,

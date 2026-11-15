@@ -27,6 +27,8 @@
 
     <controls:UserControlBase.Resources>
         <converters:FileUriConverter x:Key="FileUriConverter" />
+        <converters:ImageFileUriConverter x:Key="ImageFileUriConverter" />
+        <converters:IsVideoFileConverter x:Key="IsVideoFileConverter" />
     </controls:UserControlBase.Resources>
 
     <controls:UserControlBase.Styles>
@@ -258,6 +260,7 @@
                             <LayoutTransformControl.LayoutTransform>
                                 <ScaleTransform ScaleX="{Binding $parent[scroll:BetterScrollViewer].((vm:OutputsPageViewModel)DataContext).ResizeFactor, FallbackValue=1, TargetNullValue=1}" ScaleY="{Binding $parent[scroll:BetterScrollViewer].((vm:OutputsPageViewModel)DataContext).ResizeFactor, FallbackValue=1, TargetNullValue=1}" />
                             </LayoutTransformControl.LayoutTransform>
+                            <Grid>
                             <selectableImageCard:SelectableImageButton
                                 vendorLabs:BetterAsyncImage.ImageCache="{x:Static controls:ImageLoaders.OutputsPageImageCache}"
                                 Command="{Binding $parent[ItemsRepeater].((vm:OutputsPageViewModel)DataContext).OnImageClick}"
@@ -265,7 +268,7 @@
                                 ImageHeight="300"
                                 ImageWidth="300"
                                 IsSelected="{Binding IsSelected}"
-                                Source="{Binding ImageFile.AbsolutePath, Converter={StaticResource FileUriConverter}}">
+                                Source="{Binding ImageFile, Converter={StaticResource ImageFileUriConverter}}">
                                 <selectableImageCard:SelectableImageButton.ContextFlyout>
                                     <ui:FAMenuFlyout>
                                         <ui:MenuFlyoutItem
@@ -331,6 +334,25 @@
                                     </ui:FAMenuFlyout>
                                 </selectableImageCard:SelectableImageButton.ContextFlyout>
                             </selectableImageCard:SelectableImageButton>
+
+                            <!--  Overlay so video entries are recognizable in the gallery
+                                  (the async image loader cannot decode video frames). -->
+                            <Border
+                                IsVisible="{Binding ImageFile.AbsolutePath, Converter={StaticResource IsVideoFileConverter}}"
+                                IsHitTestVisible="False"
+                                Background="#66000000"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch">
+                                <Path
+                                    Data="M 0 0 L 0 32 L 22 16 Z"
+                                    Fill="White"
+                                    Width="40"
+                                    Height="40"
+                                    Stretch="Uniform"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center" />
+                            </Border>
+                            </Grid>
                         </LayoutTransformControl>
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>

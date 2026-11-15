@@ -109,7 +109,7 @@ public partial class OutputsPageViewModel : PageViewModelBase
             ? Resources.Label_OneImageSelected
             : string.Format(Resources.Label_NumImagesSelected, NumItemsSelected);
 
-    private string[] allowedExtensions = [".png", ".webp", ".jpg", ".jpeg", ".gif"];
+    private string[] allowedExtensions = [".png", ".webp", ".jpg", ".jpeg", ".gif", ".mp4", ".webm", ".mkv", ".mov", ".avi"];
 
     private TreeViewDirectory? lastOutputCategory;
 
@@ -601,7 +601,7 @@ public partial class OutputsPageViewModel : PageViewModelBase
                 return;
             }
 
-            var files = Directory
+            var allFiles = Directory
                 .EnumerateFiles(directory, "*", EnumerationOptionConstants.AllDirectories)
                 .Where(file =>
                     allowedExtensions.Contains(new FilePath(file).Extension)
@@ -611,8 +611,64 @@ public partial class OutputsPageViewModel : PageViewModelBase
                     )
                         is false
                 )
-                .Select(file => LocalImageFile.FromPath(file))
                 .ToList();
+
+            // Videos cannot be decoded by the image loaders - extract a poster frame
+            // once with ffmpeg so they show a real thumbnail in the gallery.
+            Parallel.ForEach(
+                allFiles.Where(file =>
+                    LocalImageFile.SupportedVideoExtensions.Contains(new FilePath(file).Extension)
+                ),
+                file => VideoThumbnailHelper.EnsureThumbnail(file)
+            );
+
+            var files = allFiles.Select(file => LocalImageFile.FromPath(file)).ToList();
+
+            // Always surface videos from the whole images directory so they are not
+            // hidden when a specific subfolder (e.g. "Inference") is being viewed.
+            // This ensures videos in sibling output folders (e.g. "Text2Img") appear
+            // in the current gallery view regardless of which category/subfolder is selected.
+            var imagesRoot = settingsManager.ImagesDirectory.ToString();
+            if (!string.IsNullOrEmpty(imagesRoot))
+            {
+                var normalizedRoot = Path
+                    .GetFullPath(imagesRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedDir = Path
+                    .GetFullPath(directory)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                var isRoot = normalizedDir.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+                var isSubFolder =
+                    normalizedDir.Length > normalizedRoot.Length
+                    && normalizedDir.StartsWith(
+                        normalizedRoot + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase
+                    );
+
+                if (isRoot || isSubFolder)
+                {
+                    var existingPaths = files
+                        .Select(file => file.AbsolutePath)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    var videos = Directory
+                        .EnumerateFiles(imagesRoot, "*", EnumerationOptionConstants.AllDirectories)
+                        .Where(file =>
+                            ImageSource.VideoExtensions.Contains(new FilePath(file).Extension)
+                            && new FilePath(file)
+                                .Info.DirectoryName?.EndsWith(
+                                    "thumbnails",
+                                    StringComparison.OrdinalIgnoreCase
+                                ) is false
+                            // Avoid duplicates when the root folder itself is being viewed.
+                            && !existingPaths.Contains(file)
+                        )
+                        .Select(file => LocalImageFile.FromPath(file));
+
+                    files = files.Concat(videos).ToList();
+                }
+            }
 
             if (getOutputsTokenSource.IsCancellationRequested)
             {

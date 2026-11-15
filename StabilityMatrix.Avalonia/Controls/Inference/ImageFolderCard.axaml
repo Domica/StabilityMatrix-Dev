@@ -23,6 +23,8 @@
     </Design.PreviewWith>
 
     <converters:FileUriConverter x:Key="FileUriConverter" />
+    <converters:ImageFileUriConverter x:Key="ImageFileUriConverter" />
+    <converters:IsVideoFileConverter x:Key="IsVideoFileConverter" />
 
     <ControlTheme x:Key="{x:Type controls:ImageFolderCard}" TargetType="controls:ImageFolderCard">
         <Setter Property="Background" Value="Transparent" />
@@ -266,8 +268,24 @@
                                                     <vendorLabs:BetterAsyncImage
                                                         Width="{Binding $parent[ItemsRepeater].((vmInference:ImageFolderCardViewModel)DataContext).ImageSize.Width}"
                                                         Height="{Binding $parent[ItemsRepeater].((vmInference:ImageFolderCardViewModel)DataContext).ImageSize.Height}"
-                                                        Source="{Binding AbsolutePath, Converter={StaticResource FileUriConverter}}"
+                                                        Source="{Binding Converter={StaticResource ImageFileUriConverter}}"
                                                         Stretch="UniformToFill" />
+
+                                                    <!--  Video badge: the async image loader cannot decode
+                                                          video frames, so mark the entry with a play glyph.  -->
+                                                    <Border
+                                                        Background="#55000000"
+                                                        IsHitTestVisible="False"
+                                                        IsVisible="{Binding AbsolutePath, Converter={StaticResource IsVideoFileConverter}}">
+                                                        <Path
+                                                            Data="M 0 0 L 0 32 L 22 16 Z"
+                                                            Fill="White"
+                                                            Width="36"
+                                                            Height="36"
+                                                            Stretch="Uniform"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center" />
+                                                    </Border>
 
                                                     <Border
                                                         Grid.Row="1"

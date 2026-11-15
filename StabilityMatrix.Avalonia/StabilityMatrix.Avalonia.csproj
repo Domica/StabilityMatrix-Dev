@@ -108,6 +108,9 @@
         <PackageReference Include="FuzzySharp" />
         <PackageReference Include="JetBrains.Annotations" />
         <PackageReference Include="KeyedSemaphores" />
+        <PackageReference Include="LibVLCSharp" />
+        <PackageReference Include="LibVLCSharp.Avalonia" />
+        <PackageReference Include="VideoLan.LibVLC.Windows" />
         <PackageReference Include="Markdig" />
         <PackageReference Include="Markdown.Avalonia" />
         <PackageReference Include="MessagePipe" />

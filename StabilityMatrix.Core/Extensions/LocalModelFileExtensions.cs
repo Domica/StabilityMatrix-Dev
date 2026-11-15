@@ -75,7 +75,7 @@ public static class LocalModelFileExtensions
     public static bool IsZImageComponent(this LocalModelFile model, string rootModelDirectory)
     {
         var fullPath = model.GetFullPath(rootModelDirectory);
-        return fullPath.IsZImageModel();
+        return fullPath.IsZImageModel() || fullPath.IsZImageArchitecture();
     }
 
     /// <summary>
