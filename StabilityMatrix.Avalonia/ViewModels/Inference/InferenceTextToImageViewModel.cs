@@ -170,11 +170,28 @@ public class InferenceTextToImageViewModel : InferenceGenerationViewModelBase, I
         ModelCardViewModel.ApplyStep(applyArgs);
 
         var isUnetLoader = ModelCardViewModel.SelectedModelLoader is ModelLoader.Unet;
+        // MOSS-Image uses the FLUX.2 latent format, not SD3.
+        // ComfyUI's official MOSS-Image templates feed Empty Flux 2 Latent to the sampler.
+        var isMossImage = ModelCardViewModel.SelectedClipType == "moss_image";
         var useSd3Latent =
-            SamplerCardViewModel.ModulesCardViewModel.IsModuleEnabled<FluxGuidanceModule>() || isUnetLoader;
+            !isMossImage
+            && (
+                SamplerCardViewModel.ModulesCardViewModel.IsModuleEnabled<FluxGuidanceModule>()
+                || isUnetLoader
+            );
         var usePlasmaNoise = SamplerCardViewModel.ModulesCardViewModel.IsModuleEnabled<PlasmaNoiseModule>();
 
-        if (useSd3Latent)
+        if (isMossImage)
+        {
+            builder.SetupEmptyLatentSource(
+                SamplerCardViewModel.Width,
+                SamplerCardViewModel.Height,
+                BatchSizeCardViewModel.BatchSize,
+                BatchSizeCardViewModel.IsBatchIndexEnabled ? BatchSizeCardViewModel.BatchIndex : null,
+                latentType: LatentType.Flux2
+            );
+        }
+        else if (useSd3Latent)
         {
             builder.SetupEmptyLatentSource(
                 SamplerCardViewModel.Width,

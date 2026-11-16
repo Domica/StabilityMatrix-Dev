@@ -537,6 +537,23 @@ public class ComfyNodeBuilder
         public int BatchSize { get; init; } = 1;
     }
 
+    /// <summary>
+    /// Empty latent used by FLUX.2 and MOSS-Image models.
+    /// MOSS-Image templates use this instead of EmptySD3LatentImage.
+    /// </summary>
+    [TypedNodeOptions(Name = "EmptyFlux2LatentImage")]
+    public record EmptyFlux2LatentImage : ComfyTypedNodeBase<LatentNodeConnection>
+    {
+        [Range(16, MaxResolution)]
+        public int Width { get; init; } = 1024;
+
+        [Range(16, MaxResolution)]
+        public int Height { get; init; } = 1024;
+
+        [Range(1, 4096)]
+        public int BatchSize { get; init; } = 1;
+    }
+
     public record RandomNoise : ComfyTypedNodeBase<NoiseNodeConnection>
     {
         [Range(0, int.MaxValue)]
@@ -628,6 +645,7 @@ public class ComfyNodeBuilder
         public required ConditioningNodeConnection Positive { get; init; }
         public required ConditioningNodeConnection Negative { get; init; }
         public required VAENodeConnection Vae { get; init; }
+
         // CLIP Vision is optional: Wan 2.2 I2V (and other setups) do not require clip embeds.
         // When null, the node is built without the clip_embeds input.
         public ClipVisionOutputNodeConnection? ClipVisionOutput { get; init; }
