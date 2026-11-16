@@ -142,7 +142,7 @@ public partial class ModelCardViewModel(
     private double shift = 3.0d;
 
     public List<string> WeightDTypes { get; set; } = ["default", "fp8_e4m3fn", "fp8_e5m2"];
-    public List<string> ClipTypes { get; set; } = ["flux", "sd3", "HiDream"];
+    public List<string> ClipTypes { get; set; } = ["flux", "sd3", "HiDream", "moss_image"];
 
     public StackEditableCardViewModel ExtraNetworksStackCardViewModel { get; } =
         new(vmFactory) { Title = Resources.Label_ExtraNetworks, AvailableModules = [typeof(LoraModule)] };
@@ -304,9 +304,9 @@ public partial class ModelCardViewModel(
             if (!IsClipModelSelectionEnabled)
                 IsClipModelSelectionEnabled = true;
 
-            // Set CLIP type to flux (dual CLIP)
+            // Set CLIP type to moss_image (MOSS-Image uses Qwen3.5 via single CLIPLoader)
             if (string.IsNullOrEmpty(SelectedClipType))
-                SelectedClipType = "flux";
+                SelectedClipType = "moss_image";
 
             // Auto-select Flux VAE if available and not already selected
             if (SelectedVae == null || SelectedVae.IsDefault)
@@ -320,23 +320,15 @@ public partial class ModelCardViewModel(
                     SelectedVae = fluxVae;
             }
 
-            // Auto-select Flux CLIP models if not already selected
+            // Auto-select Qwen3.5 as CLIP 1 for MOSS-Image if available and not already selected
             if (SelectedClip1 == null || SelectedClip1.IsNone)
             {
-                var clipL = ClientManager.ClipModels.FirstOrDefault(c =>
-                    c.RelativePath.Contains("clip_l", StringComparison.OrdinalIgnoreCase)
+                var qwenClip = ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                    || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
                 );
-                if (clipL != null)
-                    SelectedClip1 = clipL;
-            }
-
-            if (SelectedClip2 == null || SelectedClip2.IsNone)
-            {
-                var clipG = ClientManager.ClipModels.FirstOrDefault(c =>
-                    c.RelativePath.Contains("clip_g", StringComparison.OrdinalIgnoreCase)
-                );
-                if (clipG != null)
-                    SelectedClip2 = clipG;
+                if (qwenClip != null)
+                    SelectedClip1 = qwenClip;
             }
         }
 

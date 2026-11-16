@@ -40,9 +40,17 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
     private HybridModelFile? selectedClip2;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMossClip))]
+    private string? selectedClipType;
+
+    [ObservableProperty]
     private string selectedDType = "default";
 
     public List<string> WeightDTypes { get; set; } = ["default", "fp8_e4m3fn", "fp8_e5m2"];
+
+    public List<string> ClipTypes { get; set; } = ["flux", "sd3", "HiDream", "moss_image"];
+
+    public bool IsMossClip => SelectedClipType == "moss_image";
 
     public IInferenceClientManager ClientManager { get; } = clientManager;
 
@@ -80,23 +88,36 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
                 SelectedVae = fluxVae;
         }
 
-        // Auto-select Flux CLIP models if not already selected
-        if (SelectedClip1 == null || SelectedClip1.IsNone)
+        // Auto-select Qwen3.5 as CLIP 1 for MOSS-Image if type is moss_image and not already selected
+        if (IsMossClip && (SelectedClip1 == null || SelectedClip1.IsNone))
         {
-            var clipL = ClientManager.ClipModels.FirstOrDefault(c =>
-                c.RelativePath.Contains("clip_l", StringComparison.OrdinalIgnoreCase)
+            var qwenClip = ClientManager.ClipModels.FirstOrDefault(c =>
+                c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
             );
-            if (clipL != null)
-                SelectedClip1 = clipL;
+            if (qwenClip != null)
+                SelectedClip1 = qwenClip;
         }
-
-        if (SelectedClip2 == null || SelectedClip2.IsNone)
+        else
         {
-            var clipG = ClientManager.ClipModels.FirstOrDefault(c =>
-                c.RelativePath.Contains("clip_g", StringComparison.OrdinalIgnoreCase)
-            );
-            if (clipG != null)
-                SelectedClip2 = clipG;
+            // Auto-select Flux CLIP models for regular flux type
+            if (SelectedClip1 == null || SelectedClip1.IsNone)
+            {
+                var clipL = ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("clip_l", StringComparison.OrdinalIgnoreCase)
+                );
+                if (clipL != null)
+                    SelectedClip1 = clipL;
+            }
+
+            if (SelectedClip2 == null || SelectedClip2.IsNone)
+            {
+                var clipG = ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("clip_g", StringComparison.OrdinalIgnoreCase)
+                );
+                if (clipG != null)
+                    SelectedClip2 = clipG;
+            }
         }
 
         var vaeLoader = e.Nodes.AddTypedNode(
@@ -108,17 +129,35 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         );
         e.Builder.Connections.Base.VAE = vaeLoader.Output;
 
-        // DualCLIPLoader
-        var clipLoader = e.Nodes.AddTypedNode(
-            new ComfyNodeBuilder.DualCLIPLoader
-            {
-                Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.DualCLIPLoader)),
-                ClipName1 = SelectedClip1?.RelativePath ?? throw new ValidationException("No Clip1 Selected"),
-                ClipName2 = SelectedClip2?.RelativePath ?? throw new ValidationException("No Clip2 Selected"),
-                Type = "flux",
-            }
-        );
-        e.Builder.Connections.Base.Clip = clipLoader.Output;
+        // CLIP loading: single CLIPLoader for moss_image (MOSS-Image Qwen3.5), DualCLIPLoader for flux
+        if (IsMossClip && SelectedClip1 is { IsNone: false })
+        {
+            var clipLoader = e.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.CLIPLoader
+                {
+                    Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoader)),
+                    ClipName = SelectedClip1.RelativePath,
+                    Type = "moss_image",
+                }
+            );
+            e.Builder.Connections.Base.Clip = clipLoader.Output;
+        }
+        else
+        {
+            // DualCLIPLoader for flux/sd3/HiDream (requires both clip_name1 and clip_name2)
+            var clipLoader = e.Nodes.AddTypedNode(
+                new ComfyNodeBuilder.DualCLIPLoader
+                {
+                    Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.DualCLIPLoader)),
+                    ClipName1 =
+                        SelectedClip1?.RelativePath ?? throw new ValidationException("No Clip1 Selected"),
+                    ClipName2 =
+                        SelectedClip2?.RelativePath ?? throw new ValidationException("No Clip2 Selected"),
+                    Type = SelectedClipType ?? "flux",
+                }
+            );
+            e.Builder.Connections.Base.Clip = clipLoader.Output;
+        }
     }
 
     private static ComfyTypedNodeBase<ModelNodeConnection> GetModelLoader(
@@ -146,6 +185,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
                 SelectedVaeName = SelectedVae?.RelativePath,
                 SelectedClip1Name = SelectedClip1?.RelativePath,
                 SelectedClip2Name = SelectedClip2?.RelativePath,
+                SelectedClipType = SelectedClipType,
             }
         );
     }
@@ -170,6 +210,8 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         SelectedClip2 = model.SelectedClip2Name is null
             ? HybridModelFile.None
             : ClientManager.ClipModels.FirstOrDefault(x => x.RelativePath == model.SelectedClip2Name);
+
+        SelectedClipType = model.SelectedClipType ?? "flux";
     }
 
     internal class UnetModelCardModel
@@ -178,6 +220,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         public string? SelectedVaeName { get; set; }
         public string? SelectedClip1Name { get; set; }
         public string? SelectedClip2Name { get; set; }
+        public string? SelectedClipType { get; set; }
     }
 
     /// <inheritdoc />

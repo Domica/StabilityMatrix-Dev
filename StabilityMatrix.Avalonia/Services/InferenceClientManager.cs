@@ -684,6 +684,31 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
             HybridModelFile.Comparer
         );
 
+        // Filesystem fallback: scan TextEncoders folder directly for CLIP models
+        // in case the model index hasn't been refreshed yet
+        var textEncodersDir = new DirectoryPath(settingsManager.ModelsDirectory).JoinDir("TextEncoders");
+        if (textEncodersDir.Exists)
+        {
+            var fsClipModels = textEncodersDir
+                .EnumerateFiles()
+                .Where(f => f.Extension is ".safetensors" or ".gguf" or ".pt")
+                .Select(f =>
+                    HybridModelFile.FromLocal(
+                        new LocalModelFile
+                        {
+                            RelativePath = $"TextEncoders/{f.Name}",
+                            SharedFolderType = SharedFolderType.TextEncoders,
+                        }
+                    )
+                )
+                .ToList();
+
+            if (fsClipModels.Count > 0)
+            {
+                clipModelsSource.AddOrUpdate(fsClipModels, HybridModelFile.Comparer);
+            }
+        }
+
         var downloadableClipModels = RemoteModels.ClipModelFiles.Where(u =>
             !clipModelsSource.Lookup(u.GetId()).HasValue
         );
