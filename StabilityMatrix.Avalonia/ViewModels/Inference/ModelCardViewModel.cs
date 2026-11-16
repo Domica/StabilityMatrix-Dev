@@ -321,12 +321,27 @@ public partial class ModelCardViewModel(
             }
 
             // Auto-select Qwen3.5 as CLIP 1 for MOSS-Image if available and not already selected
+            // Prefer the official MOSS safetensors TE; a generic Qwen3.5 GGUF is not a
+            // valid MOSS encoder and yields unprompted collage images.
             if (SelectedClip1 == null || SelectedClip1.IsNone)
             {
-                var qwenClip = ClientManager.ClipModels.FirstOrDefault(c =>
-                    c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
-                    || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
-                );
+                var mossQwenClips = ClientManager
+                    .ClipModels.Where(c =>
+                        (
+                            c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                            || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
+                        ) && c.RelativePath.Contains("3.5", StringComparison.Ordinal)
+                    )
+                    .ToList();
+
+                var qwenClip =
+                    mossQwenClips.FirstOrDefault(c =>
+                        !c.RelativePath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
+                    )
+                    ?? mossQwenClips.FirstOrDefault()
+                    ?? ClientManager.ClipModels.FirstOrDefault(c =>
+                        c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                    );
                 if (qwenClip != null)
                     SelectedClip1 = qwenClip;
             }

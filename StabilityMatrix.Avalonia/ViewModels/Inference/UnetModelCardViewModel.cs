@@ -89,12 +89,32 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         }
 
         // Auto-select Qwen3.5 as CLIP 1 for MOSS-Image if type is moss_image and not already selected
+        // IMPORTANT: MOSS-Image requires the official safetensors Qwen3.5 text encoder
+        // (e.g. qwen3.5_9b_w4a8_gptq.safetensors / qwen3.5_9b_int8_convrot.safetensors).
+        // A generic llama.cpp Qwen3.5 GGUF is NOT a valid MOSS encoder and produces
+        // unprompted collage images even when the GGUF loader accepts it, so we prefer
+        // the safetensors TE and only fall back to a GGUF if nothing else is present.
         if (IsMossClip && (SelectedClip1 == null || SelectedClip1.IsNone))
         {
-            var qwenClip = ClientManager.ClipModels.FirstOrDefault(c =>
-                c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
-                || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
-            );
+            var mossQwenClips = ClientManager
+                .ClipModels.Where(c =>
+                    (
+                        c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                        || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
+                    ) && c.RelativePath.Contains("3.5", StringComparison.Ordinal)
+                )
+                .ToList();
+
+            // Prefer the official safetensors MOSS text encoder (not .gguf).
+            var qwenClip =
+                mossQwenClips.FirstOrDefault(c =>
+                    !c.RelativePath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
+                )
+                // Then any safetensors qwen, then any qwen (gguf) as last resort.
+                ?? mossQwenClips.FirstOrDefault()
+                ?? ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                );
             if (qwenClip != null)
                 SelectedClip1 = qwenClip;
         }
