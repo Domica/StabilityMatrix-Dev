@@ -701,9 +701,30 @@ public partial class ModelCardViewModel(
             );
             e.Builder.Connections.Base.Clip = clipLoader.Output;
         }
+        else if (SelectedClipType == "moss_image")
+        {
+            // Single CLIPLoader for moss_image (MOSS-Image Qwen3.5) - uses standard CLIPLoader,
+            // NOT CLIPLoaderGGUF because ComfyUI-GGUF doesn't support 'moss_image' type for GGUF
+            if (SelectedClip1 is { IsNone: false })
+            {
+                var clipLoader = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.CLIPLoader
+                    {
+                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoader)),
+                        ClipName = SelectedClip1.RelativePath,
+                        Type = "moss_image",
+                    }
+                );
+                e.Builder.Connections.Base.Clip = clipLoader.Output;
+            }
+            else
+            {
+                throw new ValidationException("No Clip1 Selected");
+            }
+        }
         else
         {
-            SetupClipLoadersGGUF(e); //Z-image
+            SetupClipLoadersGGUF(e); //Z-image and HiDream
         }
     }
 
