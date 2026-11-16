@@ -307,15 +307,13 @@
     </Target>
 
     <!-- VideoLan.LibVLC.Windows ships native libvlc binaries for x86, x64 and arm64.
-         We only build/publish win-x64, so prune the other architectures and import libs
-         to keep the EXE/zip size sane (~300 MB savings). Runs after both Build and Publish
-         so single-file publish bundles only win-x64 native libs. -->
+         We only build/publish win-x64, so prune the other architectures
+         to keep the EXE/zip size sane (~300 MB savings). Runs after both Build and Publish.
+         $(TargetDir)/$(PublishDir) already end in win-x64\, so no extra arch segment. -->
     <Target Name="PruneUnusedLibVlcArchs" AfterTargets="Build;Publish">
-        <Exec Command="rmdir /s /q &quot;$(TargetDir)win-x64/libvlc/win-x86&quot;" Condition="Exists('$(TargetDir)win-x64/libvlc/win-x86')" />
-        <Exec Command="rmdir /s /q &quot;$(TargetDir)win-x64/libvlc/win-arm64&quot;" Condition="Exists('$(TargetDir)win-x64/libvlc/win-arm64')" />
-        <Exec Command="del /s /q &quot;$(TargetDir)win-x64/libvlc/*.lib&quot;" />
-        <Exec Command="rmdir /s /q &quot;$(PublishDir)win-x64/libvlc/win-x86&quot;" Condition="Exists('$(PublishDir)win-x64/libvlc/win-x86')" />
-        <Exec Command="rmdir /s /q &quot;$(PublishDir)win-x64/libvlc/win-arm64&quot;" Condition="Exists('$(PublishDir)win-x64/libvlc/win-arm64')" />
-        <Exec Command="del /s /q &quot;$(PublishDir)win-x64/libvlc/*.lib&quot;" />
+        <Exec Command="rmdir /s /q &quot;$(TargetDir)libvlc\win-x86&quot;" Condition="Exists('$(TargetDir)libvlc\win-x86')" />
+        <Exec Command="rmdir /s /q &quot;$(TargetDir)libvlc\win-arm64&quot;" Condition="Exists('$(TargetDir)libvlc\win-arm64')" />
+        <Exec Command="rmdir /s /q &quot;$(PublishDir)libvlc\win-x86&quot;" Condition="'$(PublishDir)' != '' And Exists('$(PublishDir)libvlc\win-x86')" />
+        <Exec Command="rmdir /s /q &quot;$(PublishDir)libvlc\win-arm64&quot;" Condition="'$(PublishDir)' != '' And Exists('$(PublishDir)libvlc\win-arm64')" />
     </Target>
 </Project>
