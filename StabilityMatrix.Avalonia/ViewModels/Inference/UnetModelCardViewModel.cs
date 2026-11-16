@@ -15,6 +15,7 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
+using StabilityMatrix.Core.Models.FileInterfaces;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -63,11 +64,27 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         var checkpointLoader = e.Nodes.AddTypedNode(GetModelLoader(e, SelectedModel!, SelectedDType));
         e.Builder.Connections.Base.Model = checkpointLoader.Output;
 
+        // Auto-detect Flux 2 VAE and select compatible VAE if none selected
+        if (
+            SelectedModel?.Local is { } localModel
+            && localModel.IsFlux2VaeArchitecture
+            && (SelectedVae is null || SelectedVae.IsDefault)
+        )
+        {
+            var fluxVae = ClientManager.VaeModels.FirstOrDefault(v =>
+                v.RelativePath.Contains("ae.safetensors", StringComparison.OrdinalIgnoreCase)
+                || v.RelativePath.Contains("flux", StringComparison.OrdinalIgnoreCase)
+            );
+
+            if (fluxVae != null)
+                SelectedVae = fluxVae;
+        }
+
         var vaeLoader = e.Nodes.AddTypedNode(
             new ComfyNodeBuilder.VAELoader
             {
                 Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.VAELoader)),
-                VaeName = SelectedVae?.RelativePath ?? throw new ValidationException("No VAE Selected")
+                VaeName = SelectedVae?.RelativePath ?? throw new ValidationException("No VAE Selected"),
             }
         );
         e.Builder.Connections.Base.VAE = vaeLoader.Output;
@@ -79,7 +96,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
                 Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.DualCLIPLoader)),
                 ClipName1 = SelectedClip1?.RelativePath ?? throw new ValidationException("No Clip1 Selected"),
                 ClipName2 = SelectedClip2?.RelativePath ?? throw new ValidationException("No Clip2 Selected"),
-                Type = "flux"
+                Type = "flux",
             }
         );
         e.Builder.Connections.Base.Clip = clipLoader.Output;
@@ -96,7 +113,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         {
             Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.UNETLoader)),
             UnetName = model.RelativePath,
-            WeightDtype = selectedDType
+            WeightDtype = selectedDType,
         };
     }
 
@@ -109,7 +126,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
                 SelectedModelName = SelectedModel?.RelativePath,
                 SelectedVaeName = SelectedVae?.RelativePath,
                 SelectedClip1Name = SelectedClip1?.RelativePath,
-                SelectedClip2Name = SelectedClip2?.RelativePath
+                SelectedClip2Name = SelectedClip2?.RelativePath,
             }
         );
     }
@@ -157,10 +174,9 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         // First try hash match
         if (parameters.ModelHash is not null)
         {
-            model = currentModels.FirstOrDefault(
-                m =>
-                    m.Local?.ConnectedModelInfo?.Hashes.SHA256 is { } sha256
-                    && sha256.StartsWith(parameters.ModelHash, StringComparison.InvariantCultureIgnoreCase)
+            model = currentModels.FirstOrDefault(m =>
+                m.Local?.ConnectedModelInfo?.Hashes.SHA256 is { } sha256
+                && sha256.StartsWith(parameters.ModelHash, StringComparison.InvariantCultureIgnoreCase)
             );
         }
         else
@@ -182,7 +198,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         return parameters with
         {
             ModelName = SelectedModel?.FileName,
-            ModelHash = SelectedModel?.Local?.ConnectedModelInfo?.Hashes.SHA256
+            ModelHash = SelectedModel?.Local?.ConnectedModelInfo?.Hashes.SHA256,
         };
     }
 }

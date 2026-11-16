@@ -632,6 +632,9 @@ public partial class ModelIndexService : IModelIndexService
                             model.SafetensorMetadata = metadata;
                             model.SafetensorMetadataParsed = true;
 
+                            // Detect Flux 2 VAE architecture from safetensors header tensor keys
+                            model.IsFlux2VaeArchitecture = safetensorPath.IsFlux2VaeArchitecture();
+
                             Interlocked.Increment(ref readSuccess);
                         }
                         catch

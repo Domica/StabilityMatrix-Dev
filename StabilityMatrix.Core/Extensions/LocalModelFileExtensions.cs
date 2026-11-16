@@ -1,6 +1,6 @@
 using StabilityMatrix.Core.Models.Database;
-using StabilityMatrix.Core.Models.Packages;
 using StabilityMatrix.Core.Models.FileInterfaces;
+using StabilityMatrix.Core.Models.Packages;
 
 namespace StabilityMatrix.Core.Extensions;
 
@@ -15,7 +15,7 @@ public static class LocalModelFileExtensions
     public static void EnrichZImageMetadata(this LocalModelFile model, string rootModelDirectory)
     {
         var fullPath = model.GetFullPath(rootModelDirectory);
-        
+
         if (!fullPath.IsZImageModel())
             return;
 
@@ -33,7 +33,7 @@ public static class LocalModelFileExtensions
     public static string? GetCompatibleZImageVAE(this LocalModelFile model, string rootModelDirectory)
     {
         var fullPath = model.GetFullPath(rootModelDirectory);
-        
+
         if (!fullPath.IsZImageModel())
             return null;
 
@@ -51,7 +51,7 @@ public static class LocalModelFileExtensions
     public static string GetZImageDisplayInfo(this LocalModelFile model, string rootModelDirectory)
     {
         var fullPath = model.GetFullPath(rootModelDirectory);
-        
+
         if (!fullPath.IsZImageModel())
             return string.Empty;
 
@@ -65,7 +65,7 @@ public static class LocalModelFileExtensions
             ZImageComponentType.TextEncoder => "Qwen Text Encoder (Required for Z-Image)",
             ZImageComponentType.VAE => "Z-Image VAE Autoencoder",
             ZImageComponentType.Lora => "Z-Image LoRA Style Adapter",
-            _ => string.Empty
+            _ => string.Empty,
         };
     }
 
@@ -85,5 +85,83 @@ public static class LocalModelFileExtensions
     {
         var fullPath = model.GetFullPath(rootModelDirectory);
         return fullPath.GetZImageComponentType();
+    }
+
+    /// <summary>
+    /// Enriches model metadata with Flux 2 VAE specific information
+    /// </summary>
+    public static void EnrichFluxVaeMetadata(this LocalModelFile model, string rootModelDirectory)
+    {
+        var fullPath = model.GetFullPath(rootModelDirectory);
+
+        if (!fullPath.IsFlux2VaeModel())
+            return;
+
+        var componentType = fullPath.GetFluxVaeComponentType();
+        if (!componentType.HasValue)
+            return;
+
+        // Note: LocalModelFile is a record - we can only modify mutable properties
+        // Flux 2 VAE identification happens at runtime via extension methods
+    }
+
+    /// <summary>
+    /// Gets compatible Flux 2 VAE for this model
+    /// </summary>
+    public static string? GetCompatibleFluxVae(this LocalModelFile model, string rootModelDirectory)
+    {
+        var fullPath = model.GetFullPath(rootModelDirectory);
+
+        if (!fullPath.IsFlux2VaeModel())
+            return null;
+
+        var componentType = fullPath.GetFluxVaeComponentType();
+        if (componentType != FluxVaeComponentType.VAE)
+            return null;
+
+        var vaePath = Path.Combine(rootModelDirectory, "vae", "ae.safetensors");
+        return File.Exists(vaePath) ? vaePath : null;
+    }
+
+    /// <summary>
+    /// Gets user-friendly display information for Flux 2 VAE models
+    /// </summary>
+    public static string GetFluxVaeDisplayInfo(this LocalModelFile model, string rootModelDirectory)
+    {
+        var fullPath = model.GetFullPath(rootModelDirectory);
+
+        if (!fullPath.IsFlux2VaeModel())
+            return string.Empty;
+
+        var componentType = fullPath.GetFluxVaeComponentType();
+        if (!componentType.HasValue)
+            return string.Empty;
+
+        return componentType.Value switch
+        {
+            FluxVaeComponentType.VAE => "Flux 2 VAE Autoencoder",
+            _ => string.Empty,
+        };
+    }
+
+    /// <summary>
+    /// Checks if this model is part of Flux 2 VAE system
+    /// </summary>
+    public static bool IsFluxVaeComponent(this LocalModelFile model, string rootModelDirectory)
+    {
+        var fullPath = model.GetFullPath(rootModelDirectory);
+        return fullPath.IsFlux2VaeModel();
+    }
+
+    /// <summary>
+    /// Gets the Flux 2 VAE component type for this model
+    /// </summary>
+    public static FluxVaeComponentType? GetFluxVaeComponentType(
+        this LocalModelFile model,
+        string rootModelDirectory
+    )
+    {
+        var fullPath = model.GetFullPath(rootModelDirectory);
+        return fullPath.GetFluxVaeComponentType();
     }
 }

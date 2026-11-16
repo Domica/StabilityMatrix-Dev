@@ -27,7 +27,7 @@ jobs:
       run: dotnet build StabilityMatrix.Avalonia/StabilityMatrix.Avalonia.csproj -c Release --no-restore --no-cache
 
     - name: Publish Avalonia app (win10-x64)
-      run: dotnet publish StabilityMatrix.Avalonia/StabilityMatrix.Avalonia.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/win10-x64
+      run: dotnet publish StabilityMatrix.Avalonia/StabilityMatrix.Avalonia.csproj -c Release -r win-x64 --self-contained true -o ./publish/win10-x64
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

@@ -135,6 +135,12 @@ public record LocalModelFile
     [BsonIgnore]
     public bool IsSafetensorFile => Path.GetExtension(RelativePath) == ".safetensors";
 
+    /// <summary>
+    /// Whether this model file has Flux 2 VAE architecture (detected via safetensors header tensor keys).
+    /// Populated during model index refresh.
+    /// </summary>
+    public bool IsFlux2VaeArchitecture { get; set; }
+
     public string? HashSha256 => ConnectedModelInfo?.Hashes.SHA256;
 
     [BsonIgnore]

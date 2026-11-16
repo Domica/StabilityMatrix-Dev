@@ -11,6 +11,9 @@
         <InformationalVersion>$(Version)</InformationalVersion>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <!-- Prevent LibVLC Windows from bundling x86/arm64 native binaries (AnyCPU default includes all 3 arches) -->
+        <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+        <VlcWindowsArm64Enabled>false</VlcWindowsArm64Enabled>
     </PropertyGroup>
     
     <PropertyGroup Condition=" '$(RuntimeIdentifier)' == 'win-x64' ">
