@@ -703,19 +703,44 @@ public partial class ModelCardViewModel(
         }
         else if (SelectedClipType == "moss_image")
         {
-            // Single CLIPLoader for moss_image (MOSS-Image Qwen3.5) - uses standard CLIPLoader,
-            // NOT CLIPLoaderGGUF because ComfyUI-GGUF doesn't support 'moss_image' type for GGUF
+            // MOSS-Image uses a single Qwen3.5 text encoder.
+            // - safetensors -> stock CLIPLoader (natively supported by ComfyUI core)
+            // - gguf        -> CLIPLoaderGGUF (requires ComfyUI-GGUF with qwen35 support)
             if (SelectedClip1 is { IsNone: false })
             {
-                var clipLoader = e.Nodes.AddTypedNode(
-                    new ComfyNodeBuilder.CLIPLoader
-                    {
-                        Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoader)),
-                        ClipName = SelectedClip1.RelativePath,
-                        Type = "moss_image",
-                    }
+                var isGgufClip = SelectedClip1.RelativePath.EndsWith(
+                    ".gguf",
+                    StringComparison.OrdinalIgnoreCase
                 );
-                e.Builder.Connections.Base.Clip = clipLoader.Output;
+
+                ClipNodeConnection clipConnection;
+
+                if (isGgufClip)
+                {
+                    var clipLoader = e.Nodes.AddTypedNode(
+                        new ComfyNodeBuilder.CLIPLoaderGGUF
+                        {
+                            Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoaderGGUF)),
+                            ClipName = SelectedClip1.RelativePath,
+                            Type = "moss_image",
+                        }
+                    );
+                    clipConnection = clipLoader.Output;
+                }
+                else
+                {
+                    var clipLoader = e.Nodes.AddTypedNode(
+                        new ComfyNodeBuilder.CLIPLoader
+                        {
+                            Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoader)),
+                            ClipName = SelectedClip1.RelativePath,
+                            Type = "moss_image",
+                        }
+                    );
+                    clipConnection = clipLoader.Output;
+                }
+
+                e.Builder.Connections.Base.Clip = clipConnection;
             }
             else
             {
