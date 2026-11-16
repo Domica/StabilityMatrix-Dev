@@ -14,8 +14,8 @@ using StabilityMatrix.Core.Attributes;
 using StabilityMatrix.Core.Models;
 using StabilityMatrix.Core.Models.Api.Comfy.Nodes;
 using StabilityMatrix.Core.Models.Api.Comfy.NodeTypes;
-using StabilityMatrix.Core.Models.Inference;
 using StabilityMatrix.Core.Models.FileInterfaces;
+using StabilityMatrix.Core.Models.Inference;
 
 namespace StabilityMatrix.Avalonia.ViewModels.Inference;
 
@@ -98,33 +98,32 @@ public partial class ModelCardViewModel(
             : $"Recommended alternative for outpaint: {AutoSuggestedOutpaintModel.ShortDisplayName}";
 
     public string ModelPickerTooltip =>
-    $"""
-    ⭐ Recommended Models for Outpaint
-    • Realistic Vision 5.1 (best SD 1.5)
-    • RealVis XL 3.0 (best SDXL)
-    • AbsoluteReality v1.8 (best for people)
+        $"""
+            ⭐ Recommended Models for Outpaint
+            • Realistic Vision 5.1 (best SD 1.5)
+            • RealVis XL 3.0 (best SDXL)
+            • AbsoluteReality v1.8 (best for people)
 
-    🌄 Landscapes: RV 5.1, RealVis XL 3.0
-    👤 People: AbsoluteReality v1.8, RV 5.1
-    🏙️ Architecture: RV 5.1, RealVis XL 3.0
+            🌄 Landscapes: RV 5.1, RealVis XL 3.0
+            👤 People: AbsoluteReality v1.8, RV 5.1
+            🏙️ Architecture: RV 5.1, RealVis XL 3.0
 
-    ✔ Outpaint Models: RV 5.1, RealVis XL 3.0, AbsoluteReality
-    ✔ Inpaint Models: RV 6.0 Hyper-Inpaint, RV 5.1 Inpainting
+            ✔ Outpaint Models: RV 5.1, RealVis XL 3.0, AbsoluteReality
+            ✔ Inpaint Models: RV 6.0 Hyper-Inpaint, RV 5.1 Inpainting
 
-    ⭐ Prompt Injection Strength:
-    • Landscapes: 0.80–1.00
-    • People: 0.50–0.70
-    • Creative: 0.90–1.00
-    • Small outpaints: 0.40–0.60
-    • Recommended default: 0.85
+            ⭐ Prompt Injection Strength:
+            • Landscapes: 0.80–1.00
+            • People: 0.50–0.70
+            • Creative: 0.90–1.00
+            • Small outpaints: 0.40–0.60
+            • Recommended default: 0.85
 
-    🔥 Recommended for this image:
-    {AutoSuggestedModelLabel}
-    """;
+            🔥 Recommended for this image:
+            {AutoSuggestedModelLabel}
+            """;
 
     public string AutoSuggestedModelLabel =>
         AutoSuggestedOutpaintModel?.ShortDisplayName ?? "Realistic Vision V5.1";
-
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSd3Clip), nameof(IsHiDreamClip))]
@@ -239,89 +238,147 @@ public partial class ModelCardViewModel(
         return new ComfyNodeBuilder.CheckpointLoaderSimple { Name = nodeName, CkptName = model.RelativePath };
     }
 
-            /// <inheritdoc />
-        public virtual void ApplyStep(ModuleApplyStepEventArgs e)
-        {
+    /// <inheritdoc />
+    public virtual void ApplyStep(ModuleApplyStepEventArgs e)
+    {
         // Auto-detect Z-Image and switch to Unet loader
-        if (SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels &&
-            (SelectedModel.Local.IsZImageArchitecture || SelectedModel.RelativePath.IsZImageModel()))
+        if (
+            SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels
+            && (SelectedModel.Local.IsZImageArchitecture || SelectedModel.RelativePath.IsZImageModel())
+        )
         {
             SelectedModelLoader = ModelLoader.Unet;
             SelectedUnetModel = SelectedModel;
             SelectedModel = null;
-        
-        // Enable required settings for Z-Image
-        if (!IsVaeSelectionEnabled)
-            IsVaeSelectionEnabled = true;
-        
-        if (!IsClipModelSelectionEnabled)
-            IsClipModelSelectionEnabled = true;
-        
-        // Set CLIP type to sd3 (works with single CLIP)
-        if (string.IsNullOrEmpty(SelectedClipType))
-            SelectedClipType = "sd3";
-        
-        // Auto-select Qwen CLIP if available and not already selected
-        if (SelectedClip1 == null || SelectedClip1.IsNone)
-        {
-            var qwenClip = ClientManager.ClipModels.FirstOrDefault(c => 
-                c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase) ||
-                c.RelativePath.Contains("Qwen", StringComparison.Ordinal));
-            
-            if (qwenClip != null)
-                SelectedClip1 = qwenClip;
-        }
-        
-        // Auto-select Z-Image VAE if available and not already selected
-        if (SelectedVae == null || SelectedVae.IsDefault)
-        {
-            var zimageVae = ClientManager.VaeModels.FirstOrDefault(v => 
-                v.RelativePath.Contains("z_ae", StringComparison.OrdinalIgnoreCase) ||
-                v.RelativePath.Contains("ae.safetensors", StringComparison.OrdinalIgnoreCase));
-            
-            if (zimageVae != null)
-                SelectedVae = zimageVae;
-        }
-    }
 
-    if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
-    {
-        SetupDefaultModelLoader(e);
-    }
-    else // UNET/GGUF UNET workflow
-    {
-        SetupStandaloneModelLoader(e);
-    }
+            // Enable required settings for Z-Image
+            if (!IsVaeSelectionEnabled)
+                IsVaeSelectionEnabled = true;
 
-    // ... rest of the method stays the same
-            // Clip skip all models if enabled
-            if (IsClipSkipEnabled)
+            if (!IsClipModelSelectionEnabled)
+                IsClipModelSelectionEnabled = true;
+
+            // Set CLIP type to sd3 (works with single CLIP)
+            if (string.IsNullOrEmpty(SelectedClipType))
+                SelectedClipType = "sd3";
+
+            // Auto-select Qwen CLIP if available and not already selected
+            if (SelectedClip1 == null || SelectedClip1.IsNone)
             {
-                foreach (var (modelName, model) in e.Builder.Connections.Models)
-                {
-                    if (model.Clip is not { } modelClip)
-                        continue;
+                var qwenClip = ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+                    || c.RelativePath.Contains("Qwen", StringComparison.Ordinal)
+                );
 
-                    var clipSetLastLayer = e.Nodes.AddTypedNode(
-                        new ComfyNodeBuilder.CLIPSetLastLayer
-                        {
-                            Name = $"CLIP_Skip_{modelName}",
-                            Clip = modelClip,
-                            // Need to convert to negative indexing from (1 to 24) to (-1 to -24)
-                            StopAtClipLayer = -ClipSkip,
-                        }
-                    );
-
-                    model.Clip = clipSetLastLayer.Output;
-                }
+                if (qwenClip != null)
+                    SelectedClip1 = qwenClip;
             }
 
-            // Load extra networks if enabled
-            if (IsExtraNetworksEnabled)
+            // Auto-select Z-Image VAE if available and not already selected
+            if (SelectedVae == null || SelectedVae.IsDefault)
             {
-                ExtraNetworksStackCardViewModel.ApplyStep(e);
+                var zimageVae = ClientManager.VaeModels.FirstOrDefault(v =>
+                    v.RelativePath.Contains("z_ae", StringComparison.OrdinalIgnoreCase)
+                    || v.RelativePath.Contains("ae.safetensors", StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (zimageVae != null)
+                    SelectedVae = zimageVae;
             }
         }
+
+        // Auto-detect Flux 2 VAE and switch to Unet loader
+        if (
+            SelectedModel?.Local?.SharedFolderType is SharedFolderType.DiffusionModels
+            && SelectedModel.Local.IsFlux2VaeArchitecture
+        )
+        {
+            SelectedModelLoader = ModelLoader.Unet;
+            SelectedUnetModel = SelectedModel;
+            SelectedModel = null;
+
+            // Enable required settings for Flux 2 VAE
+            if (!IsVaeSelectionEnabled)
+                IsVaeSelectionEnabled = true;
+
+            if (!IsClipModelSelectionEnabled)
+                IsClipModelSelectionEnabled = true;
+
+            // Set CLIP type to flux (dual CLIP)
+            if (string.IsNullOrEmpty(SelectedClipType))
+                SelectedClipType = "flux";
+
+            // Auto-select Flux VAE if available and not already selected
+            if (SelectedVae == null || SelectedVae.IsDefault)
+            {
+                var fluxVae = ClientManager.VaeModels.FirstOrDefault(v =>
+                    v.RelativePath.Contains("ae.safetensors", StringComparison.OrdinalIgnoreCase)
+                    || v.RelativePath.Contains("flux", StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (fluxVae != null)
+                    SelectedVae = fluxVae;
+            }
+
+            // Auto-select Flux CLIP models if not already selected
+            if (SelectedClip1 == null || SelectedClip1.IsNone)
+            {
+                var clipL = ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("clip_l", StringComparison.OrdinalIgnoreCase)
+                );
+                if (clipL != null)
+                    SelectedClip1 = clipL;
+            }
+
+            if (SelectedClip2 == null || SelectedClip2.IsNone)
+            {
+                var clipG = ClientManager.ClipModels.FirstOrDefault(c =>
+                    c.RelativePath.Contains("clip_g", StringComparison.OrdinalIgnoreCase)
+                );
+                if (clipG != null)
+                    SelectedClip2 = clipG;
+            }
+        }
+
+        if (SelectedModelLoader is ModelLoader.Default or ModelLoader.Nf4)
+        {
+            SetupDefaultModelLoader(e);
+        }
+        else // UNET/GGUF UNET workflow
+        {
+            SetupStandaloneModelLoader(e);
+        }
+
+        // ... rest of the method stays the same
+        // Clip skip all models if enabled
+        if (IsClipSkipEnabled)
+        {
+            foreach (var (modelName, model) in e.Builder.Connections.Models)
+            {
+                if (model.Clip is not { } modelClip)
+                    continue;
+
+                var clipSetLastLayer = e.Nodes.AddTypedNode(
+                    new ComfyNodeBuilder.CLIPSetLastLayer
+                    {
+                        Name = $"CLIP_Skip_{modelName}",
+                        Clip = modelClip,
+                        // Need to convert to negative indexing from (1 to 24) to (-1 to -24)
+                        StopAtClipLayer = -ClipSkip,
+                    }
+                );
+
+                model.Clip = clipSetLastLayer.Output;
+            }
+        }
+
+        // Load extra networks if enabled
+        if (IsExtraNetworksEnabled)
+        {
+            ExtraNetworksStackCardViewModel.ApplyStep(e);
+        }
+    }
+
     /// <inheritdoc />
     public override JsonObject SaveStateToJsonObject()
     {
@@ -510,13 +567,12 @@ public partial class ModelCardViewModel(
         }
     }
 
-   partial void OnSelectedModelChanged(HybridModelFile? value)
+    partial void OnSelectedModelChanged(HybridModelFile? value)
     {
-        
         tabContext.SelectedModel = value;
 
         if (IsExtraNetworksEnabled)
-            {
+        {
             foreach (var card in ExtraNetworksStackCardViewModel.Cards)
             {
                 if (card is not LoraModule loraModule)
@@ -555,42 +611,34 @@ public partial class ModelCardViewModel(
     // ------------------------------------------------------------
     private bool HasPoseCompletionBias(HybridModelFile model)
     {
-        var name = (model.ShortDisplayName ?? model.RelativePath ?? string.Empty)
-            .ToLowerInvariant();
+        var name = (model.ShortDisplayName ?? model.RelativePath ?? string.Empty).ToLowerInvariant();
 
-        string[] risky =
-        [
-            "realistic vision v6",
-            "rv6",
-            "v6.0",
-            "hyper-inpaint",
-            "inpainting",
-            "b1"
-        ];
+        string[] risky = ["realistic vision v6", "rv6", "v6.0", "hyper-inpaint", "inpainting", "b1"];
 
         return risky.Any(name.Contains);
     }
 
     private HybridModelFile? FindRecommendedOutpaintModel()
     {
-        var rv51 = ClientManager.Models
-            .FirstOrDefault(m =>
-                (m.ShortDisplayName ?? m.RelativePath ?? string.Empty)
-                    .Contains("Realistic Vision V5.1", StringComparison.InvariantCultureIgnoreCase)
-            );
+        var rv51 = ClientManager.Models.FirstOrDefault(m =>
+            (m.ShortDisplayName ?? m.RelativePath ?? string.Empty).Contains(
+                "Realistic Vision V5.1",
+                StringComparison.InvariantCultureIgnoreCase
+            )
+        );
 
         if (rv51 is not null)
             return rv51;
 
-        var rv5 = ClientManager.Models
-            .FirstOrDefault(m =>
-                (m.ShortDisplayName ?? m.RelativePath ?? string.Empty)
-                    .Contains("Realistic Vision V5", StringComparison.InvariantCultureIgnoreCase)
-            );
+        var rv5 = ClientManager.Models.FirstOrDefault(m =>
+            (m.ShortDisplayName ?? m.RelativePath ?? string.Empty).Contains(
+                "Realistic Vision V5",
+                StringComparison.InvariantCultureIgnoreCase
+            )
+        );
 
         return rv5;
     }
-
 
     private void SetupStandaloneModelLoader(ModuleApplyStepEventArgs e)
     {
@@ -805,10 +853,12 @@ public partial class ModelCardViewModel(
             e.Builder.Connections.Base.Clip = clipLoader.Output;
         }
     }
+
     private void SetupClipLoadersGGUF(ModuleApplyStepEventArgs e)
     {
-        var isGgufClip = SelectedClip1?.RelativePath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ?? false;
-        
+        var isGgufClip =
+            SelectedClip1?.RelativePath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ?? false;
+
         if (SelectedClip1 is { IsNone: false })
         {
             if (isGgufClip)
@@ -818,7 +868,7 @@ public partial class ModelCardViewModel(
                     {
                         Name = e.Nodes.GetUniqueName(nameof(ComfyNodeBuilder.CLIPLoaderGGUF)),
                         ClipName = SelectedClip1.RelativePath,
-                        Type = SelectedClipType ?? "sd3"
+                        Type = SelectedClipType ?? "sd3",
                     }
                 );
                 e.Builder.Connections.Base.Clip = clipLoader.Output;
@@ -829,6 +879,7 @@ public partial class ModelCardViewModel(
             }
         }
     }
+
     internal class ModelCardModel
     {
         public string? SelectedModelName { get; init; }

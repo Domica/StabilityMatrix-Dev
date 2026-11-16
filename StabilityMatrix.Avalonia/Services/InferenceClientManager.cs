@@ -557,11 +557,33 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
     }
 
     /// <summary>
+    /// Checks whether a locally indexed model is a Flux 2 VAE model.
+    /// <para>
+    /// Uses the architecture flag detected during indexing during safetensor metadata
+    /// loading, falls back to inspecting the safetensors architecture directly.
+    /// </para>
+    /// </summary>
+    private bool IsFlux2VaeModel(LocalModelFile model)
+    {
+        if (model.IsFlux2VaeArchitecture)
+            return true;
+
+        try
+        {
+            return model.GetFullPath(settingsManager.ModelsDirectory).IsFlux2VaeArchitecture();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Clears shared properties and sets them to local defaults
     /// </summary>
     protected void ResetSharedProperties()
     {
-        // Load local models (SD checkpoints + Z-Image diffusion models)
+        // Load local models (SD checkpoints + Z-Image + Flux 2 VAE diffusion models)
         modelsSource.EditDiff(
             modelIndexService
                 .FindByModelType(SharedFolderType.StableDiffusion | SharedFolderType.DiffusionModels)
@@ -569,8 +591,11 @@ public partial class InferenceClientManager : ObservableObject, IInferenceClient
                     // Include all StableDiffusion checkpoints
                     m.SharedFolderType == SharedFolderType.StableDiffusion
                     ||
-                    // For DiffusionModels, only include Z-Image (filter out Wan models)
-                    (m.SharedFolderType == SharedFolderType.DiffusionModels && IsZImageModel(m))
+                    // For DiffusionModels, include Z-Image and Flux 2 VAE (filter out Wan models)
+                    (
+                        m.SharedFolderType == SharedFolderType.DiffusionModels
+                        && (IsZImageModel(m) || IsFlux2VaeModel(m))
+                    )
                 )
                 .Select(HybridModelFile.FromLocal),
             HybridModelFile.Comparer

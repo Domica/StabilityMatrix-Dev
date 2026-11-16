@@ -80,6 +80,25 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
                 SelectedVae = fluxVae;
         }
 
+        // Auto-select Flux CLIP models if not already selected
+        if (SelectedClip1 == null || SelectedClip1.IsNone)
+        {
+            var clipL = ClientManager.ClipModels.FirstOrDefault(c =>
+                c.RelativePath.Contains("clip_l", StringComparison.OrdinalIgnoreCase)
+            );
+            if (clipL != null)
+                SelectedClip1 = clipL;
+        }
+
+        if (SelectedClip2 == null || SelectedClip2.IsNone)
+        {
+            var clipG = ClientManager.ClipModels.FirstOrDefault(c =>
+                c.RelativePath.Contains("clip_g", StringComparison.OrdinalIgnoreCase)
+            );
+            if (clipG != null)
+                SelectedClip2 = clipG;
+        }
+
         var vaeLoader = e.Nodes.AddTypedNode(
             new ComfyNodeBuilder.VAELoader
             {
@@ -138,7 +157,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
 
         SelectedModel = model.SelectedModelName is null
             ? null
-            : ClientManager.Models.FirstOrDefault(x => x.RelativePath == model.SelectedModelName);
+            : ClientManager.UnetModels.FirstOrDefault(x => x.RelativePath == model.SelectedModelName);
 
         SelectedVae = model.SelectedVaeName is null
             ? HybridModelFile.Default
@@ -146,11 +165,11 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
 
         SelectedClip1 = model.SelectedClip1Name is null
             ? HybridModelFile.None
-            : ClientManager.Models.FirstOrDefault(x => x.RelativePath == model.SelectedClip1Name);
+            : ClientManager.ClipModels.FirstOrDefault(x => x.RelativePath == model.SelectedClip1Name);
 
         SelectedClip2 = model.SelectedClip2Name is null
             ? HybridModelFile.None
-            : ClientManager.Models.FirstOrDefault(x => x.RelativePath == model.SelectedClip2Name);
+            : ClientManager.ClipModels.FirstOrDefault(x => x.RelativePath == model.SelectedClip2Name);
     }
 
     internal class UnetModelCardModel
@@ -167,7 +186,7 @@ public partial class UnetModelCardViewModel(IInferenceClientManager clientManage
         if (parameters.ModelName is not { } paramsModelName)
             return;
 
-        var currentModels = ClientManager.Models;
+        var currentModels = ClientManager.UnetModels;
 
         HybridModelFile? model;
 
